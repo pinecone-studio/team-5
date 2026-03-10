@@ -12,6 +12,14 @@
 	},
 	"compatibility_flags": [
 		"nodejs_compat"
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "team5-db",
+			"database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+			"migrations_dir": "drizzle/migrations"
+		}
 	]
 	/**
 	 * Smart Placement
