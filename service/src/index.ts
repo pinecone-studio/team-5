@@ -16,6 +16,7 @@ import { desc, eq } from "drizzle-orm";
 
 import { getDb } from "./db/client";
 import { todos } from "./db/schema";
+import { yoga } from "./graphql";
 
 interface Env {
 	DB: D1Database;
@@ -24,6 +25,8 @@ interface Env {
 const app = new Hono<{ Bindings: Env }>();
 
 app.get("/", (c) => c.text("Hello world!"));
+
+app.all("/graphql", (c) => yoga.fetch(c.req.raw, c.env, c.executionCtx));
 
 app.get("/todos", async (c) => {
 	const db = getDb(c.env.DB);
