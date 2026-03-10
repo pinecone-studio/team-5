@@ -26,7 +26,7 @@ const app = new Hono<{ Bindings: Env }>();
 
 app.get("/", (c) => c.text("Hello world!"));
 
-app.all("/graphql", (c) => yoga.fetch(c.req.raw, c.env, c.executionCtx));
+app.all("/graphql", (c) => yoga.fetch(c.req.raw, { env: c.env }));
 
 app.get("/todos", async (c) => {
 	const db = getDb(c.env.DB);

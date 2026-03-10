@@ -17,7 +17,7 @@
 		{
 			"binding": "DB",
 			"database_name": "team5-db",
-			"database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+			"database_id": "14b46022-5b5d-4082-8432-73ab54dd7b7c",
 			"migrations_dir": "drizzle/migrations"
 		}
 	]
