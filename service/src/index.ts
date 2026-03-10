@@ -11,10 +11,16 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
-import { Hono } from "hono";
+import { Hono } from 'hono';
 
-const app = new Hono()
-app.get('/', (c) => c.text("Hello world!"))
+const app = new Hono();
+app.get('/', (c) => c.text('Hello World!'));
+app.post('/echo', async (c) => {
+	const body = await c.req.json<{ message?: string }>();
+	return c.json({
+		message: body.message ?? '',
+	});
+});
 
 export default {
 	fetch: app.fetch,

@@ -6,12 +6,18 @@
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
-		"test": "vitest",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:unit": "jest --config jest.config.cjs",
+		"test:unit:watch": "jest --config jest.config.cjs --watch",
 		"cf-typegen": "wrangler types"
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.12.4",
+		"@types/jest": "^30.0.0",
 		"@types/node": "^25.4.0",
+		"jest": "^30.3.0",
+		"ts-jest": "^29.4.6",
 		"typescript": "^5.5.2",
 		"vitest": "~3.2.0",
 		"wrangler": "^4.71.0"
