@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  NEXT_TELEMETRY_DISABLED: 1
+  NX_NO_CLOUD: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Lint workspace
+        run: npx nx run-many -t lint --projects=shadcn,ebms,ebms-e2e --parallel=3
+
+      - name: Typecheck workspace
+        run: npx nx run-many -t typecheck --projects=shadcn,ebms-e2e --parallel=2
+
+      - name: Test app
+        run: npx nx run ebms:test
+
+      - name: Build app
+        run: npx nx run ebms:build -- --webpack
