@@ -1,3 +1,4 @@
+import AppApolloProvider from "@/components/apollo-provider"
 import AuthGuard from "@/components/auth-guard"
 import { PageShell } from "@/components/layout/page-shell"
 
@@ -11,8 +12,10 @@ export default function ManagerLayout({
   children: React.ReactNode
 }) {
   return (
-    <AuthGuard requireManager>
-      <PageShell role="admin">{children}</PageShell>
-    </AuthGuard>
+    <AppApolloProvider>
+      <AuthGuard requireManager>
+        <PageShell role="admin">{children}</PageShell>
+      </AuthGuard>
+    </AppApolloProvider>
   )
 }

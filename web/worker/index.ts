@@ -41,6 +41,78 @@ function isManagerRole(role: unknown): boolean {
   return role === "admin" || role === "hr";
 }
 
+function getMissingClerkKeys(env: Env): string[] {
+  return [
+    env.CLERK_SECRET_KEY ? null : "CLERK_SECRET_KEY",
+    env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? null : "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+  ].filter((value): value is string => value != null);
+}
+
+function renderMissingConfigResponse(missingKeys: string[]): Response {
+  const items = missingKeys.map((key) => `<li><code>${key}</code></li>`).join("");
+
+  return new Response(
+    `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Missing Clerk Configuration</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      main {
+        width: min(32rem, calc(100vw - 2rem));
+        padding: 1.5rem;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.25rem;
+      }
+      p {
+        margin: 0.75rem 0 0;
+        line-height: 1.5;
+      }
+      ul {
+        margin: 1rem 0 0;
+        padding-left: 1.25rem;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Missing Clerk configuration</h1>
+      <p>Protected routes cannot be opened until these environment variables are set:</p>
+      <ul>${items}</ul>
+    </main>
+  </body>
+</html>`,
+    {
+      status: 503,
+      headers: {
+        "content-type": "text/html; charset=UTF-8",
+      },
+    },
+  );
+}
+
 // Image security config. SVG sources with .svg extension auto-skip the
 // optimization endpoint on the client side (served directly, no proxy).
 // To route SVGs through the optimizer (with security headers), set
@@ -52,6 +124,12 @@ export default {
     const url = new URL(request.url);
 
     if (protectedRoutes.some((pattern) => pattern.test(url.pathname))) {
+      const missingClerkKeys = getMissingClerkKeys(env);
+
+      if (missingClerkKeys.length > 0) {
+        return renderMissingConfigResponse(missingClerkKeys);
+      }
+
       const clerk = createClerkClient({
         secretKey: env.CLERK_SECRET_KEY,
         publishableKey: env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,

@@ -1,3 +1,5 @@
+import { ClerkAppProvider } from "@/components/apollo-provider";
+
 /**
  * Public route group — нэвтрээгүй хэрэглэгчид.
  * Auth шаардлагагүй.
@@ -7,5 +9,5 @@ export default function PublicLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <ClerkAppProvider>{children}</ClerkAppProvider>;
 }
