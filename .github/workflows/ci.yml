@@ -1,6 +1,8 @@
 name: CI
 
 on:
+  push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -14,10 +16,33 @@ concurrency:
 env:
   CI: true
   NEXT_TELEMETRY_DISABLED: 1
-  NX_NO_CLOUD: true
 
 jobs:
-  validate:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      service: ${{ steps.filter.outputs.service }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Filter paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            service:
+              - 'service/**'
+            web:
+              - 'web/**'
+
+  service:
+    name: Service (Worker)
+    needs: changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.service == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -29,19 +54,53 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: yarn
+          cache: npm
+          cache-dependency-path: |
+            service/package-lock.json
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        working-directory: service
+        run: npm ci
 
-      - name: Lint workspace
-        run: npx nx run-many -t lint --projects=shadcn,ebms,ebms-e2e --parallel=3
+      - name: Typecheck
+        working-directory: service
+        run: npx tsc -p tsconfig.json
 
-      - name: Typecheck workspace
-        run: npx nx run-many -t typecheck --projects=shadcn,ebms-e2e --parallel=2
+      - name: Test
+        working-directory: service
+        run: npm test
 
-      - name: Test app
-        run: npx nx run ebms:test
+  web:
+    name: Web (Next.js)
+    needs: changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
-      - name: Build app
-        run: npx nx run ebms:build -- --webpack
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Lint
+        working-directory: web
+        run: npm run lint
+
+      - name: Test
+        working-directory: web
+        run: npm test
+
+      - name: Build
+        working-directory: web
+        run: npm run build
