@@ -9,9 +9,14 @@ module.exports = {
     ...tsJestPreset.transform,
   },
   testMatch: ["**/*.test.ts"],
-  moduleNameMapper: {
-    // Use the browser build in tests so ApolloNextAppProvider works
-    "^@apollo/client-integration-nextjs$":
-      "@apollo/client-integration-nextjs/browser",
+  collectCoverage: true,
+
+  coverageThreshold: {
+    global: {
+      lines: 100,
+      statements: 100,
+      functions: 100,
+      branches: 100,
+    },
   },
 };

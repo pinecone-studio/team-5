@@ -16,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html className={cn("font-sans", geist.variable)}>
-      <body className="min-h-screen bg-background">
+      <body>
         <ApolloProvider>{children}</ApolloProvider>
       </body>
     </html>
