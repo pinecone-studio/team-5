@@ -9,4 +9,14 @@ module.exports = {
     ...tsJestPreset.transform,
   },
   testMatch: ["**/*.test.ts"],
+  collectCoverage: true,
+
+  coverageThreshold: {
+    global: {
+      lines: 100,
+      statements: 100,
+      functions: 100,
+      branches: 100,
+    },
+  },
 };
