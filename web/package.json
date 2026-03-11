@@ -48,6 +48,9 @@
     "vite": "^7.3.1",
     "wrangler": "^4.71.0"
   },
+  "overrides": {
+    "graphql": "16.13.1"
+  },
   "engines": {
     "node": ">=22"
   },

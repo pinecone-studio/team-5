@@ -5,10 +5,18 @@
   "main": "index.js",
   "scripts": {
     "prepare": "husky",
-    "dev": "vite",
-    "build": "tsc && vite build",
     "commit": "cz",
-   "test": "node -e \"console.log('No tests yet')\""
+    "service:dev": "npm run dev --prefix service",
+    "service:test": "npm test --prefix service",
+    "service:lint": "npm run lint --prefix service || echo \"(no service lint script)\"",
+    "service:build": "npm run build --prefix service || echo \"(no service build script)\"",
+    "web:dev": "npm run dev --prefix web",
+    "web:test": "npm test --prefix web",
+    "web:lint": "npm run lint --prefix web",
+    "web:build": "npm run build --prefix web",
+    "lint": "npm run service:lint && npm run web:lint",
+    "test": "npm run service:test && npm run web:test",
+    "build": "npm run service:build && npm run web:build"
   },
   "config": {
     "commitizen": {

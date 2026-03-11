@@ -30,6 +30,9 @@
 		"ts-jest": "^29.4.6"
 	},
 	"main": "index.js",
+	"overrides": {
+		"graphql": "16.13.1"
+	},
 	"directories": {
 		"test": "test"
 	},
