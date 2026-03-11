@@ -19,7 +19,7 @@ module.exports = {
 		'/node_modules/',
 		'<rootDir>/src/index.ts',
 		'<rootDir>/src/db/client.ts',
-		'<rootDir>/src/db/schema.ts',
+		'<rootDir>/src/db/schemas/',
 		'<rootDir>/src/graphql.ts',
 	],
 

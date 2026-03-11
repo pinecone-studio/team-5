@@ -1,3 +1,3 @@
-import { todoTypeDefs } from "./todo.schema";
+import { employeeTypeDefs } from "./employee.schema";
 
-export const typeDefs = [todoTypeDefs]
+export const typeDefs = [employeeTypeDefs]

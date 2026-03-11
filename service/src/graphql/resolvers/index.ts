@@ -1,5 +1,5 @@
-import { todoMutation } from "./mutation/todo.mutations";
-import { todoQuery } from "./query/todo.query";
+import { employeeMutation } from "./mutation/employee.mutations";
+import { employeeQuery } from "./query/employee.query";
 
 
-export const resolvers = [todoQuery, todoMutation]
+export const resolvers = [employeeQuery, employeeMutation]

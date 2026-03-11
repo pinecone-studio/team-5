@@ -15,6 +15,20 @@
       "when": 1773127580783,
       "tag": "0001_short_daredevil",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1773222464356,
+      "tag": "0002_flat_monster_badoon",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1773223854058,
+      "tag": "0003_demonic_black_knight",
+      "breakpoints": true
     }
   ]
 }
