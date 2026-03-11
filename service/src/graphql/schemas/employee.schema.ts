@@ -20,11 +20,11 @@ export const employeeTypeDefs = `
     lateCount: Int!
   }
 
-  type Query {
+  extend type Query {
     employees: [Employee!]!
   }
 
-  type Mutation {
+  extend type Mutation {
     createEmployee(
       fullName: String!
       status: EmployeeStatus
