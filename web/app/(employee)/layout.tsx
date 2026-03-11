@@ -1,11 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  SidebarProvider,
-  SidebarInset,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
+import ApolloProvider from "@/components/apollo-provider";
+import { RoleSidebar } from "@/components/role-sidebar";
 import { getSession } from "@/lib/auth";
 
 /**
@@ -23,32 +18,14 @@ export default async function EmployeeLayout({
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex items-center justify-between border-b bg-background px-6 py-3">
-          <div className="flex items-center gap-4">
-            <SidebarTrigger />
-            <nav className="flex gap-4 text-sm">
-              <Link href="/dashboard" className="hover:text-primary">
-                Dashboard
-              </Link>
-              <Link href="/profile" className="hover:text-primary">
-                Profile
-              </Link>
-            </nav>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">
-              {session.user.email}
-            </span>
-            <span className="rounded-md bg-muted px-2 py-1 text-xs">
-              {session.role}
-            </span>
-          </div>
-        </header>
-        <main className="flex-1 p-6">{children}</main>
-      </SidebarInset>
-    </SidebarProvider>
+    <div className="flex min-h-screen bg-[#f8fafc]">
+      <RoleSidebar
+        role="employee"
+        userName={session.user.name ?? session.user.email}
+      />
+      <ApolloProvider>
+        <main className="min-w-0 flex-1">{children}</main>
+      </ApolloProvider>
+    </div>
   );
 }

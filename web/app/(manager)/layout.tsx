@@ -1,11 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  SidebarProvider,
-  SidebarInset,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
+import { Bell } from "lucide-react";
+import ApolloProvider from "@/components/apollo-provider";
+import { RoleSidebar } from "@/components/role-sidebar";
 import { getSession, isManager } from "@/lib/auth";
 
 /**
@@ -25,36 +21,40 @@ export default async function ManagerLayout({
     redirect("/dashboard");
   }
 
+  const displayName = session.user.name ?? session.user.email;
+  const initial = displayName.charAt(0).toUpperCase();
+
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex items-center justify-between border-b bg-background px-6 py-3">
-          <div className="flex items-center gap-4">
-            <SidebarTrigger />
-            <nav className="flex gap-4 text-sm">
-              <Link href="/admin" className="hover:text-primary">
-                Admin
-              </Link>
-              <Link href="/admin/users" className="hover:text-primary">
-                Хэрэглэгчид
-              </Link>
-              <Link href="/dashboard" className="hover:text-primary">
-                Dashboard
-              </Link>
-            </nav>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">
-              {session.user.email}
-            </span>
-            <span className="rounded-md bg-primary/20 px-2 py-1 text-xs font-medium text-primary">
-              {session.role}
-            </span>
-          </div>
-        </header>
-        <main className="flex-1 p-6">{children}</main>
-      </SidebarInset>
-    </SidebarProvider>
+    <div className="flex min-h-screen bg-[#f8fafc]">
+      <RoleSidebar
+        role="admin"
+        userName={displayName}
+        pendingRequestCount={3}
+      />
+      <ApolloProvider>
+        <div className="min-w-0 flex-1">
+          <header className="flex h-20 items-center justify-end border-b border-gray-200 bg-white px-8">
+            <div className="flex items-center gap-5">
+              <button
+                type="button"
+                aria-label="Notifications"
+                className="text-gray-500 transition hover:text-gray-700"
+              >
+                <Bell className="h-5 w-5" />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+                  {initial}
+                </div>
+                <span className="text-base font-medium text-gray-700">
+                  {displayName}
+                </span>
+              </div>
+            </div>
+          </header>
+          <main className="min-w-0 flex-1 p-6">{children}</main>
+        </div>
+      </ApolloProvider>
+    </div>
   );
 }

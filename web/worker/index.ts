@@ -14,7 +14,7 @@ import {
 import handler from "vinext/server/app-router-entry";
 
 type Fetcher = {
-  fetch(request: Request): Response | Promise<Response>;
+  fetch(request: Request): Promise<Response>;
 };
 
 interface Env {
@@ -46,30 +46,49 @@ export default {
     // normalizes backslashes and validates the origin hasn't changed.
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
-      return handleImageOptimization(
-        request,
-        {
-          fetchAsset: (path: string) =>
-            env.ASSETS.fetch(new Request(new URL(path, request.url))),
-          transformImage: async (
-            body: ReadableStream<Uint8Array>,
-            {
-              width,
-              format,
-              quality,
-            }: { width: number; format: string; quality: number },
-          ) => {
-            const result = await env.IMAGES.input(body)
-              .transform(width > 0 ? { width } : {})
-              .output({ format, quality });
-            return result.response();
+      try {
+        return await handleImageOptimization(
+          request,
+          {
+            fetchAsset: async (path: string, sourceRequest: Request) =>
+              env.ASSETS.fetch(new Request(new URL(path, sourceRequest.url))),
+            transformImage: async (
+              body: ReadableStream<Uint8Array>,
+              {
+                width,
+                format,
+                quality,
+              }: { width: number; format: string; quality: number },
+            ) => {
+              const result = await env.IMAGES.input(body)
+                .transform(width > 0 ? { width } : {})
+                .output({ format, quality });
+              return result.response();
+            },
           },
-        },
-        allowedWidths,
-      );
+          allowedWidths,
+        );
+      } catch (error) {
+        console.error("[worker] image optimization failed", error);
+        return new Response("Image optimization failed", { status: 500 });
+      }
     }
 
     // Delegate everything else to vinext
-    return handler.fetch(request);
+    try {
+      return await Promise.race<Response>([
+        handler.fetch(request),
+        new Promise<Response>((resolve) => {
+          setTimeout(() => {
+            resolve(
+              new Response("Request timeout in worker runtime", { status: 504 }),
+            );
+          }, 15000);
+        }),
+      ]);
+    } catch (error) {
+      console.error("[worker] unhandled fetch error", error);
+      return new Response("Internal worker error", { status: 500 });
+    }
   },
 };
