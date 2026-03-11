@@ -11,6 +11,7 @@ import {
   DEFAULT_DEVICE_SIZES,
   DEFAULT_IMAGE_SIZES,
 } from "vinext/server/image-optimization";
+import { createClerkClient } from "@clerk/backend";
 import handler from "vinext/server/app-router-entry";
 
 type Fetcher = {
@@ -19,6 +20,7 @@ type Fetcher = {
 
 interface Env {
   ASSETS: Fetcher;
+  CLERK_SECRET_KEY: string;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -29,6 +31,14 @@ interface Env {
       };
     };
   };
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: string;
+}
+
+const protectedRoutes = [/^\/dashboard(?:\/|$)/, /^\/profile(?:\/|$)/, /^\/admin(?:\/|$)/];
+const managerRoutes = [/^\/admin(?:\/|$)/];
+
+function isManagerRole(role: unknown): boolean {
+  return role === "admin" || role === "hr";
 }
 
 // Image security config. SVG sources with .svg extension auto-skip the
@@ -41,6 +51,35 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
+    if (protectedRoutes.some((pattern) => pattern.test(url.pathname))) {
+      const clerk = createClerkClient({
+        secretKey: env.CLERK_SECRET_KEY,
+        publishableKey: env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+      });
+
+      const authState = await clerk.authenticateRequest(request);
+
+      if (!authState.isAuthenticated) {
+        const loginUrl = new URL("/login", request.url);
+        loginUrl.searchParams.set("redirect_url", `${url.pathname}${url.search}`);
+        return Response.redirect(loginUrl, 307);
+      }
+
+      if (managerRoutes.some((pattern) => pattern.test(url.pathname))) {
+        const auth = authState.toAuth();
+
+        if (!auth.userId) {
+          return Response.redirect(new URL("/dashboard", request.url), 307);
+        }
+
+        const user = await clerk.users.getUser(auth.userId);
+
+        if (!isManagerRole(user.publicMetadata?.role)) {
+          return Response.redirect(new URL("/dashboard", request.url), 307);
+        }
+      }
+    }
+
     // Image optimization via Cloudflare Images binding.
     // The parseImageParams validation inside handleImageOptimization
     // normalizes backslashes and validates the origin hasn't changed.
@@ -49,7 +88,7 @@ export default {
       return handleImageOptimization(
         request,
         {
-          fetchAsset: (path: string) =>
+          fetchAsset: async (path: string) =>
             env.ASSETS.fetch(new Request(new URL(path, request.url))),
           transformImage: async (
             body: ReadableStream<Uint8Array>,
