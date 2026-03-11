@@ -1,0 +1,104 @@
+import { and, eq } from "drizzle-orm";
+
+import { getDb } from "../../../db/client";
+import { benefit_eligibility } from "../../../db/schemas/benefit_eligibility.schema";
+
+const mapEligibility = (row: typeof benefit_eligibility.$inferSelect) => ({
+  employeeId: row.employee_id,
+  benefitId: row.benefit_id,
+  status: row.status,
+  ruleEvaluationJson: JSON.stringify(row.rule_evaluation_json),
+  computedAt: row.computed_at,
+  overrideBy: row.override_by ?? null,
+  overrideReason: row.override_reason ?? null,
+  overrideExpiresAt: row.override_expires_at ?? null,
+});
+
+export const benefitEligibilityMutation = {
+  Mutation: {
+    upsertBenefitEligibility: async (
+      _parent: unknown,
+      args: {
+        input: {
+          employeeId: string;
+          benefitId: string;
+          status?: string | null;
+          ruleEvaluationJson?: string | null;
+          computedAt?: string | null;
+          overrideBy?: string | null;
+          overrideReason?: string | null;
+          overrideExpiresAt?: string | null;
+        };
+      },
+      context: { env: Env },
+    ) => {
+      const db = getDb(context.env.DB);
+      const { input } = args;
+
+      const existing = await db
+        .select()
+        .from(benefit_eligibility)
+        .where(
+          and(
+            eq(benefit_eligibility.employee_id, input.employeeId),
+            eq(benefit_eligibility.benefit_id, input.benefitId),
+          ),
+        )
+        .get();
+
+      if (!existing) {
+        const inserted = await db
+          .insert(benefit_eligibility)
+          .values({
+            employee_id: input.employeeId,
+            benefit_id: input.benefitId,
+            status: (input.status as any) ?? "pending",
+            rule_evaluation_json:
+              input.ruleEvaluationJson != null
+                ? JSON.parse(input.ruleEvaluationJson)
+                : [],
+            computed_at: input.computedAt ?? new Date().toISOString(),
+            override_by: input.overrideBy ?? null,
+            override_reason: input.overrideReason ?? null,
+            override_expires_at: input.overrideExpiresAt ?? null,
+          })
+          .returning()
+          .get();
+
+        return mapEligibility(inserted);
+      }
+
+      const updated = await db
+        .update(benefit_eligibility)
+        .set({
+          ...(input.status != null ? { status: input.status as any } : {}),
+          ...(input.ruleEvaluationJson !== undefined
+            ? { rule_evaluation_json: JSON.parse(input.ruleEvaluationJson!) }
+            : {}),
+          ...(input.computedAt !== null
+            ? { computed_at: input.computedAt }
+            : {}),
+          ...(input.overrideBy !== undefined
+            ? { override_by: input.overrideBy }
+            : {}),
+          ...(input.overrideReason !== undefined
+            ? { override_reason: input.overrideReason }
+            : {}),
+          ...(input.overrideExpiresAt !== undefined
+            ? { override_expires_at: input.overrideExpiresAt }
+            : {}),
+        })
+        .where(
+          and(
+            eq(benefit_eligibility.employee_id, input.employeeId),
+            eq(benefit_eligibility.benefit_id, input.benefitId),
+          ),
+        )
+        .returning()
+        .get();
+
+      return mapEligibility(updated);
+    },
+  },
+};
+
