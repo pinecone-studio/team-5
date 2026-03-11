@@ -17,6 +17,8 @@ import { desc, eq } from 'drizzle-orm';
 import { getDb } from './db/client';
 import { todos } from './db/schema';
 import { yoga } from './server';
+import { employees } from './mockEmployees/employees';
+import { employeeTimeData } from './mockEmployees/employee-time-data';
 
 interface Env {
 	DB: D1Database;
@@ -27,6 +29,16 @@ const app = new Hono<{ Bindings: Env }>();
 app.get('/', (c) => c.text('Hello, World!'));
 
 app.all('/graphql', (c) => yoga.fetch(c.req.raw, { env: c.env }));
+
+
+app.get('/employees', (c) => {
+	return c.json(employees)
+})
+
+app.get('/employee-time-data', (c) => {
+	return c.json(employeeTimeData)
+})
+
 
 // app.get('/todos', async (c) => {
 // 	const db = getDb(c.env.DB);
