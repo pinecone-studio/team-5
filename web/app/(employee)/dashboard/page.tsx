@@ -3,11 +3,10 @@
  */
 export default function EmployeeDashboardPage() {
   return (
-    <div>
-      <h1 className="text-xl font-semibold">Dashboard</h1>
-      <p className="text-muted-foreground mt-2">
+    <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <p className="text-gray-700">
         Нэвтэрсэн ажилтны хуудас. Энд ажилтан болон admin/hr хандана.
       </p>
-    </div>
-  );
+    </section>
+  )
 }
