@@ -7,10 +7,7 @@
     "build": "vinext build",
     "start": "vinext start",
     "lint": "eslint",
-    "dev:vinext": "vite dev --port 3000",
-    "build:vinext": "vite build",
-    "test": "jest",
-    "test:coverage": "jest --coverage"
+    "test": "jest --coverage"
   },
   "dependencies": {
     "@apollo/client": "^4.1.6",
