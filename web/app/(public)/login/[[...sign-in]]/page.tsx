@@ -3,8 +3,11 @@
 import { startTransition, useEffect } from "react";
 import { SignIn, useAuth } from "@clerk/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import MissingConfigState from "@/components/missing-config-state";
 
-export default function LoginPage() {
+const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoaded, isSignedIn } = useAuth();
@@ -25,4 +28,17 @@ export default function LoginPage() {
       <SignIn path="/login" routing="path" fallbackRedirectUrl={redirectUrl} />
     </div>
   );
+}
+
+export default function LoginPage() {
+  if (!clerkPublishableKey) {
+    return (
+      <MissingConfigState
+        missingKeys={["NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"]}
+        description="Нэвтрэх хуудсыг ашиглахын тулд Clerk publishable key шаардлагатай."
+      />
+    );
+  }
+
+  return <LoginPageContent />;
 }

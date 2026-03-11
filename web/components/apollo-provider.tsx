@@ -1,15 +1,26 @@
 "use client";
 
 import { ReactNode, useRef, useEffect, useState } from "react";
-import { ApolloClient, ApolloLink, HttpLink, InMemoryCache } from "@apollo/client";
+import {
+  ApolloClient,
+  ApolloLink,
+  HttpLink,
+  InMemoryCache,
+} from "@apollo/client";
 import { ApolloProvider } from "@apollo/client/react";
 import { SetContextLink } from "@apollo/client/link/context";
 import { ClerkProvider, useAuth } from "@clerk/react";
+import MissingConfigState from "@/components/missing-config-state";
+
+const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const graphqlUrl = process.env.NEXT_PUBLIC_GRAPHQL_URL;
 
 function AuthenticatedApolloProvider({
   children,
+  graphqlUrl,
 }: {
   children: ReactNode;
+  graphqlUrl: string;
 }) {
   const { getToken } = useAuth();
   const clientRef = useRef<ApolloClient | null>(null);
@@ -34,7 +45,7 @@ function AuthenticatedApolloProvider({
       });
 
       const httpLink = new HttpLink({
-        uri: process.env.NEXT_PUBLIC_GRAPHQL_URL,
+        uri: graphqlUrl,
       });
 
       clientRef.current = new ApolloClient({
@@ -43,9 +54,23 @@ function AuthenticatedApolloProvider({
       });
       setClient(clientRef.current);
     }
-  }, []);
+  }, [graphqlUrl]);
 
-  return client ? <ApolloProvider client={client}>{children}</ApolloProvider> : null;
+  return client ? (
+    <ApolloProvider client={client}>{children}</ApolloProvider>
+  ) : null;
+}
+
+export function ClerkAppProvider({ children }: { children: ReactNode }) {
+  if (!clerkPublishableKey) {
+    return <>{children}</>;
+  }
+
+  return (
+    <ClerkProvider publishableKey={clerkPublishableKey} signInUrl="/login">
+      {children}
+    </ClerkProvider>
+  );
 }
 
 export default function AppApolloProvider({
@@ -53,15 +78,25 @@ export default function AppApolloProvider({
 }: {
   children: ReactNode;
 }) {
-  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  if (!clerkPublishableKey || !graphqlUrl) {
+    const missingKeys = [
+      clerkPublishableKey ? null : "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+      graphqlUrl ? null : "NEXT_PUBLIC_GRAPHQL_URL",
+    ].filter((value): value is string => value != null);
 
-  if (!publishableKey) {
-    throw new Error("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is required");
+    return (
+      <MissingConfigState
+        missingKeys={missingKeys}
+        description="Хамгаалалттай хуудсуудыг ашиглахын тулд auth болон GraphQL тохиргоо шаардлагатай."
+      />
+    );
   }
 
   return (
-    <ClerkProvider publishableKey={publishableKey} signInUrl="/login">
-      <AuthenticatedApolloProvider>{children}</AuthenticatedApolloProvider>
+    <ClerkProvider publishableKey={clerkPublishableKey} signInUrl="/login">
+      <AuthenticatedApolloProvider graphqlUrl={graphqlUrl}>
+        {children}
+      </AuthenticatedApolloProvider>
     </ClerkProvider>
   );
 }

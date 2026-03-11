@@ -1,5 +1,4 @@
 import "./globals.css";
-import ApolloProvider from "@/components/apollo-provider";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 
@@ -16,9 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html className={cn("font-sans", geist.variable)}>
-      <body>
-        <ApolloProvider>{children}</ApolloProvider>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
