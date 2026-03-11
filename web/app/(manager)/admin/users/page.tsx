@@ -3,11 +3,10 @@
  */
 export default function AdminUsersPage() {
   return (
-    <div>
-      <h1 className="text-xl font-semibold">Хэрэглэгчид</h1>
-      <p className="text-muted-foreground mt-2">
+    <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <p className="text-gray-700">
         Admin/HR — хэрэглэгч нэмэх, засах, устгах.
       </p>
-    </div>
-  );
+    </section>
+  )
 }
