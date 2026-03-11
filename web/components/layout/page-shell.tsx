@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { usePathname } from "next/navigation"
+import { useUser } from "@clerk/react"
 import { X } from "lucide-react"
 
 import { Header } from "@/components/layout/header"
@@ -11,6 +12,7 @@ import {
   employeeNav,
   type NavItem,
 } from "@/components/layout/sidebar"
+import { isManager, normalizeRole } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
 interface PageShellProps {
@@ -49,11 +51,23 @@ export function PageShell({
   children,
 }: PageShellProps) {
   const pathname = usePathname()
+  const { user } = useUser()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const navItems = role === "admin" ? adminNav : employeeNav
   const activeItem = getActiveItem(pathname, navItems)
   const title = activeItem?.label ?? formatTitleFromPath(pathname)
   const subtitle = activeItem?.subtitle
+  const userRole = normalizeRole(user?.publicMetadata?.role)
+  const resolvedUserName =
+    userName ??
+    user?.fullName?.trim() ??
+    user?.firstName ??
+    user?.primaryEmailAddress?.emailAddress?.split("@")[0] ??
+    "User"
+  const resolvedSwitchHref =
+    switchHref ?? (role === "admin" ? "/dashboard" : isManager(userRole) ? "/admin" : undefined)
+  const resolvedSwitchLabel =
+    switchLabel ?? (role === "admin" ? "Employee" : isManager(userRole) ? "Admin" : undefined)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -84,9 +98,9 @@ export function PageShell({
             role={role}
             activePath={pathname}
             pendingRequestCount={pendingRequestCount}
-            userName={userName}
-            switchHref={switchHref}
-            switchLabel={switchLabel}
+            userName={resolvedUserName}
+            switchHref={resolvedSwitchHref}
+            switchLabel={resolvedSwitchLabel}
             onNavigate={() => setMobileNavOpen(false)}
           />
         </div>
@@ -96,7 +110,7 @@ export function PageShell({
         <Header
           title={title}
           subtitle={subtitle}
-          userName={userName}
+          userName={resolvedUserName}
           onMenuClick={() => setMobileNavOpen(true)}
         />
         <div className="p-4 sm:p-6 lg:p-8">{children}</div>
