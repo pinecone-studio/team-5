@@ -9,7 +9,7 @@
     "lint": "eslint",
     "dev:vinext": "vite dev --port 3000",
     "build:vinext": "vite build",
-    "test": "jest"
+    "test": "jest --coverage"
   },
   "dependencies": {
     "@apollo/client": "^4.1.6",
