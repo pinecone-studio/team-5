@@ -8,12 +8,15 @@
     "start": "next start",
     "lint": "eslint",
     "dev:vinext": "vite dev --port 3000",
-    "build:vinext": "vite build"
+    "build:vinext": "vite build",
+    "test": "jest"
   },
   "dependencies": {
     "@apollo/client": "^4.1.6",
     "@apollo/client-integration-nextjs": "^0.14.4",
+    "@types/jest": "^30.0.0",
     "graphql": "^16.13.1",
+    "jest": "^30.3.0",
     "next": "16.1.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -34,10 +37,19 @@
     "eslint-config-next": "16.1.6",
     "react-server-dom-webpack": "^19.2.4",
     "tailwindcss": "^4",
-    "typescript": "^5",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.9.3",
     "vinext": "^0.0.26",
     "vite": "^7.3.1",
     "wrangler": "^4.71.0"
   },
-  "type": "module"
+  "type": "module",
+  "description": "This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

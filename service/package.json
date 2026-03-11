@@ -6,7 +6,7 @@
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
-		"test": "vitest",
+		"test": "jest",
 		"cf-typegen": "wrangler types",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:local": "wrangler d1 migrations apply team5-db --local",
@@ -14,9 +14,10 @@
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.12.4",
+		"@types/jest": "^30.0.0",
 		"@types/node": "^25.4.0",
 		"drizzle-kit": "^0.31.9",
-		"typescript": "^5.5.2",
+		"typescript": "^5.9.3",
 		"vitest": "~3.2.0",
 		"wrangler": "^4.71.0"
 	},
@@ -24,6 +25,16 @@
 		"drizzle-orm": "^0.45.1",
 		"graphql": "^16.13.1",
 		"graphql-yoga": "^5.18.1",
-		"hono": "^4.12.6"
-	}
+		"hono": "^4.12.6",
+		"jest": "^30.3.0",
+		"ts-jest": "^29.4.6"
+	},
+	"main": "index.js",
+	"directories": {
+		"test": "test"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"description": ""
 }
