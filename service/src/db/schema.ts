@@ -9,4 +9,3 @@ export const todos = sqliteTable("todos", {
 		.notNull()
 		.default(sql`(cast(unixepoch('now') * 1000 as integer))`),
 });
-
