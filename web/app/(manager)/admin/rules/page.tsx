@@ -1,12 +1,138 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { gql } from "@apollo/client";
+import { useMutation, useQuery } from "@apollo/client/react";
 import { Check, ChevronDown, Pencil, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const benefitOptions = [
+const GET_BENEFITS = gql`
+  query BenefitsForAdminRules {
+    benefits {
+      id
+      name
+    }
+  }
+`;
+
+const GET_LATEST_RULE_VERSION = gql`
+  query LatestRuleVersionForAdminRules($benefitId: ID!) {
+    eligibilityRuleLatestVersion(benefitId: $benefitId)
+  }
+`;
+
+const GET_RULES = gql`
+  query RulesForAdminRules($benefitId: ID!, $configVersion: Int) {
+    eligibilityRules(
+      benefitId: $benefitId
+      configVersion: $configVersion
+      activeOnly: false
+    ) {
+      id
+      type
+      operator
+      value
+      errorMessage
+      priority
+      isActive
+    }
+  }
+`;
+
+const CREATE_RULE = gql`
+  mutation CreateRuleForAdminRules($input: CreateEligibilityRuleInput!) {
+    createEligibilityRule(input: $input) {
+      id
+    }
+  }
+`;
+
+const UPDATE_RULE = gql`
+  mutation UpdateRuleForAdminRules($input: UpdateEligibilityRuleInput!) {
+    updateEligibilityRule(input: $input) {
+      id
+    }
+  }
+`;
+
+const DELETE_RULE = gql`
+  mutation DeleteRuleForAdminRules($id: ID!) {
+    deleteEligibilityRule(id: $id)
+  }
+`;
+
+type RuleOperator = "eq" | "neq" | "lt" | "lte" | "gt" | "gte";
+
+type Benefit = {
+  id: string;
+  name: string;
+};
+
+type BenefitOption = {
+  id: string;
+  name: string;
+  isMock: boolean;
+};
+
+type EligibilityRule = {
+  id: string;
+  type: string;
+  operator: RuleOperator;
+  value: string;
+  errorMessage: string;
+  priority: number;
+  isActive: boolean;
+};
+
+type BenefitsQueryData = {
+  benefits: Benefit[];
+};
+
+type LatestRuleVersionData = {
+  eligibilityRuleLatestVersion: number;
+};
+
+type LatestRuleVersionVariables = {
+  benefitId: string;
+};
+
+type RulesQueryData = {
+  eligibilityRules: EligibilityRule[];
+};
+
+type RulesQueryVariables = {
+  benefitId: string;
+  configVersion?: number;
+};
+
+type CreateRuleVariables = {
+  input: {
+    benefitId: string;
+    type: string;
+    operator: RuleOperator;
+    value: string;
+    errorMessage: string;
+    configVersion?: number;
+  };
+};
+
+type UpdateRuleVariables = {
+  input: {
+    id: string;
+    type?: string;
+    operator?: RuleOperator;
+    value?: string;
+    errorMessage?: string;
+  };
+};
+
+type DeleteRuleVariables = {
+  id: string;
+};
+
+const mockBenefitNames = [
   "Private Insurance",
   "Digital Welness",
   "Shit Happened Days",
@@ -19,50 +145,99 @@ const benefitOptions = [
   "Travel",
 ];
 
-const rules = [
-  {
-    id: 1,
-    type: "Employment Status",
-    condition: "status = active",
-    failMessage: "Must be an active employee",
-  },
-  {
-    id: 2,
-    type: "OKR Submitted",
-    condition: "okr_submitted = true",
-    failMessage: "Must submit current quarter OKR",
-  },
-  {
-    id: 3,
-    type: "Attendance",
-    condition: "late_arrivals < 3",
-    failMessage: "Must have fewer than 3 late arrivals",
-  },
+const conditionFields = [
+  { label: "Employment Status", value: "employment_status" },
+  { label: "Attendance", value: "attendance" },
+  { label: "OKR submitted", value: "okr_submitted" },
+  { label: "Responsibility level", value: "responsibility_level" },
 ];
 
-const conditionFields = ["Employment...", "Attendance", "OKR submitted"];
 const conditionOperators = [
-  "Equals",
-  "Not equals",
-  "Greater than",
-  "Less than",
+  { label: "Equals", value: "eq" as RuleOperator },
+  { label: "Not equals", value: "neq" as RuleOperator },
+  { label: "Greater than", value: "gt" as RuleOperator },
+  { label: "Less than", value: "lt" as RuleOperator },
 ];
+
+function getFieldLabel(type: string) {
+  const matched = conditionFields.find((field) => field.value === type);
+  return matched?.label ?? type;
+}
+
+function getOperatorLabel(operator: RuleOperator) {
+  const matched = conditionOperators.find((item) => item.value === operator);
+  return matched?.label ?? operator;
+}
+
+function getOperatorSymbol(operator: RuleOperator) {
+  switch (operator) {
+    case "eq":
+      return "=";
+    case "neq":
+      return "!=";
+    case "gt":
+      return ">";
+    case "gte":
+      return ">=";
+    case "lt":
+      return "<";
+    case "lte":
+      return "<=";
+  }
+}
 
 export default function AdminRulesPage() {
-  const [selectedBenefit, setSelectedBenefit] = useState("Gym - Pinefit");
+  const [selectedBenefitId, setSelectedBenefitId] = useState("");
   const [isBenefitOpen, setIsBenefitOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [deletingRuleId, setDeletingRuleId] = useState<number | null>(null);
+  const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
   const [isDeleteSuccessOpen, setIsDeleteSuccessOpen] = useState(false);
-  const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
-  const [ruleTypeValue, setRuleTypeValue] = useState("Responsibility level");
-  const [conditionField, setConditionField] = useState(conditionFields[0]);
-  const [conditionOperator, setConditionOperator] = useState(
-    conditionOperators[0],
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+  const [ruleTypeValue, setRuleTypeValue] = useState(conditionFields[0].value);
+  const [conditionField, setConditionField] = useState(conditionFields[0].value);
+  const [conditionOperator, setConditionOperator] = useState<RuleOperator>(
+    conditionOperators[0].value,
   );
   const [conditionValue, setConditionValue] = useState("2");
-  const [failMessageValue, setFailMessageValue] = useState("Level must be 2");
+  const [failMessageValue, setFailMessageValue] = useState("");
+  const [mutationError, setMutationError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const { data: benefitsData } = useQuery<BenefitsQueryData>(GET_BENEFITS);
+
+  const benefitOptions: BenefitOption[] = [
+    ...(benefitsData?.benefits.map((benefit) => ({
+      id: benefit.id,
+      name: benefit.name,
+      isMock: false,
+    })) ?? []),
+  ];
+
+  for (const mockName of mockBenefitNames) {
+    const alreadyIncluded = benefitOptions.some(
+      (benefit) => benefit.name.toLowerCase() === mockName.toLowerCase(),
+    );
+
+    if (!alreadyIncluded) {
+      benefitOptions.push({
+        id: `mock:${mockName}`,
+        name: mockName,
+        isMock: true,
+      });
+    }
+  }
+
+  const selectedBenefit =
+    benefitOptions.find((benefit) => benefit.id === selectedBenefitId) ?? null;
+  const selectedBenefitIsMock = selectedBenefit?.isMock ?? false;
+
+  useEffect(() => {
+    if (!selectedBenefitId && benefitOptions.length > 0) {
+      const firstRealBenefit =
+        benefitOptions.find((benefit) => !benefit.isMock) ?? benefitOptions[0];
+      setSelectedBenefitId(firstRealBenefit.id);
+    }
+  }, [benefitOptions, selectedBenefitId]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -75,32 +250,188 @@ export default function AdminRulesPage() {
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, []);
 
-  const handleEditRule = (ruleId: number) => {
+  const { data: latestVersionData, refetch: refetchLatestVersion } = useQuery<
+    LatestRuleVersionData,
+    LatestRuleVersionVariables
+  >(GET_LATEST_RULE_VERSION, {
+    variables: { benefitId: selectedBenefitId },
+    skip: !selectedBenefitId || selectedBenefitIsMock,
+  });
+
+  const latestVersion = latestVersionData?.eligibilityRuleLatestVersion;
+
+  const {
+    data: rulesData,
+    loading: rulesLoading,
+    refetch: refetchRules,
+  } = useQuery<RulesQueryData, RulesQueryVariables>(GET_RULES, {
+    variables: {
+      benefitId: selectedBenefitId,
+      configVersion: latestVersion,
+    },
+    skip: !selectedBenefitId || latestVersion == null || selectedBenefitIsMock,
+  });
+
+  const [createRule, { loading: isCreating }] = useMutation<
+    { createEligibilityRule: { id: string } },
+    CreateRuleVariables
+  >(CREATE_RULE);
+
+  const [updateRule, { loading: isUpdating }] = useMutation<
+    { updateEligibilityRule: { id: string } },
+    UpdateRuleVariables
+  >(UPDATE_RULE);
+
+  const [deleteRule, { loading: isDeleting }] = useMutation<
+    { deleteEligibilityRule: boolean },
+    DeleteRuleVariables
+  >(DELETE_RULE);
+
+  const rules = rulesData?.eligibilityRules ?? [];
+
+  const resetForm = () => {
+    setRuleTypeValue(conditionFields[0].value);
+    setConditionField(conditionFields[0].value);
+    setConditionOperator(conditionOperators[0].value);
+    setConditionValue("");
+    setFailMessageValue("");
+    setMutationError(null);
+  };
+
+  const handleEditRule = (ruleId: string) => {
+    const rule = rules.find((item) => item.id === ruleId);
+    if (!rule) return;
+
     setEditingRuleId(ruleId);
-    setRuleTypeValue("Responsibility level");
-    setConditionField(conditionFields[0]);
-    setConditionOperator(conditionOperators[0]);
-    setConditionValue("2");
-    setFailMessageValue("Level must be 2");
+    setRuleTypeValue(rule.type);
+    setConditionField(rule.type);
+    setConditionOperator(rule.operator);
+    setConditionValue(rule.value);
+    setFailMessageValue(rule.errorMessage);
+    setMutationError(null);
   };
 
   const handleAddRule = () => {
     setIsAddModalOpen(true);
-    setRuleTypeValue("");
-    setConditionField(conditionFields[0]);
-    setConditionOperator(conditionOperators[0]);
-    setConditionValue("");
-    setFailMessageValue("");
+    resetForm();
   };
 
-  const closeEditModal = () => setEditingRuleId(null);
-  const closeAddModal = () => setIsAddModalOpen(false);
-  const closeDeleteModal = () => setDeletingRuleId(null);
+  const closeEditModal = () => {
+    setEditingRuleId(null);
+    setMutationError(null);
+  };
+
+  const closeAddModal = () => {
+    setIsAddModalOpen(false);
+    setMutationError(null);
+  };
+
+  const closeDeleteModal = () => {
+    setDeletingRuleId(null);
+    setMutationError(null);
+  };
+
   const closeDeleteSuccessModal = () => setIsDeleteSuccessOpen(false);
 
-  const handleDeleteConfirm = () => {
-    setDeletingRuleId(null);
-    setIsDeleteSuccessOpen(true);
+  const refreshRules = async () => {
+    await refetchLatestVersion();
+    await refetchRules();
+  };
+
+  const submitCreateRule = async () => {
+    if (!selectedBenefitId) {
+      setMutationError("Benefit songono uu.");
+      return;
+    }
+
+    if (selectedBenefitIsMock) {
+      setMutationError("Mock benefit deer rule uusgehgui. Real benefit songono uu.");
+      return;
+    }
+
+    if (!ruleTypeValue.trim() || !conditionValue.trim() || !failMessageValue.trim()) {
+      setMutationError("Buh talbaruudiig buglunu uu.");
+      return;
+    }
+
+    try {
+      await createRule({
+        variables: {
+          input: {
+            benefitId: selectedBenefitId,
+            type: ruleTypeValue.trim(),
+            operator: conditionOperator,
+            value: conditionValue.trim(),
+            errorMessage: failMessageValue.trim(),
+            ...(latestVersion != null ? { configVersion: latestVersion } : {}),
+          },
+        },
+      });
+      await refreshRules();
+      closeAddModal();
+    } catch (error) {
+      setMutationError(
+        error instanceof Error ? error.message : "Rule uusgehed aldaa garlaa.",
+      );
+    }
+  };
+
+  const submitEditRule = async () => {
+    if (!editingRuleId) return;
+
+    if (selectedBenefitIsMock) {
+      setMutationError(
+        "Mock benefit deer rule shinechlehgui. Real benefit songono uu.",
+      );
+      return;
+    }
+
+    if (!ruleTypeValue.trim() || !conditionValue.trim() || !failMessageValue.trim()) {
+      setMutationError("Buh talbaruudiig buglunu uu.");
+      return;
+    }
+
+    try {
+      await updateRule({
+        variables: {
+          input: {
+            id: editingRuleId,
+            type: ruleTypeValue.trim(),
+            operator: conditionOperator,
+            value: conditionValue.trim(),
+            errorMessage: failMessageValue.trim(),
+          },
+        },
+      });
+      await refreshRules();
+      closeEditModal();
+    } catch (error) {
+      setMutationError(
+        error instanceof Error
+          ? error.message
+          : "Rule shinechlehed aldaa garlaa.",
+      );
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingRuleId) return;
+
+    if (selectedBenefitIsMock) {
+      setMutationError("Mock benefit deer rule ustgahgui. Real benefit songono uu.");
+      return;
+    }
+
+    try {
+      await deleteRule({ variables: { id: deletingRuleId } });
+      await refreshRules();
+      setDeletingRuleId(null);
+      setIsDeleteSuccessOpen(true);
+    } catch (error) {
+      setMutationError(
+        error instanceof Error ? error.message : "Rule ustgahad aldaa garlaa.",
+      );
+    }
   };
 
   return (
@@ -117,7 +448,7 @@ export default function AdminRulesPage() {
             aria-haspopup="listbox"
             aria-expanded={isBenefitOpen}
           >
-            <span>{selectedBenefit}</span>
+            <span>{selectedBenefit?.name ?? "Select benefit"}</span>
             <ChevronDown
               className={`h-5 w-5 text-gray-800 transition-transform ${
                 isBenefitOpen ? "rotate-180" : ""
@@ -132,17 +463,20 @@ export default function AdminRulesPage() {
                 aria-label="Benefit options"
                 className="max-h-[560px] overflow-y-auto py-2"
               >
-                {benefitOptions.map((option) => (
-                  <li key={option}>
+                {benefitOptions.map((benefit) => (
+                  <li key={benefit.id}>
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedBenefit(option);
+                        setSelectedBenefitId(benefit.id);
                         setIsBenefitOpen(false);
                       }}
                       className="w-full px-4 py-3 text-left text-base text-gray-800 transition hover:bg-gray-50"
                     >
-                      {option}
+                      <span>{benefit.name}</span>
+                      {benefit.isMock ? (
+                        <span className="ml-2 text-xs text-gray-400">mock</span>
+                      ) : null}
                     </button>
                   </li>
                 ))}
@@ -173,45 +507,78 @@ export default function AdminRulesPage() {
               </tr>
             </thead>
             <tbody>
-              {rules.map((rule) => (
-                <tr
-                  key={rule.id}
-                  className="border-b border-gray-200 last:border-b-0"
-                >
-                  <td className="px-4 py-5 text-base text-gray-700">
-                    {rule.id}
-                  </td>
-                  <td className="px-4 py-5 text-[15px] font-medium text-gray-900">
-                    {rule.type}
-                  </td>
-                  <td className="px-4 py-5 font-mono text-[15px] text-gray-600">
-                    {rule.condition}
-                  </td>
-                  <td className="px-4 py-5 text-[15px] text-gray-600">
-                    {rule.failMessage}
-                  </td>
-                  <td className="px-4 py-5">
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <button
-                        type="button"
-                        onClick={() => handleEditRule(rule.id)}
-                        className="rounded-md p-0.5 transition hover:bg-gray-100 hover:text-gray-600"
-                        aria-label={`Edit rule ${rule.id}`}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeletingRuleId(rule.id)}
-                        className="rounded-md p-0.5 transition hover:bg-gray-100 hover:text-gray-600"
-                        aria-label={`Delete rule ${rule.id}`}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+              {selectedBenefitIsMock ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-8 text-center text-sm text-gray-500"
+                  >
+                    This is a mock benefit option. Select a real backend benefit
+                    to manage rules.
                   </td>
                 </tr>
-              ))}
+              ) : rulesLoading ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-8 text-center text-sm text-gray-500"
+                  >
+                    Loading rules...
+                  </td>
+                </tr>
+              ) : rules.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-8 text-center text-sm text-gray-500"
+                  >
+                    No rules found for this benefit.
+                  </td>
+                </tr>
+              ) : (
+                rules.map((rule, index) => (
+                  <tr
+                    key={rule.id}
+                    className="border-b border-gray-200 last:border-b-0"
+                  >
+                    <td className="px-4 py-5 text-base text-gray-700">
+                      {index + 1}
+                    </td>
+                    <td className="px-4 py-5 text-[15px] font-medium text-gray-900">
+                      {getFieldLabel(rule.type)}
+                    </td>
+                    <td className="px-4 py-5 font-mono text-[15px] text-gray-600">
+                      {rule.type} {getOperatorSymbol(rule.operator)} {rule.value}
+                    </td>
+                    <td className="px-4 py-5 text-[15px] text-gray-600">
+                      {rule.errorMessage}
+                    </td>
+                    <td className="px-4 py-5">
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <button
+                          type="button"
+                          onClick={() => handleEditRule(rule.id)}
+                          className="rounded-md p-0.5 transition hover:bg-gray-100 hover:text-gray-600"
+                          aria-label={`Edit rule ${index + 1}`}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeletingRuleId(rule.id);
+                            setMutationError(null);
+                          }}
+                          className="rounded-md p-0.5 transition hover:bg-gray-100 hover:text-gray-600"
+                          aria-label={`Delete rule ${index + 1}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -219,6 +586,7 @@ export default function AdminRulesPage() {
         <Button
           variant="outline"
           onClick={handleAddRule}
+          disabled={selectedBenefitIsMock || !selectedBenefitId}
           className="mt-8 h-9 rounded-lg border-gray-200 px-3 text-sm font-medium text-gray-800 shadow-sm"
         >
           <Plus className="h-3.5 w-3.5" />
@@ -239,10 +607,24 @@ export default function AdminRulesPage() {
                   Rule Type
                 </label>
                 <Input
-                  value={ruleTypeValue}
+                  value={getFieldLabel(ruleTypeValue)}
                   onChange={(event) => setRuleTypeValue(event.target.value)}
-                  className="h-11 rounded-xl border-[3px] border-gray-400 bg-white px-4 text-base text-gray-800 shadow-none focus-visible:border-gray-400 focus-visible:ring-0"
+                  className="hidden"
                 />
+                <select
+                  value={conditionField}
+                  onChange={(event) => {
+                    setConditionField(event.target.value);
+                    setRuleTypeValue(event.target.value);
+                  }}
+                  className="h-11 w-full appearance-none rounded-xl border-[3px] border-gray-400 bg-white px-4 text-base text-gray-800 outline-none"
+                >
+                  {conditionFields.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -253,14 +635,15 @@ export default function AdminRulesPage() {
                   <div className="relative">
                     <select
                       value={conditionField}
-                      onChange={(event) =>
-                        setConditionField(event.target.value)
-                      }
+                      onChange={(event) => {
+                        setConditionField(event.target.value);
+                        setRuleTypeValue(event.target.value);
+                      }}
                       className="h-11 w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
                     >
                       {conditionFields.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>
@@ -271,13 +654,13 @@ export default function AdminRulesPage() {
                     <select
                       value={conditionOperator}
                       onChange={(event) =>
-                        setConditionOperator(event.target.value)
+                        setConditionOperator(event.target.value as RuleOperator)
                       }
                       className="h-11 w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
                     >
                       {conditionOperators.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>
@@ -302,6 +685,10 @@ export default function AdminRulesPage() {
                   className="h-11 rounded-xl border border-gray-300 bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
                 />
               </div>
+
+              {mutationError ? (
+                <p className="text-sm text-red-600">{mutationError}</p>
+              ) : null}
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
@@ -315,10 +702,11 @@ export default function AdminRulesPage() {
               </Button>
               <Button
                 type="button"
-                onClick={closeEditModal}
+                onClick={() => void submitEditRule()}
+                disabled={isUpdating}
                 className="h-10 min-w-24 rounded-xl bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700"
               >
-                Save
+                {isUpdating ? "Saving..." : "Save"}
               </Button>
             </div>
           </div>
@@ -338,11 +726,25 @@ export default function AdminRulesPage() {
                   Rule Type
                 </label>
                 <Input
-                  value={ruleTypeValue}
+                  value={getFieldLabel(ruleTypeValue)}
                   onChange={(event) => setRuleTypeValue(event.target.value)}
                   placeholder="I.e.g. Employment Status"
-                  className="h-11 rounded-xl border-[3px] border-gray-400 bg-white px-4 text-base text-gray-800 shadow-none focus-visible:border-gray-400 focus-visible:ring-0"
+                  className="hidden"
                 />
+                <select
+                  value={conditionField}
+                  onChange={(event) => {
+                    setConditionField(event.target.value);
+                    setRuleTypeValue(event.target.value);
+                  }}
+                  className="h-11 w-full appearance-none rounded-xl border-[3px] border-gray-400 bg-white px-4 text-base text-gray-800 outline-none"
+                >
+                  {conditionFields.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -353,14 +755,15 @@ export default function AdminRulesPage() {
                   <div className="relative">
                     <select
                       value={conditionField}
-                      onChange={(event) =>
-                        setConditionField(event.target.value)
-                      }
+                      onChange={(event) => {
+                        setConditionField(event.target.value);
+                        setRuleTypeValue(event.target.value);
+                      }}
                       className="h-11 w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
                     >
                       {conditionFields.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>
@@ -371,13 +774,13 @@ export default function AdminRulesPage() {
                     <select
                       value={conditionOperator}
                       onChange={(event) =>
-                        setConditionOperator(event.target.value)
+                        setConditionOperator(event.target.value as RuleOperator)
                       }
                       className="h-11 w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
                     >
                       {conditionOperators.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>
@@ -404,6 +807,10 @@ export default function AdminRulesPage() {
                   className="h-11 rounded-xl border border-gray-300 bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
                 />
               </div>
+
+              {mutationError ? (
+                <p className="text-sm text-red-600">{mutationError}</p>
+              ) : null}
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
@@ -417,10 +824,11 @@ export default function AdminRulesPage() {
               </Button>
               <Button
                 type="button"
-                onClick={closeAddModal}
+                onClick={() => void submitCreateRule()}
+                disabled={isCreating}
                 className="h-10 min-w-24 rounded-xl bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700"
               >
-                Add
+                {isCreating ? "Adding..." : "Add"}
               </Button>
             </div>
           </div>
@@ -434,6 +842,12 @@ export default function AdminRulesPage() {
               Do you want to delete this rule?
             </h2>
 
+            {mutationError ? (
+              <p className="mt-4 text-center text-sm text-red-600">
+                {mutationError}
+              </p>
+            ) : null}
+
             <div className="mt-7 flex justify-center gap-3">
               <Button
                 type="button"
@@ -445,10 +859,11 @@ export default function AdminRulesPage() {
               </Button>
               <Button
                 type="button"
-                onClick={handleDeleteConfirm}
+                onClick={() => void handleDeleteConfirm()}
+                disabled={isDeleting}
                 className="h-9 min-w-20 rounded-xl bg-blue-600 px-5 text-base font-medium text-white hover:bg-blue-700"
               >
-                Yes
+                {isDeleting ? "..." : "Yes"}
               </Button>
             </div>
           </div>

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { getDb } from "../../../db/client";
 import { benefit_requests } from "../../../db/schemas/benefit_request.schema";
+import { recomputeBenefitEligibility } from "../shared/benefit-eligibility-engine";
 
 const mapRequest = (row: typeof benefit_requests.$inferSelect) => ({
   id: row.id,
@@ -23,6 +24,21 @@ export const benefitRequestMutation = {
       context: { env: Env },
     ) => {
       const db = getDb(context.env.DB);
+      const eligibility = await recomputeBenefitEligibility(db, {
+        employeeId: args.input.employeeId,
+        benefitId: args.input.benefitId,
+      });
+
+      if (
+        eligibility.row.status !== "eligible" &&
+        eligibility.row.status !== "active"
+      ) {
+        const firstFailure = eligibility.evaluations.find((rule) => !rule.passed);
+        throw new Error(
+          firstFailure?.reason ??
+            "This benefit cannot be requested because eligibility rules are not met.",
+        );
+      }
 
       const inserted = await db
         .insert(benefit_requests)
@@ -98,4 +114,3 @@ export const benefitRequestMutation = {
     },
   },
 };
-
