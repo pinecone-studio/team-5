@@ -50,7 +50,7 @@ const conditionOperators = [
 
 export default function AdminRulesPage() {
   const [selectedBenefit, setSelectedBenefit] = useState("Gym - Pinefit");
-  const [isBenefitOpen, setIsBenefitOpen] = useState(true);
+  const [isBenefitOpen, setIsBenefitOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deletingRuleId, setDeletingRuleId] = useState<number | null>(null);
   const [isDeleteSuccessOpen, setIsDeleteSuccessOpen] = useState(false);
