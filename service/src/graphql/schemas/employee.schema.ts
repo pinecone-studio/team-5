@@ -6,18 +6,19 @@ export const employeeTypeDefs = `
     probation
   }
 
-  enum EmployeeOkrStatus {
-    submitted
-    success
-    fail
-  }
-
   type Employee {
     id: ID!
+    email: String!
     fullName: String!
+    role: String!
+    department: String!
+    responsibilityLevel: Int!
     status: EmployeeStatus
-    okrStatus: EmployeeOkrStatus
+    hireDate: String!
+    okrSubmitted: Int!
     lateCount: Int!
+    createdAt: String!
+    updatedAt: String!
   }
 
   extend type Query {
@@ -26,17 +27,24 @@ export const employeeTypeDefs = `
 
   extend type Mutation {
     createEmployee(
-      fullName: String!
-      status: EmployeeStatus
-      okrStatus: EmployeeOkrStatus
-      lateCount: Int
+      email: String!
+    fullName: String!
+    role: String!
+    department: String!
+    responsibilityLevel: Int!
+    status: EmployeeStatus
     ): Employee!
 
     updateEmployee(
       id: ID!
+    email: String
+
       fullName: String
+      role: String
+    department: String
+    responsibilityLevel: Int
       status: EmployeeStatus
-      okrStatus: EmployeeOkrStatus
+      okrSubmitted: Int
       lateCount: Int
     ): Employee!
 

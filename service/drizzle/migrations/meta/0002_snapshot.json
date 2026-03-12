@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "65491c4c-1f8d-4f15-bdf7-5185712a5d6f",
-  "prevId": "5e2debc0-d948-4694-a8ab-6a9c87b95db6",
+  "id": "81563008-fd2a-45e7-a858-d4f95fbea63b",
+  "prevId": "1ca020f1-4ab1-4a9a-aab8-969370b30dff",
   "tables": {
     "benefit_eligibility": {
       "name": "benefit_eligibility",
@@ -67,10 +67,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "benefit_eligibility_employee_id_benefit_employee_id_fk": {
-          "name": "benefit_eligibility_employee_id_benefit_employee_id_fk",
+        "benefit_eligibility_employee_id_employee_id_fk": {
+          "name": "benefit_eligibility_employee_id_employee_id_fk",
           "tableFrom": "benefit_eligibility",
-          "tableTo": "benefit_employee",
+          "tableTo": "employee",
           "columnsFrom": [
             "employee_id"
           ],
@@ -80,10 +80,10 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "benefit_eligibility_benefit_id_beneefots_id_fk": {
-          "name": "benefit_eligibility_benefit_id_beneefots_id_fk",
+        "benefit_eligibility_benefit_id_benefits_id_fk": {
+          "name": "benefit_eligibility_benefit_id_benefits_id_fk",
           "tableFrom": "benefit_eligibility",
-          "tableTo": "beneefots",
+          "tableTo": "benefits",
           "columnsFrom": [
             "benefit_id"
           ],
@@ -93,10 +93,10 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "benefit_eligibility_override_by_benefit_employee_id_fk": {
-          "name": "benefit_eligibility_override_by_benefit_employee_id_fk",
+        "benefit_eligibility_override_by_employee_id_fk": {
+          "name": "benefit_eligibility_override_by_employee_id_fk",
           "tableFrom": "benefit_eligibility",
-          "tableTo": "benefit_employee",
+          "tableTo": "employee",
           "columnsFrom": [
             "override_by"
           ],
@@ -189,10 +189,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "benefit_requests_employee_id_benefit_employee_id_fk": {
-          "name": "benefit_requests_employee_id_benefit_employee_id_fk",
+        "benefit_requests_employee_id_employee_id_fk": {
+          "name": "benefit_requests_employee_id_employee_id_fk",
           "tableFrom": "benefit_requests",
-          "tableTo": "benefit_employee",
+          "tableTo": "employee",
           "columnsFrom": [
             "employee_id"
           ],
@@ -202,10 +202,10 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "benefit_requests_benefit_id_beneefots_id_fk": {
-          "name": "benefit_requests_benefit_id_beneefots_id_fk",
+        "benefit_requests_benefit_id_benefits_id_fk": {
+          "name": "benefit_requests_benefit_id_benefits_id_fk",
           "tableFrom": "benefit_requests",
-          "tableTo": "beneefots",
+          "tableTo": "benefits",
           "columnsFrom": [
             "benefit_id"
           ],
@@ -215,10 +215,10 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "benefit_requests_reviewed_by_benefit_employee_id_fk": {
-          "name": "benefit_requests_reviewed_by_benefit_employee_id_fk",
+        "benefit_requests_reviewed_by_employee_id_fk": {
+          "name": "benefit_requests_reviewed_by_employee_id_fk",
           "tableFrom": "benefit_requests",
-          "tableTo": "benefit_employee",
+          "tableTo": "employee",
           "columnsFrom": [
             "reviewed_by"
           ],
@@ -233,8 +233,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "beneefots": {
-      "name": "beneefots",
+    "benefits": {
+      "name": "benefits",
       "columns": {
         "id": {
           "name": "id",
@@ -323,13 +323,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "sha256_hash": {
-          "name": "sha256_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "effective_date": {
           "name": "effective_date",
           "type": "text",
@@ -355,10 +348,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "contracts_benefit_id_beneefots_id_fk": {
-          "name": "contracts_benefit_id_beneefots_id_fk",
+        "contracts_benefit_id_benefits_id_fk": {
+          "name": "contracts_benefit_id_benefits_id_fk",
           "tableFrom": "contracts",
-          "tableTo": "beneefots",
+          "tableTo": "benefits",
           "columnsFrom": [
             "benefit_id"
           ],
@@ -409,22 +402,24 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": 0
         },
         "is_active": {
           "name": "is_active",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": true
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "eligibility_rules_benefit_id_beneefots_id_fk": {
-          "name": "eligibility_rules_benefit_id_beneefots_id_fk",
+        "eligibility_rules_benefit_id_benefits_id_fk": {
+          "name": "eligibility_rules_benefit_id_benefits_id_fk",
           "tableFrom": "eligibility_rules",
-          "tableTo": "beneefots",
+          "tableTo": "benefits",
           "columnsFrom": [
             "benefit_id"
           ],
@@ -439,8 +434,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "benefit_employee": {
-      "name": "benefit_employee",
+    "employee": {
+      "name": "employee",
       "columns": {
         "id": {
           "name": "id",

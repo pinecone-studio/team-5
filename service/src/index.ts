@@ -71,7 +71,8 @@ const requireClerkAuth: MiddlewareHandler<{ Bindings: Env }> = async (c, next) =
 	await next();
 };
 
-app.all('/graphql', requireClerkAuth, (c) => yoga.fetch(c.req.raw, { env: c.env }));
+app.all('/graphql', (c) => yoga.fetch(c.req.raw, { env: c.env }));
+//  requireClerkAuth left out from this... add later.
 
 app.get('/employees', requireClerkAuth, (c) => {
 	return c.json(employees);

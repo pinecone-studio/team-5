@@ -8,9 +8,9 @@ CREATE TABLE `benefit_eligibility` (
 	`override_reason` text,
 	`override_expires_at` text,
 	PRIMARY KEY(`employee_id`, `benefit_id`),
-	FOREIGN KEY (`employee_id`) REFERENCES `benefit_employee`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`benefit_id`) REFERENCES `beneefots`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`override_by`) REFERENCES `benefit_employee`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`employee_id`) REFERENCES `employee`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`benefit_id`) REFERENCES `benefits`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`override_by`) REFERENCES `employee`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE TABLE `benefit_requests` (
@@ -23,12 +23,12 @@ CREATE TABLE `benefit_requests` (
 	`reviewed_by` text,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL,
-	FOREIGN KEY (`employee_id`) REFERENCES `benefit_employee`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`benefit_id`) REFERENCES `beneefots`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`reviewed_by`) REFERENCES `benefit_employee`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`employee_id`) REFERENCES `employee`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`benefit_id`) REFERENCES `benefits`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`reviewed_by`) REFERENCES `employee`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `beneefots` (
+CREATE TABLE `benefits` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`subsidy_percent` integer NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE `contracts` (
 	`effective_date` text,
 	`expiry_date` text,
 	`is_active` integer DEFAULT true,
-	FOREIGN KEY (`benefit_id`) REFERENCES `beneefots`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`benefit_id`) REFERENCES `benefits`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE TABLE `eligibility_rules` (
@@ -55,7 +55,15 @@ CREATE TABLE `eligibility_rules` (
 	`benefit_id` text NOT NULL,
 	`value` text,
 	`error_message` text NOT NULL,
-	`priority` integer NOT NULL,
-	`is_active` integer NOT NULL,
-	FOREIGN KEY (`benefit_id`) REFERENCES `beneefots`(`id`) ON UPDATE no action ON DELETE no action
+	`priority` integer DEFAULT 0 NOT NULL,
+	`is_active` integer DEFAULT true NOT NULL,
+	FOREIGN KEY (`benefit_id`) REFERENCES `benefits`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `employee` (
+	`id` text PRIMARY KEY NOT NULL,
+	`full_name` text NOT NULL,
+	`status` text DEFAULT 'active',
+	`okr_status` text,
+	`lateCount` integer DEFAULT 0
 );

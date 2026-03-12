@@ -1,15 +1,15 @@
-import { eq } from "drizzle-orm";
+import { eq } from 'drizzle-orm';
 
-import { getDb } from "../../../db/client";
-import { benefits } from "../../../db/schemas/benefits.schema";
+import { getDb } from '../../../db/client';
+import { benefits } from '../../../db/schemas/benefits.schema';
 
 const mapBenefit = (row: typeof benefits.$inferSelect) => ({
 	id: row.id,
 	name: row.name,
 	subsidyPercent: row.subsidy_percent,
 	vendorName: row.vendor_name ?? null,
-	requiresContract: row.requires_contract ?? false,
-	isActive: row.is_active ?? false,
+	requiresContract: row.requires_contract,
+	isActive: row.is_active,
 });
 
 export const benefitMutation = {
@@ -21,28 +21,34 @@ export const benefitMutation = {
 					name: string;
 					subsidyPercent: number;
 					vendorName?: string | null;
-					requiresContract?: boolean | null;
-					isActive?: boolean | null;
+					requiresContract?: number;
+					isActive?: number;
 				};
 			},
-			context: { env: Env },
+			context: { env: Env }
 		) => {
-			const { input } = args;
-			const db = getDb(context.env.DB);
+			try {
+				const { input } = args;
+				const db = getDb(context.env.DB);
 
-			const inserted = await db
-				.insert(benefits)
-				.values({
+				const id = crypto.randomUUID();
+
+				const row = {
+					id,
 					name: input.name,
 					subsidy_percent: input.subsidyPercent,
 					vendor_name: input.vendorName ?? null,
-					requires_contract: input.requiresContract ?? false,
-					is_active: input.isActive ?? true,
-				})
-				.returning()
-				.get();
+					requires_contract: Number(input.requiresContract ?? 0),
+					is_active: Number(input.isActive ?? 0),
+				};
 
-			return mapBenefit(inserted);
+				await db.insert(benefits).values(row).run();
+
+				return mapBenefit(row);
+			} catch (err) {
+				console.log(err);
+				return err;
+			}
 		},
 
 		updateBenefit: async (
@@ -50,14 +56,14 @@ export const benefitMutation = {
 			args: {
 				input: {
 					id: string;
-					name?: string | null;
-					subsidyPercent?: number | null;
+					name?: string;
+					subsidyPercent?: number;
 					vendorName?: string | null;
-					requiresContract?: boolean | null;
-					isActive?: boolean | null;
+					requiresContract?: number;
+					isActive?: number;
 				};
 			},
-			context: { env: Env },
+			context: { env: Env }
 		) => {
 			const { input } = args;
 			const db = getDb(context.env.DB);
@@ -65,45 +71,28 @@ export const benefitMutation = {
 			const updated = await db
 				.update(benefits)
 				.set({
-					...(input.name != null ? { name: input.name } : {}),
-					...(input.subsidyPercent != null
-						? { subsidy_percent: input.subsidyPercent }
-						: {}),
-					...(input.vendorName !== undefined
-						? { vendor_name: input.vendorName }
-						: {}),
-					...(input.requiresContract !== undefined
-						? { requires_contract: input.requiresContract }
-						: {}),
-					...(input.isActive !== undefined
-						? { is_active: input.isActive }
-						: {}),
+					name: input.name,
+					subsidy_percent: input.subsidyPercent,
+					vendor_name: input.vendorName,
+					requires_contract: input.requiresContract,
+					is_active: input.isActive,
 				})
 				.where(eq(benefits.id, input.id))
 				.returning()
 				.get();
 
 			if (!updated) {
-				throw new Error("Benefit not found");
+				throw new Error('Benefit not found');
 			}
 
 			return mapBenefit(updated);
 		},
 
-		deleteBenefit: async (
-			_parent: unknown,
-			args: { id: string },
-			context: { env: Env },
-		) => {
+		deleteBenefit: async (_parent: unknown, args: { id: string }, context: { env: Env }) => {
 			const db = getDb(context.env.DB);
-			const deleted = await db
-				.delete(benefits)
-				.where(eq(benefits.id, args.id))
-				.returning()
-				.get();
+			const deleted = await db.delete(benefits).where(eq(benefits.id, args.id)).returning().get();
 
 			return !!deleted;
 		},
 	},
 };
-

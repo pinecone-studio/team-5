@@ -16,7 +16,6 @@ export const contractTypeDefs = `
     vendorName: String!
     version: String!
     r2ObjectKey: String!
-    sha256Hash: String!
     effectiveDate: String
     expiryDate: String
     isActive: Boolean = true
@@ -44,4 +43,3 @@ export const contractTypeDefs = `
     deleteContract(id: ID!): Boolean!
   }
 `;
-

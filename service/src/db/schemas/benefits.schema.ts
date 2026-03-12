@@ -1,23 +1,22 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { contracts } from './contract.schema';
 
+export const benefits = sqliteTable('benefits', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
 
-export const benefits = sqliteTable("beneefots", {
-    id: text('id')
-        .primaryKey()
-        .$defaultFn(() => crypto.randomUUID()),
+	name: text().notNull(),
 
-    name: text().notNull(),
+	// category: text({ enum: ['wellness', 'equipment', 'financial', 'career', 'flexibility'] }).notNull(),
 
-    // category: text().notNull(),
+	subsidy_percent: integer().notNull(),
 
-    subsidy_percent: integer().notNull(),
+	vendor_name: text(),
 
-    vendor_name: text(),
+	requires_contract: integer(),
 
-    requires_contract: integer({ mode: "boolean" }),
+	// active_contract_id: text().references(() => contracts.id),
 
-    // active_contract_id: text().references(() => contractId) REPLACE WITH CONTRACT ID ONCE SCHEMA IS FINISHED
-
-    is_active: integer({ mode: "boolean" })
-
-})
+	is_active: integer(),
+});

@@ -5,22 +5,22 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1773127403932,
-      "tag": "0000_chubby_ultimates",
+      "when": 1773314564895,
+      "tag": "0000_wise_the_fury",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "6",
-      "when": 1773127580783,
-      "tag": "0001_short_daredevil",
+      "when": 1773328517835,
+      "tag": "0001_silly_franklin_richards",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "6",
-      "when": 1773227894206,
-      "tag": "0002_nosy_mister_fear",
+      "when": 1773328969197,
+      "tag": "0002_confused_groot",
       "breakpoints": true
     }
   ]
