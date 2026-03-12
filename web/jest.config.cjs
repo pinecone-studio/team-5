@@ -5,6 +5,14 @@ const tsJestPreset = createDefaultPreset();
 /** @type {import('jest').Config} */
 module.exports = {
   testEnvironment: "node",
+  testEnvironmentOptions: {
+    /**
+     * Ensure Jest uses the browser build of packages that define
+     * conditional exports (like @apollo/client-integration-nextjs)
+     * so ApolloNextAppProvider does not load the SSR bundle in tests.
+     */
+    customExportConditions: ["browser", "node"],
+  },
   testPathIgnorePatterns: ["/node_modules/"],
   transform: {
     ...tsJestPreset.transform,
