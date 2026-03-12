@@ -1,22 +1,23 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { randomUUID } from "node:crypto";
 import { benefits } from "./benefits.schema";
 
-
 export const eligibility_rules = sqliteTable("eligibility_rules", {
-    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
 
-    benefit_id: text().references(() => benefits.id).notNull(),
+  benefit_id: text("benefit_id")
+    .references(() => benefits.id)
+    .notNull(),
 
-    // rule_type: text(),  status...
+  // JSON object: { type, operator, value, version }
+  value: text("value", { mode: "json" }),
 
-    // operator: text(), eq neg...
+  error_message: text("error_message").notNull(),
 
-    value: text({ mode: "json" }),
+  priority: integer("priority").notNull().default(0),
 
-    error_message: text().notNull(),
-
-    priority: integer().notNull(),
-
-    is_active: integer({ mode: "boolean" }).notNull()
-})
+  is_active: integer("is_active", { mode: "boolean" })
+    .notNull()
+    .default(true),
+});

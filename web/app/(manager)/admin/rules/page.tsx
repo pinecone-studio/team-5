@@ -1,478 +1,493 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Pencil, Plus, X } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { gql } from "@apollo/client";
+import { useMutation, useQuery } from "@apollo/client/react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+const BENEFITS_QUERY = gql`
+  query BenefitsForRules {
+    benefits {
+      id
+      name
+    }
+  }
+`;
 
-const benefitOptions = [
-  "Private Insurance",
-  "Digital Welness",
-  "Shit Happened Days",
-  "Gym - Pinefit",
-  "Remote Work",
-  "Bonus (OKR-based)",
-  "Extra Responsibility",
-  "Advance Payment",
-  "Macbook",
-  "Travel",
+const LATEST_RULE_VERSION_QUERY = gql`
+  query LatestEligibilityRuleVersion($benefitId: ID!) {
+    eligibilityRuleLatestVersion(benefitId: $benefitId)
+  }
+`;
+
+const ELIGIBILITY_RULES_QUERY = gql`
+  query EligibilityRulesForBenefit($benefitId: ID!, $configVersion: Int) {
+    eligibilityRules(
+      benefitId: $benefitId
+      configVersion: $configVersion
+      activeOnly: false
+    ) {
+      id
+      type
+      operator
+      value
+      valueJson
+      configVersion
+      errorMessage
+      priority
+      isActive
+    }
+  }
+`;
+
+const CREATE_RULE_MUTATION = gql`
+  mutation CreateEligibilityRule($input: CreateEligibilityRuleInput!) {
+    createEligibilityRule(input: $input) {
+      id
+      benefitId
+      type
+      operator
+      value
+      valueJson
+      configVersion
+      errorMessage
+      priority
+      isActive
+    }
+  }
+`;
+
+type RuleOperator = "eq" | "neq" | "lt" | "lte" | "gt" | "gte";
+
+interface Benefit {
+  id: string;
+  name: string;
+}
+
+interface EligibilityRule {
+  id: string;
+  type: string;
+  operator: RuleOperator;
+  value: string;
+  valueJson: string;
+  configVersion: number;
+  errorMessage: string;
+  priority: number;
+  isActive: boolean;
+}
+
+interface BenefitsQueryData {
+  benefits: Benefit[];
+}
+
+interface LatestVersionQueryData {
+  eligibilityRuleLatestVersion: number;
+}
+
+interface LatestVersionQueryVariables {
+  benefitId: string;
+}
+
+interface EligibilityRulesQueryData {
+  eligibilityRules: EligibilityRule[];
+}
+
+interface EligibilityRulesQueryVariables {
+  benefitId: string;
+  configVersion?: number;
+}
+
+interface CreateRuleMutationData {
+  createEligibilityRule: EligibilityRule;
+}
+
+interface CreateRuleMutationVariables {
+  input: {
+    benefitId: string;
+    value: string;
+    type?: string;
+    operator?: RuleOperator;
+    configVersion?: number;
+    errorMessage: string;
+    priority?: number;
+    isActive?: boolean;
+  };
+}
+
+const operatorOptions: Array<{ label: string; value: RuleOperator }> = [
+  { label: "Equals", value: "eq" },
+  { label: "Not equals", value: "neq" },
+  { label: "Less than", value: "lt" },
+  { label: "Less than or equal", value: "lte" },
+  { label: "Greater than", value: "gt" },
+  { label: "Greater than or equal", value: "gte" },
 ];
 
-const rules = [
-  {
-    id: 1,
-    type: "Employment Status",
-    condition: "status = active",
-    failMessage: "Must be an active employee",
-  },
-  {
-    id: 2,
-    type: "OKR Submitted",
-    condition: "okr_submitted = true",
-    failMessage: "Must submit current quarter OKR",
-  },
-  {
-    id: 3,
-    type: "Attendance",
-    condition: "late_arrivals < 3",
-    failMessage: "Must have fewer than 3 late arrivals",
-  },
-];
-
-const conditionFields = ["Employment...", "Attendance", "OKR submitted"];
-const conditionOperators = [
-  "Equals",
-  "Not equals",
-  "Greater than",
-  "Less than",
-];
+const operatorSymbol: Record<RuleOperator, string> = {
+  eq: "=",
+  neq: "!=",
+  lt: "<",
+  lte: "<=",
+  gt: ">",
+  gte: ">=",
+};
 
 export default function AdminRulesPage() {
-  const [selectedBenefit, setSelectedBenefit] = useState("Gym - Pinefit");
-  const [isBenefitOpen, setIsBenefitOpen] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [deletingRuleId, setDeletingRuleId] = useState<number | null>(null);
-  const [isDeleteSuccessOpen, setIsDeleteSuccessOpen] = useState(false);
-  const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
-  const [ruleTypeValue, setRuleTypeValue] = useState("Responsibility level");
-  const [conditionField, setConditionField] = useState(conditionFields[0]);
-  const [conditionOperator, setConditionOperator] = useState(
-    conditionOperators[0],
-  );
-  const [conditionValue, setConditionValue] = useState("2");
-  const [failMessageValue, setFailMessageValue] = useState("Level must be 2");
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [selectedBenefitId, setSelectedBenefitId] = useState<string>("");
+  const [ruleType, setRuleType] = useState("employment_status");
+  const [operator, setOperator] = useState<RuleOperator>("eq");
+  const [ruleValue, setRuleValue] = useState("active");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [priority, setPriority] = useState("");
+  const [configVersionInput, setConfigVersionInput] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+
+  const { data: benefitsData, loading: benefitsLoading } =
+    useQuery<BenefitsQueryData>(BENEFITS_QUERY);
 
   useEffect(() => {
-    function handlePointerDown(event: MouseEvent) {
-      if (!dropdownRef.current?.contains(event.target as Node)) {
-        setIsBenefitOpen(false);
-      }
+    if (!selectedBenefitId && benefitsData?.benefits?.length) {
+      setSelectedBenefitId(benefitsData.benefits[0].id);
+    }
+  }, [benefitsData, selectedBenefitId]);
+
+  const selectedBenefit = useMemo(
+    () =>
+      benefitsData?.benefits.find(
+        (benefit) => benefit.id === selectedBenefitId,
+      ),
+    [benefitsData, selectedBenefitId],
+  );
+
+  const {
+    data: latestVersionData,
+    loading: latestVersionLoading,
+    refetch: refetchLatestVersion,
+  } = useQuery<LatestVersionQueryData, LatestVersionQueryVariables>(
+    LATEST_RULE_VERSION_QUERY,
+    {
+      variables: { benefitId: selectedBenefitId },
+      skip: !selectedBenefitId,
+    },
+  );
+
+  const latestVersion = latestVersionData?.eligibilityRuleLatestVersion ?? 1;
+  const selectedVersion = configVersionInput
+    ? Number.parseInt(configVersionInput, 10)
+    : latestVersion;
+
+  const {
+    data: rulesData,
+    loading: rulesLoading,
+    refetch: refetchRules,
+  } = useQuery<EligibilityRulesQueryData, EligibilityRulesQueryVariables>(
+    ELIGIBILITY_RULES_QUERY,
+    {
+      variables: {
+        benefitId: selectedBenefitId,
+        configVersion: Number.isFinite(selectedVersion)
+          ? selectedVersion
+          : latestVersion,
+      },
+      skip: !selectedBenefitId,
+    },
+  );
+
+  const [createRule, { loading: createLoading }] = useMutation<
+    CreateRuleMutationData,
+    CreateRuleMutationVariables
+  >(CREATE_RULE_MUTATION);
+
+  async function handleCreateRule(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitError(null);
+    setSubmitSuccess(null);
+
+    if (!selectedBenefitId) {
+      setSubmitError("Select a benefit first.");
+      return;
     }
 
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, []);
+    const normalizedType = ruleType.trim();
+    if (!normalizedType) {
+      setSubmitError("Rule type is required.");
+      return;
+    }
 
-  const handleEditRule = (ruleId: number) => {
-    setEditingRuleId(ruleId);
-    setRuleTypeValue("Responsibility level");
-    setConditionField(conditionFields[0]);
-    setConditionOperator(conditionOperators[0]);
-    setConditionValue("2");
-    setFailMessageValue("Level must be 2");
-  };
+    const trimmedValue = ruleValue.trim();
+    if (!trimmedValue) {
+      setSubmitError("Condition value is required.");
+      return;
+    }
 
-  const handleAddRule = () => {
-    setIsAddModalOpen(true);
-    setRuleTypeValue("");
-    setConditionField(conditionFields[0]);
-    setConditionOperator(conditionOperators[0]);
-    setConditionValue("");
-    setFailMessageValue("");
-  };
+    const trimmedErrorMessage = errorMessage.trim();
+    if (!trimmedErrorMessage) {
+      setSubmitError("Fail message is required.");
+      return;
+    }
 
-  const closeEditModal = () => setEditingRuleId(null);
-  const closeAddModal = () => setIsAddModalOpen(false);
-  const closeDeleteModal = () => setDeletingRuleId(null);
-  const closeDeleteSuccessModal = () => setIsDeleteSuccessOpen(false);
+    const parsedPriority =
+      priority.trim().length > 0 ? Number.parseInt(priority, 10) : undefined;
+    if (parsedPriority !== undefined && !Number.isFinite(parsedPriority)) {
+      setSubmitError("Priority must be a number.");
+      return;
+    }
 
-  const handleDeleteConfirm = () => {
-    setDeletingRuleId(null);
-    setIsDeleteSuccessOpen(true);
-  };
+    const parsedVersion = configVersionInput.trim().length
+      ? Number.parseInt(configVersionInput, 10)
+      : latestVersion;
+
+    if (!Number.isFinite(parsedVersion) || parsedVersion < 1) {
+      setSubmitError("Config version must be a positive number.");
+      return;
+    }
+
+    await createRule({
+      variables: {
+        input: {
+          benefitId: selectedBenefitId,
+          type: normalizedType,
+          operator,
+          value: trimmedValue,
+          configVersion: parsedVersion,
+          errorMessage: trimmedErrorMessage,
+          priority: parsedPriority,
+          isActive: true,
+        },
+      },
+    })
+      .then(async () => {
+        await Promise.all([refetchLatestVersion(), refetchRules()]);
+        setSubmitSuccess("Rule added successfully.");
+        setRuleValue("");
+        setErrorMessage("");
+        setPriority("");
+      })
+      .catch((error: { message?: string }) => {
+        setSubmitError(error.message ?? "Could not create rule.");
+      });
+  }
 
   return (
-    <>
-      <section className="mx-auto w-full max-w-6xl px-2 py-2 sm:px-4 lg:px-6">
-        <div ref={dropdownRef} className="relative z-20 max-w-[535px]">
-          <label className="mb-3 block text-sm font-medium text-gray-700">
-            Select benefit
-          </label>
-          <button
-            type="button"
-            onClick={() => setIsBenefitOpen((open) => !open)}
-            className="flex h-11 w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 text-left text-base font-medium text-gray-800 shadow-sm outline-none transition hover:border-gray-300"
-            aria-haspopup="listbox"
-            aria-expanded={isBenefitOpen}
-          >
-            <span>{selectedBenefit}</span>
-            <ChevronDown
-              className={`h-5 w-5 text-gray-800 transition-transform ${
-                isBenefitOpen ? "rotate-180" : ""
-              }`}
-            />
-          </button>
-
-          {isBenefitOpen ? (
-            <div className="absolute top-full right-0 left-0 mt-3 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
-              <ul
-                role="listbox"
-                aria-label="Benefit options"
-                className="max-h-[560px] overflow-y-auto py-2"
-              >
-                {benefitOptions.map((option) => (
-                  <li key={option}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedBenefit(option);
-                        setIsBenefitOpen(false);
-                      }}
-                      className="w-full px-4 py-3 text-left text-base text-gray-800 transition hover:bg-gray-50"
-                    >
-                      {option}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="mt-8 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <table className="w-full border-collapse">
-            <thead className="bg-white">
-              <tr className="border-b border-gray-200 text-left">
-                <th className="w-16 px-4 py-4 text-xs font-semibold tracking-wide text-gray-900 uppercase">
-                  #
-                </th>
-                <th className="px-4 py-4 text-xs font-semibold tracking-wide text-gray-900 uppercase">
-                  Rule Type
-                </th>
-                <th className="px-4 py-4 text-xs font-semibold tracking-wide text-gray-900 uppercase">
-                  Condition
-                </th>
-                <th className="px-4 py-4 text-xs font-semibold tracking-wide text-gray-900 uppercase">
-                  Fail Message
-                </th>
-                <th className="w-32 px-4 py-4 text-xs font-semibold tracking-wide text-gray-900 uppercase">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rules.map((rule) => (
-                <tr
-                  key={rule.id}
-                  className="border-b border-gray-200 last:border-b-0"
-                >
-                  <td className="px-4 py-5 text-base text-gray-700">
-                    {rule.id}
-                  </td>
-                  <td className="px-4 py-5 text-[15px] font-medium text-gray-900">
-                    {rule.type}
-                  </td>
-                  <td className="px-4 py-5 font-mono text-[15px] text-gray-600">
-                    {rule.condition}
-                  </td>
-                  <td className="px-4 py-5 text-[15px] text-gray-600">
-                    {rule.failMessage}
-                  </td>
-                  <td className="px-4 py-5">
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <button
-                        type="button"
-                        onClick={() => handleEditRule(rule.id)}
-                        className="rounded-md p-0.5 transition hover:bg-gray-100 hover:text-gray-600"
-                        aria-label={`Edit rule ${rule.id}`}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeletingRuleId(rule.id)}
-                        className="rounded-md p-0.5 transition hover:bg-gray-100 hover:text-gray-600"
-                        aria-label={`Delete rule ${rule.id}`}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <Button
-          variant="outline"
-          onClick={handleAddRule}
-          className="mt-8 h-9 rounded-lg border-gray-200 px-3 text-sm font-medium text-gray-800 shadow-sm"
+    <section className="mx-auto w-full max-w-6xl px-2 py-2 sm:px-4 lg:px-6">
+      <div className="grid gap-6 lg:grid-cols-[1.05fr_1.35fr]">
+        <form
+          onSubmit={handleCreateRule}
+          className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
         >
-          <Plus className="h-3.5 w-3.5" />
-          Add rule
-        </Button>
-      </section>
+          <h1 className="text-lg font-semibold text-gray-900">
+            Eligibility rule configuration
+          </h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Add rules without deleting existing ones. Rules are versioned per
+            benefit.
+          </p>
 
-      {editingRuleId !== null ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4">
-          <div className="w-full max-w-[560px] rounded-3xl bg-[#f5f5f5] p-6 shadow-2xl">
-            <h2 className="text-xl font-semibold tracking-tight text-gray-900">
-              Edit New Rule
-            </h2>
+          <div className="mt-5 space-y-4">
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                Benefit
+              </span>
+              <select
+                className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-gray-500"
+                value={selectedBenefitId}
+                onChange={(event) => setSelectedBenefitId(event.target.value)}
+                disabled={benefitsLoading || !benefitsData?.benefits?.length}
+              >
+                {!benefitsData?.benefits?.length ? (
+                  <option value="">No benefits found</option>
+                ) : null}
+                {benefitsData?.benefits?.map((benefit) => (
+                  <option key={benefit.id} value={benefit.id}>
+                    {benefit.name}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-            <div className="mt-6 space-y-5">
-              <div>
-                <label className="mb-2 block text-base font-medium text-slate-500">
-                  Rule Type
-                </label>
-                <Input
-                  value={ruleTypeValue}
-                  onChange={(event) => setRuleTypeValue(event.target.value)}
-                  className="h-11 rounded-xl border-[3px] border-gray-400 bg-white px-4 text-base text-gray-800 shadow-none focus-visible:border-gray-400 focus-visible:ring-0"
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Rule type
+                </span>
+                <input
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-gray-500"
+                  value={ruleType}
+                  onChange={(event) => setRuleType(event.target.value)}
+                  placeholder="employment_status"
                 />
-              </div>
+              </label>
 
-              <div>
-                <label className="mb-2 block text-base font-medium text-slate-500">
-                  Condition
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="relative">
-                    <select
-                      value={conditionField}
-                      onChange={(event) =>
-                        setConditionField(event.target.value)
-                      }
-                      className="h-11 w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
-                    >
-                      {conditionFields.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  </div>
-
-                  <div className="relative">
-                    <select
-                      value={conditionOperator}
-                      onChange={(event) =>
-                        setConditionOperator(event.target.value)
-                      }
-                      className="h-11 w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
-                    >
-                      {conditionOperators.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  </div>
-
-                  <Input
-                    value={conditionValue}
-                    onChange={(event) => setConditionValue(event.target.value)}
-                    className="h-11 rounded-xl border border-gray-300 bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-base font-medium text-slate-500">
-                  Fail message
-                </label>
-                <Input
-                  value={failMessageValue}
-                  onChange={(event) => setFailMessageValue(event.target.value)}
-                  className="h-11 rounded-xl border border-gray-300 bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
-                />
-              </div>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Operator
+                </span>
+                <select
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-gray-500"
+                  value={operator}
+                  onChange={(event) =>
+                    setOperator(event.target.value as RuleOperator)
+                  }
+                >
+                  {operatorOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
 
-            <div className="mt-6 flex justify-end gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeEditModal}
-                className="h-10 min-w-24 rounded-xl border border-gray-300 bg-white px-4 text-base font-medium text-gray-800 shadow-none hover:bg-gray-50"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={closeEditModal}
-                className="h-10 min-w-24 rounded-xl bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700"
-              >
-                Save
-              </Button>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                Expected value
+              </span>
+              <input
+                className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-gray-500"
+                value={ruleValue}
+                onChange={(event) => setRuleValue(event.target.value)}
+                placeholder='active, true, 3, or JSON like {"min":2}'
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                Fail message
+              </span>
+              <input
+                className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-gray-500"
+                value={errorMessage}
+                onChange={(event) => setErrorMessage(event.target.value)}
+                placeholder="Explain why a user is not eligible."
+              />
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Priority (optional)
+                </span>
+                <input
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-gray-500"
+                  value={priority}
+                  onChange={(event) => setPriority(event.target.value)}
+                  placeholder="Auto if empty"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Config version
+                </span>
+                <input
+                  className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-gray-500"
+                  value={configVersionInput}
+                  onChange={(event) =>
+                    setConfigVersionInput(event.target.value)
+                  }
+                  placeholder={`Latest: ${latestVersion}`}
+                />
+              </label>
             </div>
+
+            <button
+              type="submit"
+              className="inline-flex h-10 items-center justify-center rounded-lg bg-gray-900 px-4 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={createLoading || !selectedBenefitId}
+            >
+              {createLoading ? "Adding..." : "Add rule"}
+            </button>
+
+            {submitError ? (
+              <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {submitError}
+              </p>
+            ) : null}
+            {submitSuccess ? (
+              <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                {submitSuccess}
+              </p>
+            ) : null}
           </div>
-        </div>
-      ) : null}
+        </form>
 
-      {isAddModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4">
-          <div className="w-full max-w-[560px] rounded-3xl bg-[#f5f5f5] p-6 shadow-2xl">
-            <h2 className="text-xl font-semibold tracking-tight text-gray-900">
-              Add New Rule
-            </h2>
-
-            <div className="mt-6 space-y-5">
-              <div>
-                <label className="mb-2 block text-base font-medium text-slate-500">
-                  Rule Type
-                </label>
-                <Input
-                  value={ruleTypeValue}
-                  onChange={(event) => setRuleTypeValue(event.target.value)}
-                  placeholder="I.e.g. Employment Status"
-                  className="h-11 rounded-xl border-[3px] border-gray-400 bg-white px-4 text-base text-gray-800 shadow-none focus-visible:border-gray-400 focus-visible:ring-0"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-base font-medium text-slate-500">
-                  Condition
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="relative">
-                    <select
-                      value={conditionField}
-                      onChange={(event) =>
-                        setConditionField(event.target.value)
-                      }
-                      className="h-11 w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
-                    >
-                      {conditionFields.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  </div>
-
-                  <div className="relative">
-                    <select
-                      value={conditionOperator}
-                      onChange={(event) =>
-                        setConditionOperator(event.target.value)
-                      }
-                      className="h-11 w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
-                    >
-                      {conditionOperators.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  </div>
-
-                  <Input
-                    value={conditionValue}
-                    onChange={(event) => setConditionValue(event.target.value)}
-                    placeholder="Value"
-                    className="h-11 rounded-xl border border-gray-300 bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-base font-medium text-slate-500">
-                  Fail message
-                </label>
-                <Input
-                  value={failMessageValue}
-                  onChange={(event) => setFailMessageValue(event.target.value)}
-                  placeholder="Message shown when rule fails"
-                  className="h-11 rounded-xl border border-gray-300 bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
-                />
-              </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Active version snapshot
+              </h2>
+              <p className="mt-1 text-sm text-gray-600">
+                {selectedBenefit?.name ?? "Select a benefit"} · version{" "}
+                {latestVersionLoading ? "..." : latestVersion}
+              </p>
             </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeAddModal}
-                className="h-10 min-w-24 rounded-xl border border-gray-300 bg-white px-4 text-base font-medium text-gray-800 shadow-none hover:bg-gray-50"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={closeAddModal}
-                className="h-10 min-w-24 rounded-xl bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700"
-              >
-                Add
-              </Button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void refetchLatestVersion();
+                void refetchRules();
+              }}
+              className="h-9 rounded-lg border border-gray-300 px-3 text-sm text-gray-700 transition hover:bg-gray-50"
+            >
+              Refresh
+            </button>
           </div>
-        </div>
-      ) : null}
 
-      {deletingRuleId !== null ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4">
-          <div className="w-full max-w-[360px] rounded-[24px] bg-[#f5f5f5] px-6 py-6 shadow-2xl">
-            <h2 className="text-center text-xl font-medium leading-tight text-gray-900">
-              Do you want to delete this rule?
-            </h2>
-
-            <div className="mt-7 flex justify-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeDeleteModal}
-                className="h-9 min-w-20 rounded-xl border border-gray-300 bg-white px-5 text-base font-medium text-gray-800 shadow-none hover:bg-gray-50"
-              >
-                No
-              </Button>
-              <Button
-                type="button"
-                onClick={handleDeleteConfirm}
-                className="h-9 min-w-20 rounded-xl bg-blue-600 px-5 text-base font-medium text-white hover:bg-blue-700"
-              >
-                Yes
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {isDeleteSuccessOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4">
-          <div
-            className="w-full max-w-[360px] rounded-[24px] bg-[#f5f5f5] px-6 py-7 text-center shadow-2xl"
-            onClick={closeDeleteSuccessModal}
-          >
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#c9efd8]">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full border-[3px] border-emerald-600 text-emerald-600">
-                <Check className="h-4 w-4" strokeWidth={3} />
-              </div>
-            </div>
-
-            <p className="mt-6 text-2xl font-medium leading-[1.3] tracking-tight text-black">
-              The rule has been deleted successfully.
+          {rulesLoading ? (
+            <p className="mt-6 text-sm text-gray-500">Loading rules...</p>
+          ) : !rulesData?.eligibilityRules?.length ? (
+            <p className="mt-6 rounded-lg border border-dashed border-gray-300 px-4 py-5 text-sm text-gray-600">
+              No rules for this benefit/version yet.
             </p>
-          </div>
+          ) : (
+            <div className="mt-5 overflow-hidden rounded-xl border border-gray-200">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-gray-50">
+                  <tr className="text-left text-xs tracking-wide text-gray-700 uppercase">
+                    <th className="px-3 py-2">#</th>
+                    <th className="px-3 py-2">Rule Type</th>
+                    <th className="px-3 py-2">Condition</th>
+                    <th className="px-3 py-2">Fail Message</th>
+                    <th className="px-3 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rulesData.eligibilityRules.map((rule) => (
+                    <tr key={rule.id} className="border-t border-gray-200">
+                      <td className="px-3 py-2 text-gray-700">
+                        {rule.priority}
+                      </td>
+                      <td className="px-3 py-2 font-medium text-gray-900">
+                        {rule.type}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-gray-700">
+                        {rule.type} {operatorSymbol[rule.operator]}{" "}
+                        {rule.valueJson}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700">
+                        {rule.errorMessage}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                            rule.isActive
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-gray-200 text-gray-700"
+                          }`}
+                        >
+                          {rule.isActive ? "Active" : "Disabled"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      ) : null}
-    </>
+      </div>
+    </section>
   );
 }

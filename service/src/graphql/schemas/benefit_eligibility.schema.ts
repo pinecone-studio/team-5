@@ -35,8 +35,13 @@ export const benefitEligibilityTypeDefs = `
     overrideExpiresAt: String
   }
 
+  input RecomputeBenefitEligibilityInput {
+    employeeId: ID!
+    benefitId: ID!
+  }
+
   extend type Mutation {
     upsertBenefitEligibility(input: UpdateBenefitEligibilityInput!): BenefitEligibility!
+    recomputeBenefitEligibility(input: RecomputeBenefitEligibilityInput!): BenefitEligibility!
   }
 `;
-

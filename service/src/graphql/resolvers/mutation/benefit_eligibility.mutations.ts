@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 
 import { getDb } from "../../../db/client";
 import { benefit_eligibility } from "../../../db/schemas/benefit_eligibility.schema";
+import { recomputeBenefitEligibility } from "../shared/benefit-eligibility-engine";
 
 const mapEligibility = (row: typeof benefit_eligibility.$inferSelect) => ({
   employeeId: row.employee_id,
@@ -13,6 +14,24 @@ const mapEligibility = (row: typeof benefit_eligibility.$inferSelect) => ({
   overrideReason: row.override_reason ?? null,
   overrideExpiresAt: row.override_expires_at ?? null,
 });
+
+function hasManualFields(input: {
+  status?: string | null;
+  ruleEvaluationJson?: string | null;
+  computedAt?: string | null;
+  overrideBy?: string | null;
+  overrideReason?: string | null;
+  overrideExpiresAt?: string | null;
+}): boolean {
+  return (
+    input.status !== undefined ||
+    input.ruleEvaluationJson !== undefined ||
+    input.computedAt !== undefined ||
+    input.overrideBy !== undefined ||
+    input.overrideReason !== undefined ||
+    input.overrideExpiresAt !== undefined
+  );
+}
 
 export const benefitEligibilityMutation = {
   Mutation: {
@@ -34,6 +53,15 @@ export const benefitEligibilityMutation = {
     ) => {
       const db = getDb(context.env.DB);
       const { input } = args;
+      const shouldUseRuleEngine = !hasManualFields(input);
+
+      if (shouldUseRuleEngine) {
+        const computed = await recomputeBenefitEligibility(db, {
+          employeeId: input.employeeId,
+          benefitId: input.benefitId,
+        });
+        return mapEligibility(computed.row);
+      }
 
       const existing = await db
         .select()
@@ -73,10 +101,20 @@ export const benefitEligibilityMutation = {
         .set({
           ...(input.status != null ? { status: input.status as any } : {}),
           ...(input.ruleEvaluationJson !== undefined
-            ? { rule_evaluation_json: JSON.parse(input.ruleEvaluationJson!) }
+            ? {
+                rule_evaluation_json:
+                  input.ruleEvaluationJson != null
+                    ? JSON.parse(input.ruleEvaluationJson)
+                    : [],
+              }
             : {}),
-          ...(input.computedAt !== null
-            ? { computed_at: input.computedAt }
+          ...(input.computedAt !== undefined
+            ? {
+                computed_at:
+                  input.computedAt != null
+                    ? input.computedAt
+                    : new Date().toISOString(),
+              }
             : {}),
           ...(input.overrideBy !== undefined
             ? { override_by: input.overrideBy }
@@ -99,6 +137,20 @@ export const benefitEligibilityMutation = {
 
       return mapEligibility(updated);
     },
+
+    recomputeBenefitEligibility: async (
+      _parent: unknown,
+      args: {
+        input: {
+          employeeId: string;
+          benefitId: string;
+        };
+      },
+      context: { env: Env },
+    ) => {
+      const db = getDb(context.env.DB);
+      const computed = await recomputeBenefitEligibility(db, args.input);
+      return mapEligibility(computed.row);
+    },
   },
 };
-
