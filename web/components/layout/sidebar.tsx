@@ -3,11 +3,12 @@ import { cn } from "@/lib/utils"
 import {
   ArrowLeftRight,
   BriefcaseBusiness,
+  CircleHelp,
   ClipboardList,
   FileCheck2,
-  LayoutDashboard,
+  FileText,
+  Gift,
   Scale,
-  UserCircle,
   Users,
 } from "lucide-react"
 
@@ -23,16 +24,22 @@ export interface NavItem {
 
 export const employeeNav: NavItem[] = [
   {
-    label: "Dashboard",
+    label: "My Benefits",
     href: "/dashboard",
-    icon: LayoutDashboard,
-    subtitle: "Нэвтэрсэн ажилтны үндсэн хуудас",
+    icon: Gift,
+    subtitle: "Танд хамаарах benefits болон eligibility",
   },
   {
-    label: "Profile",
-    href: "/profile",
-    icon: UserCircle,
-    subtitle: "Хувийн мэдээлэл, тохиргоо",
+    label: "My Requests",
+    href: "/requests",
+    icon: FileText,
+    subtitle: "Илгээсэн хүсэлт, approval статус",
+  },
+  {
+    label: "Help",
+    href: "/help",
+    icon: CircleHelp,
+    subtitle: "FAQ, support болон гарын авлага",
   },
 ]
 
