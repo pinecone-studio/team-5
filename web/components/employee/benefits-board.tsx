@@ -184,5 +184,52 @@ export default function BenefitsBoard() {
     selectedCategory === "all" ? true : benefit.category === selectedCategory,
   );
 
-  return <section></section>;
+  return (
+    <section className="space-y-8">
+      <div className="flex flex-wrap gap-2">
+        {filters.map((filter) => (
+          <button
+            key={filter.value}
+            type="button"
+            onClick={() => setSelectedCategory(filter.value)}
+            className={cn(
+              "rounded-full border px-4 py-2 text-sm font-medium transition",
+              selectedCategory === filter.value
+                ? "border-gray-900 bg-gray-900 text-white"
+                : "border-gray-200 bg-white text-gray-700 hover:border-gray-300",
+            )}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-8">
+        {sections.map((section) => {
+          const sectionBenefits = visibleBenefits.filter(
+            (benefit) => benefit.status === section.key,
+          );
+
+          if (sectionBenefits.length === 0) return null;
+
+          return (
+            <div key={section.key} className="space-y-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {section.title}
+                </h2>
+                <p className="text-sm text-gray-500">{section.description}</p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {sectionBenefits.map((benefit) => (
+                  <BenefitCard key={benefit.title} benefit={benefit} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
