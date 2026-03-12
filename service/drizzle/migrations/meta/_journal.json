@@ -22,6 +22,13 @@
       "when": 1773328969197,
       "tag": "0002_confused_groot",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1773331842780,
+      "tag": "0003_known_supreme_intelligence",
+      "breakpoints": true
     }
   ]
 }

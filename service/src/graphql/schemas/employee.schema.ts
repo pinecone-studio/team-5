@@ -33,6 +33,7 @@ export const employeeTypeDefs = `
     department: String!
     responsibilityLevel: Int!
     status: EmployeeStatus
+    hireDate: String
     ): Employee!
 
     updateEmployee(

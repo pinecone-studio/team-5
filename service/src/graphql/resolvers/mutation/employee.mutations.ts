@@ -3,13 +3,17 @@ import { getDb } from '../../../db/client';
 import { employee } from '../../../db/schemas/employee.schema';
 
 type EmployeeStatus = 'active' | 'terminated' | 'leave' | 'probation';
-type EmployeeOkrStatus = 'submitted' | 'success' | 'fail';
 
 const mapEmployee = (row: typeof employee.$inferSelect) => ({
 	id: row.id,
 	fullName: row.full_name,
+	email: row.email,
+	role: row.role,
+	department: row.department,
+	responsibilityLevel: row.responsibility_level,
+	hireDate: row.hire_date,
 	status: row.status,
-	okrStatus: row.okr_status,
+	okrSubmitted: row.okr_submitted,
 	lateCount: row.lateCount ?? 0,
 });
 
@@ -19,24 +23,37 @@ export const employeeMutation = {
 			_parent: unknown,
 			args: {
 				fullName: string;
+				email: string;
+				role: string;
+				department: string;
+				responsibilty_level: number;
 				status?: EmployeeStatus | null;
-				okrStatus?: EmployeeOkrStatus | null;
+				hireDate: string;
 				lateCount?: number | null;
 			},
-			context: { env: Env },
+			context: { env: Env }
 		) => {
 			const db = getDb(context.env.DB);
 
-			const inserted = await db
-				.insert(employee)
-				.values({
-					full_name: args.fullName,
-					status: args.status ?? 'active',
-					okr_status: args.okrStatus ?? null,
-					lateCount: args.lateCount ?? 0,
-				})
-				.returning()
-				.get();
+			const id = crypto.randomUUID();
+
+			const row = {
+				id,
+				full_name: args.fullName,
+				email: args.email,
+				role: args.role,
+				department: args.department,
+				responsibility_level: args.responsibilty_level,
+				hire_date: args.hireDate,
+				status: args.status ?? 'active',
+				okr_submitted: 0,
+				lateCount: args.lateCount ?? 0,
+				lateCount_updated_at: null,
+				createdAt: new Date().toISOString(),
+				updatedAt: null,
+			};
+
+			const inserted = await db.insert(employee).values(row).returning().get();
 
 			return mapEmployee(inserted);
 		},
@@ -47,10 +64,10 @@ export const employeeMutation = {
 				id: string;
 				fullName?: string | null;
 				status?: EmployeeStatus | null;
-				okrStatus?: EmployeeOkrStatus | null;
+				okrSubmitted?: number;
 				lateCount?: number | null;
 			},
-			context: { env: Env },
+			context: { env: Env }
 		) => {
 			const db = getDb(context.env.DB);
 
@@ -59,7 +76,7 @@ export const employeeMutation = {
 				.set({
 					...(args.fullName != null ? { full_name: args.fullName } : {}),
 					...(args.status != null ? { status: args.status } : {}),
-					...(args.okrStatus !== undefined ? { okr_status: args.okrStatus } : {}),
+					...(args.okrSubmitted !== undefined ? { okr_submitted: args.okrSubmitted } : {}),
 					...(args.lateCount != null ? { lateCount: args.lateCount } : {}),
 				})
 				.where(eq(employee.id, args.id))
