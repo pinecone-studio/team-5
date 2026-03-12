@@ -2,8 +2,11 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import {
   ArrowLeftRight,
+  BriefcaseBusiness,
   ClipboardList,
+  FileCheck2,
   LayoutDashboard,
+  Scale,
   UserCircle,
   Users,
 } from "lucide-react"
@@ -35,17 +38,35 @@ export const employeeNav: NavItem[] = [
 
 export const adminNav: NavItem[] = [
   {
-    label: "Admin",
-    href: "/admin",
-    icon: ClipboardList,
-    subtitle: "Admin/HR хяналтын самбар",
+    label: "Employees",
+    href: "/admin/employees",
+    icon: Users,
+    subtitle: "Хэрэглэгчийн удирдлага",
+  },
+  {
+    label: "Requests",
+    href: "/admin/requests",
+    icon: BriefcaseBusiness,
+    subtitle: "Ажилтны хүсэлтүүд, шалгалт",
     showPendingBadge: true,
   },
   {
-    label: "Employees",
-    href: "/admin/users",
-    icon: Users,
-    subtitle: "Хэрэглэгчийн удирдлага",
+    label: "Rules",
+    href: "/admin/rules",
+    icon: Scale,
+    subtitle: "Benefit eligibility rules",
+  },
+  {
+    label: "Contract",
+    href: "/admin/contract",
+    icon: FileCheck2,
+    subtitle: "Гэрээ болон нөхцөлийн тохиргоо",
+  },
+  {
+    label: "Activity Log",
+    href: "/admin/activity-log",
+    icon: ClipboardList,
+    subtitle: "Өөрчлөлтийн түүх, аудит",
   },
 ]
 
@@ -59,8 +80,10 @@ interface SidebarProps {
   onNavigate?: () => void
 }
 
-function isPathActive(currentPath: string, itemPath: string) {
-  return currentPath === itemPath || currentPath.startsWith(`${itemPath}/`)
+export function getActiveNavItem(currentPath: string, navItems: NavItem[]) {
+  return [...navItems]
+    .sort((left, right) => right.href.length - left.href.length)
+    .find((item) => currentPath === item.href || currentPath.startsWith(`${item.href}/`))
 }
 
 export function Sidebar({
@@ -73,8 +96,9 @@ export function Sidebar({
   onNavigate,
 }: SidebarProps) {
   const navItems = role === "admin" ? adminNav : employeeNav
-  const defaultPath = role === "admin" ? "/admin" : "/dashboard"
+  const defaultPath = role === "admin" ? adminNav[0]?.href ?? "/admin" : "/dashboard"
   const currentPath = activePath ?? defaultPath
+  const activeItem = getActiveNavItem(currentPath, navItems)
   const initial = userName.trim().charAt(0).toUpperCase() || "U"
 
   return (
@@ -87,7 +111,7 @@ export function Sidebar({
 
       <nav className="flex-1 space-y-1 px-3">
         {navItems.map((item) => {
-          const isActive = isPathActive(currentPath, item.href)
+          const isActive = activeItem?.href === item.href
           const showBadge =
             item.showPendingBadge &&
             typeof pendingRequestCount === "number" &&

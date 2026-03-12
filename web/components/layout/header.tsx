@@ -1,4 +1,5 @@
 import { Bell, Menu } from "lucide-react"
+import SessionBadge from "@/components/session-badge"
 
 interface HeaderProps {
   title: string
@@ -13,8 +14,6 @@ export function Header({
   userName = "User",
   onMenuClick,
 }: HeaderProps) {
-  const initial = userName.trim().charAt(0).toUpperCase() || "U"
-
   return (
     <header className="flex flex-col gap-4 border-b border-gray-200 bg-white px-4 py-4 sm:px-6 lg:px-8 lg:py-5">
       <div className="flex items-start justify-between gap-4">
@@ -43,14 +42,7 @@ export function Header({
           >
             <Bell className="h-5 w-5" />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
-              {initial}
-            </div>
-            <span className="hidden text-sm font-medium text-gray-700 sm:inline">
-              {userName}
-            </span>
-          </div>
+          <SessionBadge fallbackName={userName} />
         </div>
       </div>
     </header>
