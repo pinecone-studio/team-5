@@ -1,94 +1,85 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Bind resources to your worker in `wrangler.jsonc`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
-
+import { createClerkClient } from '@clerk/backend';
 import { Hono } from 'hono';
-import { desc, eq } from 'drizzle-orm';
+import type { MiddlewareHandler } from 'hono';
+import { cors } from 'hono/cors';
 
-import { getDb } from './db/client';
 import { yoga } from './server';
 import { employees } from './mockEmployees/employees';
 import { employeeTimeData } from './mockEmployees/employee-time-data';
 
 interface Env {
 	DB: D1Database;
+	CLERK_SECRET_KEY?: string;
+	CLERK_PUBLISHABLE_KEY?: string;
+	CLERK_JWT_KEY?: string;
+	FRONTEND_ORIGIN?: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
 
+app.use(
+	'*',
+	cors({
+		origin: (origin, c) => c.env.FRONTEND_ORIGIN ?? origin ?? '*',
+		allowHeaders: ['Authorization', 'Content-Type'],
+		allowMethods: ['GET', 'POST', 'OPTIONS'],
+	})
+);
+
 app.get('/', (c) => c.text('Hello, World!'));
 
-app.all('/graphql', (c) => yoga.fetch(c.req.raw, { env: c.env }));
+function getMissingClerkKeys(env: Env): string[] {
+	return [
+		env.CLERK_SECRET_KEY ? null : 'CLERK_SECRET_KEY',
+		env.CLERK_PUBLISHABLE_KEY ? null : 'CLERK_PUBLISHABLE_KEY',
+		env.FRONTEND_ORIGIN ? null : 'FRONTEND_ORIGIN',
+	].filter((value): value is string => value != null);
+}
 
-app.get('/employees', (c) => {
-	return c.json(employees)
-})
+const requireClerkAuth: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
+	const missingClerkKeys = getMissingClerkKeys(c.env);
 
-app.get('/employee-time-data', (c) => {
-	return c.json(employeeTimeData)
-})
+	if (missingClerkKeys.length > 0) {
+		return c.json(
+			{
+				error: 'Missing Clerk configuration',
+				missingKeys: missingClerkKeys,
+			},
+			503
+		);
+	}
 
+	const clerk = createClerkClient({
+		secretKey: c.env.CLERK_SECRET_KEY!,
+		publishableKey: c.env.CLERK_PUBLISHABLE_KEY!,
+	});
 
-// app.get('/todos', async (c) => {
-// 	const db = getDb(c.env.DB);
-// 	const rows = await db.select().from(todos).orderBy(desc(todos.id)).all();
-// 	return c.json(rows);
-// });
+	const authState = await clerk.authenticateRequest(c.req.raw, {
+		acceptsToken: 'session_token',
+		authorizedParties: [c.env.FRONTEND_ORIGIN!],
+		...(c.env.CLERK_JWT_KEY ? { jwtKey: c.env.CLERK_JWT_KEY } : {}),
+	});
 
-// app.post('/todos', async (c) => {
-// 	const body: unknown = await c.req.json().catch(() => ({}));
-// 	const title =
-// 		typeof body === 'object' && body !== null && 'title' in body && typeof (body as { title?: unknown }).title === 'string'
-// 			? (body as { title: string }).title.trim()
-// 			: '';
-// 	if (!title) return c.json({ error: 'title is required' }, 400);
+	if (!authState.isAuthenticated) {
+		const response = c.json({ error: 'Unauthorized' }, 401);
+		authState.headers.forEach((value, key) => {
+			response.headers.set(key, value);
+		});
+		return response;
+	}
 
-// 	const db = getDb(c.env.DB);
-// 	const inserted = await db.insert(todos).values({ title }).returning().get();
-// 	return c.json(inserted, 201);
-// });
+	await next();
+};
 
-// app.patch('/todos/:id', async (c) => {
-// 	const id = Number(c.req.param('id'));
-// 	if (!Number.isInteger(id)) return c.json({ error: 'invalid id' }, 400);
+app.all('/graphql', requireClerkAuth, (c) => yoga.fetch(c.req.raw, { env: c.env }));
 
-// 	const body: unknown = await c.req.json().catch(() => ({}));
-// 	const completed =
-// 		typeof body === 'object' && body !== null && 'completed' in body && typeof (body as { completed?: unknown }).completed === 'boolean'
-// 			? (body as { completed: boolean }).completed
-// 			: undefined;
-// 	const title =
-// 		typeof body === 'object' && body !== null && 'title' in body && typeof (body as { title?: unknown }).title === 'string'
-// 			? (body as { title: string }).title.trim()
-// 			: undefined;
+app.get('/employees', requireClerkAuth, (c) => {
+	return c.json(employees);
+});
 
-// 	if (completed === undefined && title === undefined) {
-// 		return c.json({ error: 'nothing to update' }, 400);
-// 	}
-
-// 	const db = getDb(c.env.DB);
-// 	const updated = await db
-// 		.update(todos)
-// 		.set({
-// 			...(completed === undefined ? {} : { completed }),
-// 			...(title === undefined ? {} : { title }),
-// 		})
-// 		.where(eq(todos.id, id))
-// 		.returning()
-// 		.get();
-
-// 	if (!updated) return c.json({ error: 'not found' }, 404);
-// 	return c.json(updated);
-// });
+app.get('/employee-time-data', requireClerkAuth, (c) => {
+	return c.json(employeeTimeData);
+});
 
 export default {
 	fetch: app.fetch,
