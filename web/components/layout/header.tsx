@@ -2,22 +2,15 @@ import { Bell, Menu } from "lucide-react"
 import SessionBadge from "@/components/session-badge"
 
 interface HeaderProps {
-  title: string
-  subtitle?: string
   userName?: string
   onMenuClick?: () => void
 }
 
-export function Header({
-  title,
-  subtitle,
-  userName = "User",
-  onMenuClick,
-}: HeaderProps) {
+export function Header({ userName = "User", onMenuClick }: HeaderProps) {
   return (
-    <header className="flex flex-col gap-4 border-b border-gray-200 bg-white px-4 py-4 sm:px-6 lg:px-8 lg:py-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
+    <header className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6 lg:px-8 lg:py-5">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onMenuClick}
@@ -26,12 +19,6 @@ export function Header({
           >
             <Menu className="h-5 w-5" />
           </button>
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
-            {subtitle ? (
-              <p className="mt-0.5 text-sm text-gray-500">{subtitle}</p>
-            ) : null}
-          </div>
         </div>
 
         <div className="flex items-center gap-4">

@@ -132,7 +132,7 @@ function BenefitCard({ benefit }: { benefit: BenefitItem }) {
   const Icon = benefit.icon;
 
   return (
-    <article className="rounded-[1.6rem] border border-gray-200 bg-white p-4 shadow-sm">
+    <article className="rounded-2xl border border-gray-200 bg-white p-4">
       <div className="flex items-start justify-between gap-2.5">
         <div className="flex items-center gap-2.5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-500">
@@ -185,26 +185,28 @@ export default function BenefitsBoard() {
   );
 
   return (
-    <section className="space-y-8">
-      <div className="flex flex-wrap gap-2">
-        {filters.map((filter) => (
-          <button
-            key={filter.value}
-            type="button"
-            onClick={() => setSelectedCategory(filter.value)}
-            className={cn(
-              "rounded-full border px-4 py-2 text-sm font-medium transition",
-              selectedCategory === filter.value
-                ? "border-gray-900 bg-gray-900 text-white"
-                : "border-gray-200 bg-white text-gray-700 hover:border-gray-300",
-            )}
-          >
-            {filter.label}
-          </button>
-        ))}
+    <section className="w-full space-y-10">
+      <div className="rounded-2xl border border-gray-200 bg-white p-1.5">
+        <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-5">
+          {filters.map((filter) => (
+            <button
+              key={filter.value}
+              type="button"
+              onClick={() => setSelectedCategory(filter.value)}
+              className={cn(
+                "min-h-12 rounded-xl px-4 py-3 text-center text-base font-medium transition",
+                selectedCategory === filter.value
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-900 hover:bg-gray-50",
+              )}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-10">
         {sections.map((section) => {
           const sectionBenefits = visibleBenefits.filter(
             (benefit) => benefit.status === section.key,
@@ -214,11 +216,13 @@ export default function BenefitsBoard() {
 
           return (
             <div key={section.key} className="space-y-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">
+              <div className="flex flex-wrap items-baseline gap-2.5">
+                <h2 className="text-[1.05rem] font-semibold text-gray-900">
                   {section.title}
                 </h2>
-                <p className="text-sm text-gray-500">{section.description}</p>
+                <p className="text-base text-gray-500">
+                  {section.description} ({sectionBenefits.length})
+                </p>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

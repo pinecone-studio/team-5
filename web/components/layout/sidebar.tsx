@@ -1,5 +1,5 @@
-import Link from "next/link"
-import { cn } from "@/lib/utils"
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 import {
   ArrowLeftRight,
   BriefcaseBusiness,
@@ -10,16 +10,16 @@ import {
   Gift,
   Scale,
   Users,
-} from "lucide-react"
+} from "lucide-react";
 
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@/components/ui/badge";
 
 export interface NavItem {
-  label: string
-  href: string
-  icon: React.ElementType
-  subtitle?: string
-  showPendingBadge?: boolean
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  subtitle?: string;
+  showPendingBadge?: boolean;
 }
 
 export const employeeNav: NavItem[] = [
@@ -41,7 +41,7 @@ export const employeeNav: NavItem[] = [
     icon: CircleHelp,
     subtitle: "FAQ, support болон гарын авлага",
   },
-]
+];
 
 export const adminNav: NavItem[] = [
   {
@@ -75,22 +75,25 @@ export const adminNav: NavItem[] = [
     icon: ClipboardList,
     subtitle: "Өөрчлөлтийн түүх, аудит",
   },
-]
+];
 
 interface SidebarProps {
-  role: "employee" | "admin"
-  activePath?: string
-  pendingRequestCount?: number
-  userName?: string
-  switchHref?: string
-  switchLabel?: string
-  onNavigate?: () => void
+  role: "employee" | "admin";
+  activePath?: string;
+  pendingRequestCount?: number;
+  userName?: string;
+  switchHref?: string;
+  switchLabel?: string;
+  onNavigate?: () => void;
 }
 
 export function getActiveNavItem(currentPath: string, navItems: NavItem[]) {
   return [...navItems]
     .sort((left, right) => right.href.length - left.href.length)
-    .find((item) => currentPath === item.href || currentPath.startsWith(`${item.href}/`))
+    .find(
+      (item) =>
+        currentPath === item.href || currentPath.startsWith(`${item.href}/`),
+    );
 }
 
 export function Sidebar({
@@ -102,11 +105,12 @@ export function Sidebar({
   switchLabel,
   onNavigate,
 }: SidebarProps) {
-  const navItems = role === "admin" ? adminNav : employeeNav
-  const defaultPath = role === "admin" ? adminNav[0]?.href ?? "/admin" : "/dashboard"
-  const currentPath = activePath ?? defaultPath
-  const activeItem = getActiveNavItem(currentPath, navItems)
-  const initial = userName.trim().charAt(0).toUpperCase() || "U"
+  const navItems = role === "admin" ? adminNav : employeeNav;
+  const defaultPath =
+    role === "admin" ? (adminNav[0]?.href ?? "/admin") : "/dashboard";
+  const currentPath = activePath ?? defaultPath;
+  const activeItem = getActiveNavItem(currentPath, navItems);
+  const initial = userName.trim().charAt(0).toUpperCase() || "U";
 
   return (
     <aside className="flex h-full w-60 flex-col border-r border-gray-200 bg-white">
@@ -116,13 +120,13 @@ export function Sidebar({
         </span>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3">
+      <nav className="flex-1 space-y-2 px-3 pt-4">
         {navItems.map((item) => {
-          const isActive = activeItem?.href === item.href
+          const isActive = activeItem?.href === item.href;
           const showBadge =
             item.showPendingBadge &&
             typeof pendingRequestCount === "number" &&
-            pendingRequestCount > 0
+            pendingRequestCount > 0;
 
           return (
             <Link
@@ -130,19 +134,37 @@ export function Sidebar({
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
+                "group relative flex items-center gap-3 overflow-hidden rounded-[10px] px-4 py-3 text-base font-medium transition-colors",
                 isActive
                   ? "bg-blue-50 text-blue-700"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+                  : "text-gray-500 hover:bg-gray-100 hover:text-blue-700",
               )}
             >
-              <item.icon className="h-5 w-5" />
-              <span className="flex-1">{item.label}</span>
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "pointer-events-none absolute inset-y-0 right-0 w-[4px] rounded-l-[999px] bg-blue-600 transition-opacity duration-200",
+                  isActive
+                    ? "opacity-100"
+                    : "opacity-0 group-hover:opacity-100",
+                )}
+              />
+              <item.icon
+                className={cn(
+                  "relative z-10 h-6 w-6 shrink-0 transition-colors",
+                  isActive
+                    ? "text-blue-700"
+                    : "text-gray-500 group-hover:text-blue-700",
+                )}
+              />
+              <span className="relative z-10 flex-1">{item.label}</span>
               {showBadge ? (
-                <Badge variant="danger">{pendingRequestCount}</Badge>
+                <Badge variant="danger" className="relative z-10">
+                  {pendingRequestCount}
+                </Badge>
               ) : null}
             </Link>
-          )
+          );
         })}
       </nav>
 
@@ -169,5 +191,5 @@ export function Sidebar({
         </div>
       </div>
     </aside>
-  )
+  );
 }

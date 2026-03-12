@@ -270,7 +270,7 @@ export default function AdminRulesPage() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-2 py-2 sm:px-4 lg:px-6">
+    <section className="w-full py-2">
       <div className="grid gap-6 lg:grid-cols-[1.05fr_1.35fr]">
         <form
           onSubmit={handleCreateRule}
