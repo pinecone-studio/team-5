@@ -34,7 +34,13 @@ interface Env {
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: string;
 }
 
-const protectedRoutes = [/^\/dashboard(?:\/|$)/, /^\/profile(?:\/|$)/, /^\/admin(?:\/|$)/];
+const protectedRoutes = [
+  /^\/dashboard(?:\/|$)/,
+  /^\/profile(?:\/|$)/,
+  /^\/requests(?:\/|$)/,
+  /^\/help(?:\/|$)/,
+  /^\/admin(?:\/|$)/,
+];
 const managerRoutes = [/^\/admin(?:\/|$)/];
 
 function isManagerRole(role: unknown): boolean {
