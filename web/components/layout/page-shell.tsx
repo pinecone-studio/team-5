@@ -10,7 +10,7 @@ import {
   Sidebar,
   adminNav,
   employeeNav,
-  type NavItem,
+  getActiveNavItem,
 } from "@/components/layout/sidebar"
 import { isManager, normalizeRole } from "@/lib/auth"
 import { cn } from "@/lib/utils"
@@ -36,12 +36,6 @@ function formatTitleFromPath(pathname: string) {
     .join(" ")
 }
 
-function getActiveItem(pathname: string, navItems: NavItem[]) {
-  return [...navItems]
-    .sort((left, right) => right.href.length - left.href.length)
-    .find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
-}
-
 export function PageShell({
   role,
   pendingRequestCount,
@@ -54,7 +48,7 @@ export function PageShell({
   const { user } = useUser()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const navItems = role === "admin" ? adminNav : employeeNav
-  const activeItem = getActiveItem(pathname, navItems)
+  const activeItem = getActiveNavItem(pathname, navItems)
   const title = activeItem?.label ?? formatTitleFromPath(pathname)
   const subtitle = activeItem?.subtitle
   const userRole = normalizeRole(user?.publicMetadata?.role)

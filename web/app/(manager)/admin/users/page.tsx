@@ -1,12 +1,5 @@
-/**
- * Хэрэглэгчийн удирдлага — зөвхөн admin/hr
- */
+import { redirect } from "next/navigation"
+
 export default function AdminUsersPage() {
-  return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <p className="text-gray-700">
-        Admin/HR — хэрэглэгч нэмэх, засах, устгах.
-      </p>
-    </section>
-  )
+  redirect("/admin/employees")
 }
