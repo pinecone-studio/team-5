@@ -1,11 +1,5 @@
-import { EmployeePagePanel } from "@/components/employee/employee-page-panel"
+import RequestsBoard from "@/components/employee/requests-board"
 
 export default function EmployeeRequestsPage() {
-  return (
-    <EmployeePagePanel
-      title="My Requests"
-      description="Илгээсэн benefit request-үүдийн approval статус, тайлбар, сүүлийн шинэчлэлүүдийг эндээс хянаж болно."
-      ctaLabel="New request"
-    />
-  )
+  return <RequestsBoard />
 }

@@ -6,12 +6,7 @@ import { useUser } from "@clerk/react"
 import { X } from "lucide-react"
 
 import { Header } from "@/components/layout/header"
-import {
-  Sidebar,
-  adminNav,
-  employeeNav,
-  getActiveNavItem,
-} from "@/components/layout/sidebar"
+import { Sidebar } from "@/components/layout/sidebar"
 import { isManager, normalizeRole } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
@@ -22,18 +17,6 @@ interface PageShellProps {
   switchHref?: string
   switchLabel?: string
   children: React.ReactNode
-}
-
-function formatTitleFromPath(pathname: string) {
-  const lastSegment = pathname.split("/").filter(Boolean).at(-1)
-  if (!lastSegment) {
-    return "Dashboard"
-  }
-
-  return lastSegment
-    .split("-")
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(" ")
 }
 
 export function PageShell({
@@ -47,10 +30,6 @@ export function PageShell({
   const pathname = usePathname()
   const { user } = useUser()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const navItems = role === "admin" ? adminNav : employeeNav
-  const activeItem = getActiveNavItem(pathname, navItems)
-  const title = activeItem?.label ?? formatTitleFromPath(pathname)
-  const subtitle = activeItem?.subtitle
   const userRole = normalizeRole(user?.publicMetadata?.role)
   const resolvedUserName =
     userName ??
@@ -102,12 +81,14 @@ export function PageShell({
 
       <main className="min-h-screen md:ml-60">
         <Header
-          title={title}
-          subtitle={subtitle}
           userName={resolvedUserName}
           onMenuClick={() => setMobileNavOpen(true)}
         />
-        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
+        <div className="p-4 sm:p-6 lg:p-8">
+          <div className="mx-auto w-full max-w-[130rem] 2xl:max-w-[100rem]">
+            {children}
+          </div>
+        </div>
       </main>
     </div>
   )
