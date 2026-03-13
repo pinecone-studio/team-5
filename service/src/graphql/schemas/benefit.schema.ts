@@ -2,26 +2,32 @@ export const benefitTypeDefs = `
   type Benefit {
     id: ID!
     name: String!
+    category: String
     subsidyPercent: Int!
     vendorName: String
     requiresContract: Boolean
+    activeContractId: String
     isActive: Boolean
   }
 
   input CreateBenefitInput {
     name: String!
+    category: String
     subsidyPercent: Int!
     vendorName: String
     requiresContract: Boolean
+    activeContractId: String
     isActive: Boolean = true
   }
 
   input UpdateBenefitInput {
     id: ID!
     name: String
+    category: String
     subsidyPercent: Int
     vendorName: String
     requiresContract: Boolean
+    activeContractId: String
     isActive: Boolean
   }
 
@@ -36,4 +42,3 @@ export const benefitTypeDefs = `
     deleteBenefit(id: ID!): Boolean!
   }
 `;
-

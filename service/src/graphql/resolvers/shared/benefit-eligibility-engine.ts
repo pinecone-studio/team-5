@@ -43,13 +43,13 @@ function getFactValue(employeeRow: EmployeeRow, ruleType: string): unknown {
 
   switch (ruleType) {
     case "employment_status":
-      return employeeRow.status;
+      return employeeRow.employment_status ?? employeeRow.status;
     case "okr_submitted":
-      return (
+      return employeeRow.okr_submitted ?? (
         employeeRow.okr_status === "submitted" || employeeRow.okr_status === "success"
       );
     case "attendance":
-      return employeeRow.lateCount ?? 0;
+      return employeeRow.late_arrival_count ?? employeeRow.lateCount ?? 0;
     default:
       break;
   }

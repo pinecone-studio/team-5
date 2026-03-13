@@ -10,6 +10,7 @@ import { benefitEligibilityQuery } from "./query/benefit_eligibility.query";
 import { benefitEligibilityMutation } from "./mutation/benefit_eligibility.mutations";
 import { benefitRequestQuery } from "./query/benefit_request.query";
 import { benefitRequestMutation } from "./mutation/benefit_request.mutations";
+import { employeePortalResolvers } from "./employee_portal.resolvers";
 
 export const resolvers = [
 	employeeQuery,
@@ -24,4 +25,5 @@ export const resolvers = [
 	benefitEligibilityMutation,
 	benefitRequestQuery,
 	benefitRequestMutation,
+	employeePortalResolvers,
 ];

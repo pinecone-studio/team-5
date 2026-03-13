@@ -6,9 +6,11 @@ import { benefits } from "../../../db/schemas/benefits.schema";
 const mapBenefit = (row: typeof benefits.$inferSelect) => ({
 	id: row.id,
 	name: row.name,
+	category: row.category ?? null,
 	subsidyPercent: row.subsidy_percent,
 	vendorName: row.vendor_name ?? null,
 	requiresContract: row.requires_contract ?? false,
+	activeContractId: row.active_contract_id ?? null,
 	isActive: row.is_active ?? false,
 });
 
@@ -19,9 +21,11 @@ export const benefitMutation = {
 			args: {
 				input: {
 					name: string;
+					category?: string | null;
 					subsidyPercent: number;
 					vendorName?: string | null;
 					requiresContract?: boolean | null;
+					activeContractId?: string | null;
 					isActive?: boolean | null;
 				};
 			},
@@ -34,9 +38,11 @@ export const benefitMutation = {
 				.insert(benefits)
 				.values({
 					name: input.name,
+					category: input.category ?? null,
 					subsidy_percent: input.subsidyPercent,
 					vendor_name: input.vendorName ?? null,
 					requires_contract: input.requiresContract ?? false,
+					active_contract_id: input.activeContractId ?? null,
 					is_active: input.isActive ?? true,
 				})
 				.returning()
@@ -51,9 +57,11 @@ export const benefitMutation = {
 				input: {
 					id: string;
 					name?: string | null;
+					category?: string | null;
 					subsidyPercent?: number | null;
 					vendorName?: string | null;
 					requiresContract?: boolean | null;
+					activeContractId?: string | null;
 					isActive?: boolean | null;
 				};
 			},
@@ -66,6 +74,7 @@ export const benefitMutation = {
 				.update(benefits)
 				.set({
 					...(input.name != null ? { name: input.name } : {}),
+					...(input.category !== undefined ? { category: input.category } : {}),
 					...(input.subsidyPercent != null
 						? { subsidy_percent: input.subsidyPercent }
 						: {}),
@@ -74,6 +83,9 @@ export const benefitMutation = {
 						: {}),
 					...(input.requiresContract !== undefined
 						? { requires_contract: input.requiresContract }
+						: {}),
+					...(input.activeContractId !== undefined
+						? { active_contract_id: input.activeContractId }
 						: {}),
 					...(input.isActive !== undefined
 						? { is_active: input.isActive }
@@ -106,4 +118,3 @@ export const benefitMutation = {
 		},
 	},
 };
-
