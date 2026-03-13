@@ -3,6 +3,12 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../db/client";
 import { benefit_eligibility } from "../../../db/schemas/benefit_eligibility.schema";
 import { recomputeBenefitEligibility } from "../shared/benefit-eligibility-engine";
+import {
+  SYSTEM_AUDIT_ACTOR,
+  getBenefitName,
+  resolvePerformedByLabel,
+  writeAuditLog,
+} from "../shared/audit-log";
 
 const mapEligibility = (row: typeof benefit_eligibility.$inferSelect) => ({
   employeeId: row.employee_id,
@@ -60,6 +66,24 @@ export const benefitEligibilityMutation = {
           employeeId: input.employeeId,
           benefitId: input.benefitId,
         });
+
+        const benefitName = await getBenefitName(db, input.benefitId);
+        const firstFailure = computed.evaluations.find((rule) => !rule.passed);
+
+        await writeAuditLog(db, {
+          employeeId: input.employeeId,
+          benefitId: input.benefitId,
+          action: "Eligibility Recomputed",
+          detail: firstFailure?.reason
+            ? `${benefitName ?? "Benefit"} eligibility recomputed: ${computed.row.status}. ${firstFailure.reason}`
+            : `${benefitName ?? "Benefit"} eligibility recomputed: ${computed.row.status}.`,
+          performedByLabel: SYSTEM_AUDIT_ACTOR,
+          metadata: {
+            status: computed.row.status,
+            source: "upsertBenefitEligibility",
+          },
+        });
+
         return mapEligibility(computed.row);
       }
 
@@ -92,6 +116,34 @@ export const benefitEligibilityMutation = {
           })
           .returning()
           .get();
+
+        const [benefitName, performedByLabel] = await Promise.all([
+          getBenefitName(db, input.benefitId),
+          resolvePerformedByLabel(db, input.overrideBy, SYSTEM_AUDIT_ACTOR),
+        ]);
+
+        const detailParts = [
+          `${benefitName ?? "Benefit"} eligibility manually set to ${inserted.status}.`,
+        ];
+
+        if (input.overrideReason) {
+          detailParts.push(input.overrideReason);
+        }
+
+        await writeAuditLog(db, {
+          employeeId: input.employeeId,
+          benefitId: input.benefitId,
+          action: input.overrideBy || input.overrideReason ? "Eligibility Overridden" : "Eligibility Updated",
+          detail: detailParts.join(" "),
+          performedByEmployeeId: input.overrideBy,
+          performedByLabel,
+          metadata: {
+            status: inserted.status,
+            overrideReason: input.overrideReason ?? null,
+            overrideExpiresAt: input.overrideExpiresAt ?? null,
+            source: "upsertBenefitEligibility",
+          },
+        });
 
         return mapEligibility(inserted);
       }
@@ -135,6 +187,34 @@ export const benefitEligibilityMutation = {
         .returning()
         .get();
 
+      const [benefitName, performedByLabel] = await Promise.all([
+        getBenefitName(db, input.benefitId),
+        resolvePerformedByLabel(db, input.overrideBy, SYSTEM_AUDIT_ACTOR),
+      ]);
+
+      const detailParts = [
+        `${benefitName ?? "Benefit"} eligibility manually updated to ${updated.status}.`,
+      ];
+
+      if (input.overrideReason) {
+        detailParts.push(input.overrideReason);
+      }
+
+      await writeAuditLog(db, {
+        employeeId: input.employeeId,
+        benefitId: input.benefitId,
+        action: input.overrideBy || input.overrideReason ? "Eligibility Overridden" : "Eligibility Updated",
+        detail: detailParts.join(" "),
+        performedByEmployeeId: input.overrideBy,
+        performedByLabel,
+        metadata: {
+          status: updated.status,
+          overrideReason: input.overrideReason ?? null,
+          overrideExpiresAt: input.overrideExpiresAt ?? null,
+          source: "upsertBenefitEligibility",
+        },
+      });
+
       return mapEligibility(updated);
     },
 
@@ -150,6 +230,23 @@ export const benefitEligibilityMutation = {
     ) => {
       const db = getDb(context.env.DB);
       const computed = await recomputeBenefitEligibility(db, args.input);
+      const benefitName = await getBenefitName(db, args.input.benefitId);
+      const firstFailure = computed.evaluations.find((rule) => !rule.passed);
+
+      await writeAuditLog(db, {
+        employeeId: args.input.employeeId,
+        benefitId: args.input.benefitId,
+        action: "Eligibility Recomputed",
+        detail: firstFailure?.reason
+          ? `${benefitName ?? "Benefit"} eligibility recomputed: ${computed.row.status}. ${firstFailure.reason}`
+          : `${benefitName ?? "Benefit"} eligibility recomputed: ${computed.row.status}.`,
+        performedByLabel: SYSTEM_AUDIT_ACTOR,
+        metadata: {
+          status: computed.row.status,
+          source: "recomputeBenefitEligibility",
+        },
+      });
+
       return mapEligibility(computed.row);
     },
   },
