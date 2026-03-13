@@ -8,6 +8,7 @@ import { contracts } from '../../db/schemas/contract.schema';
 import { employee } from '../../db/schemas/employee.schema';
 import { recomputeBenefitEligibility } from './shared/benefit-eligibility-engine';
 import { requireAuthenticatedEmployee } from './shared/authenticated-employee';
+import { writeAuditLog } from './shared/audit-log';
 
 type ResolverContext = {
 	env: {
@@ -377,6 +378,24 @@ export const employeePortalResolvers = {
 				})
 				.returning()
 				.get();
+
+			await writeAuditLog(db, {
+				employeeId: auth.employee.id,
+				benefitId: args.input.benefitId,
+				action: 'Requested',
+				detail:
+					benefitRow.requires_contract && inserted.contract_version_accepted
+						? `${benefitRow.name} contract ${inserted.contract_version_accepted} accepted and request submitted.`
+						: `${benefitRow.name} benefit request submitted.`,
+				performedByEmployeeId: auth.employee.id,
+				performedByLabel: auth.employee.full_name,
+				metadata: {
+					requestId: inserted.id,
+					status: inserted.status,
+					contractVersionAccepted: inserted.contract_version_accepted ?? null,
+					source: 'confirmBenefitRequest',
+				},
+			});
 
 			return mapRequest(inserted);
 		},

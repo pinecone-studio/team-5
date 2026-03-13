@@ -5,6 +5,7 @@ import { eligibilityRuleTypeDefs } from "./eligibility_rule.schema";
 import { benefitEligibilityTypeDefs } from "./benefit_eligibility.schema";
 import { benefitRequestTypeDefs } from "./benefit_request.schema";
 import { employeePortalTypeDefs } from "./employee_portal.schema";
+import { auditLogTypeDefs } from "./audit_log.schema";
 
 export const typeDefs = [
 	`
@@ -18,4 +19,5 @@ export const typeDefs = [
 	benefitEligibilityTypeDefs,
 	benefitRequestTypeDefs,
 	employeePortalTypeDefs,
+	auditLogTypeDefs,
 ];
