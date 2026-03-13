@@ -6,6 +6,8 @@ export const eligibilityRuleTypeDefs = `
     lte
     gt
     gte
+    in
+    not_in
   }
 
   type EligibilityRule {

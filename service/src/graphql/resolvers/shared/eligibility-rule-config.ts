@@ -1,4 +1,12 @@
-export type RuleOperator = "eq" | "neq" | "lt" | "lte" | "gt" | "gte";
+export type RuleOperator =
+  | "eq"
+  | "neq"
+  | "lt"
+  | "lte"
+  | "gt"
+  | "gte"
+  | "in"
+  | "not_in";
 
 export interface StoredEligibilityRuleValue {
   type: string;
@@ -34,6 +42,8 @@ function normalizeOperator(value: unknown): RuleOperator {
     case "lte":
     case "gt":
     case "gte":
+    case "in":
+    case "not_in":
       return value;
     default:
       return DEFAULT_RULE_OPERATOR;
