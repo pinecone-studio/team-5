@@ -6,10 +6,11 @@ import { benefits } from "../../../db/schemas/benefits.schema";
 const mapBenefit = (row: typeof benefits.$inferSelect) => ({
 	id: row.id,
 	name: row.name,
-	subidyPercent: row.subsidy_percent,
+	category: row.category ?? null,
 	subsidyPercent: row.subsidy_percent,
 	vendorName: row.vendor_name ?? null,
 	requiresContract: row.requires_contract ?? false,
+	activeContractId: row.active_contract_id ?? null,
 	isActive: row.is_active ?? false,
 });
 
@@ -46,4 +47,3 @@ export const benefitQuery = {
 		},
 	},
 };
-

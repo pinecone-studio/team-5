@@ -15,7 +15,14 @@ interface Env {
 	FRONTEND_ORIGIN?: string;
 }
 
-const app = new Hono<{ Bindings: Env }>();
+type AppContext = {
+	Bindings: Env;
+	Variables: {
+		clerkUserId: string | null;
+	};
+};
+
+const app = new Hono<AppContext>();
 
 app.use(
 	'*',
@@ -36,7 +43,7 @@ function getMissingClerkKeys(env: Env): string[] {
 	].filter((value): value is string => value != null);
 }
 
-const requireClerkAuth: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
+const requireClerkAuth: MiddlewareHandler<AppContext> = async (c, next) => {
 	const missingClerkKeys = getMissingClerkKeys(c.env);
 
 	if (missingClerkKeys.length > 0) {
@@ -68,10 +75,13 @@ const requireClerkAuth: MiddlewareHandler<{ Bindings: Env }> = async (c, next) =
 		return response;
 	}
 
+	c.set('clerkUserId', authState.toAuth().userId);
 	await next();
 };
 
-app.all('/graphql', requireClerkAuth, (c) => yoga.fetch(c.req.raw, { env: c.env }));
+app.all('/graphql', requireClerkAuth, (c) =>
+	yoga.fetch(c.req.raw, { env: c.env, clerkUserId: c.get('clerkUserId') }),
+);
 
 app.get('/employees', requireClerkAuth, (c) => {
 	return c.json(employees);

@@ -4,6 +4,7 @@ import { contractTypeDefs } from "./contract.schema";
 import { eligibilityRuleTypeDefs } from "./eligibility_rule.schema";
 import { benefitEligibilityTypeDefs } from "./benefit_eligibility.schema";
 import { benefitRequestTypeDefs } from "./benefit_request.schema";
+import { employeePortalTypeDefs } from "./employee_portal.schema";
 
 export const typeDefs = [
 	`
@@ -16,4 +17,5 @@ export const typeDefs = [
 	eligibilityRuleTypeDefs,
 	benefitEligibilityTypeDefs,
 	benefitRequestTypeDefs,
+	employeePortalTypeDefs,
 ];
