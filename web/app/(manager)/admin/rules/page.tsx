@@ -57,7 +57,15 @@ const CREATE_RULE_MUTATION = gql`
   }
 `;
 
-type RuleOperator = "eq" | "neq" | "lt" | "lte" | "gt" | "gte";
+type RuleOperator =
+  | "eq"
+  | "neq"
+  | "lt"
+  | "lte"
+  | "gt"
+  | "gte"
+  | "in"
+  | "not_in";
 
 interface Benefit {
   id: string;
@@ -121,6 +129,8 @@ const operatorOptions: Array<{ label: string; value: RuleOperator }> = [
   { label: "Less than or equal", value: "lte" },
   { label: "Greater than", value: "gt" },
   { label: "Greater than or equal", value: "gte" },
+  { label: "In list", value: "in" },
+  { label: "Not in list", value: "not_in" },
 ];
 
 const operatorSymbol: Record<RuleOperator, string> = {
@@ -130,6 +140,8 @@ const operatorSymbol: Record<RuleOperator, string> = {
   lte: "<=",
   gt: ">",
   gte: ">=",
+  in: "in",
+  not_in: "not in",
 };
 
 export default function AdminRulesPage() {
@@ -347,7 +359,7 @@ export default function AdminRulesPage() {
                 className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-gray-500"
                 value={ruleValue}
                 onChange={(event) => setRuleValue(event.target.value)}
-                placeholder='active, true, 3, or JSON like {"min":2}'
+                placeholder={'active, ["hr","finance"], or {"teacher":3,"default":5}'}
               />
             </label>
 

@@ -38,7 +38,28 @@ function snakeToCamel(value: string): string {
   return value.replace(/_([a-z])/g, (_, char: string) => char.toUpperCase());
 }
 
-function getFactValue(employeeRow: EmployeeRow, ruleType: string): unknown {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getTenureDays(hireDate: string | null | undefined, nowIso: string): number | null {
+  if (!hireDate) return null;
+
+  const hireDateMs = Date.parse(hireDate);
+  const nowMs = Date.parse(nowIso);
+  if (Number.isNaN(hireDateMs) || Number.isNaN(nowMs)) return null;
+
+  const diffMs = nowMs - hireDateMs;
+  if (diffMs < 0) return 0;
+
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
+function getFactValue(
+  employeeRow: EmployeeRow,
+  ruleType: string,
+  computedAtIso: string,
+): unknown {
   const source = employeeRow as Record<string, unknown>;
 
   switch (ruleType) {
@@ -50,6 +71,14 @@ function getFactValue(employeeRow: EmployeeRow, ruleType: string): unknown {
       );
     case "attendance":
       return employeeRow.late_arrival_count ?? employeeRow.lateCount ?? 0;
+    case "role":
+      return employeeRow.role;
+    case "department":
+      return employeeRow.department;
+    case "responsibility_level":
+      return employeeRow.responsibility_level ?? 0;
+    case "tenure_days":
+      return getTenureDays(employeeRow.hire_date, computedAtIso);
     default:
       break;
   }
@@ -81,6 +110,13 @@ function toBoolean(value: unknown): boolean | null {
   return null;
 }
 
+function normalizeLookupKey(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+
+  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return normalized.length > 0 ? normalized : null;
+}
+
 function equalsValue(left: unknown, right: unknown): boolean {
   if (left === right) return true;
 
@@ -97,6 +133,82 @@ function equalsValue(left: unknown, right: unknown): boolean {
   }
 
   return String(left) === String(right);
+}
+
+function getRecordValue(record: Record<string, unknown>, key: string): unknown {
+  if (key in record) return record[key];
+
+  const normalizedTarget = normalizeLookupKey(key);
+  if (!normalizedTarget) return undefined;
+
+  for (const [recordKey, recordValue] of Object.entries(record)) {
+    if (normalizeLookupKey(recordKey) === normalizedTarget) {
+      return recordValue;
+    }
+  }
+
+  return undefined;
+}
+
+function toArray(value: unknown): unknown[] | null {
+  if (Array.isArray(value)) return value;
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return trimmed
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+    }
+  }
+
+  return null;
+}
+
+function resolveAttendanceExpectedValue(
+  employeeRow: EmployeeRow,
+  expectedValue: unknown,
+): unknown {
+  if (!isRecord(expectedValue)) return expectedValue;
+
+  const roleKey = normalizeLookupKey(employeeRow.role);
+  if (roleKey) {
+    const roleSpecificValue = getRecordValue(expectedValue, roleKey);
+    if (roleSpecificValue !== undefined) return roleSpecificValue;
+
+    if (roleKey !== "teacher") {
+      const nonTeacherValue =
+        getRecordValue(expectedValue, "non_teacher") ??
+        getRecordValue(expectedValue, "employee") ??
+        getRecordValue(expectedValue, "staff");
+      if (nonTeacherValue !== undefined) return nonTeacherValue;
+    }
+  }
+
+  return (
+    getRecordValue(expectedValue, "default") ??
+    getRecordValue(expectedValue, "fallback") ??
+    getRecordValue(expectedValue, "all") ??
+    null
+  );
+}
+
+function resolveExpectedValue(
+  employeeRow: EmployeeRow,
+  ruleType: string,
+  expectedValue: unknown,
+): unknown {
+  if (ruleType === "attendance") {
+    return resolveAttendanceExpectedValue(employeeRow, expectedValue);
+  }
+
+  return expectedValue;
 }
 
 function compareValues(
@@ -122,6 +234,16 @@ function compareValues(
       if (operator === "gt") return actualNumber > expectedNumber;
       return actualNumber >= expectedNumber;
     }
+    case "in":
+    case "not_in": {
+      const expectedValues = toArray(expectedValue);
+      if (expectedValues === null) return false;
+
+      const matches = expectedValues.some((candidate) =>
+        equalsValue(actualValue, candidate),
+      );
+      return operator === "in" ? matches : !matches;
+    }
   }
 }
 
@@ -138,6 +260,7 @@ function mapEvaluation(
   employeeRow: EmployeeRow,
   row: RuleRow,
   config: StoredEligibilityRuleValue,
+  computedAtIso: string,
 ): RuleEvaluationItem {
   if (!hasStructuredRuleValue(row.value)) {
     // Backward compatibility for legacy rows that only stored primitive values.
@@ -153,14 +276,23 @@ function mapEvaluation(
     };
   }
 
-  const actualValue = getFactValue(employeeRow, config.type);
-  const passed = compareValues(config.operator, actualValue, config.value);
+  const actualValue = getFactValue(employeeRow, config.type, computedAtIso);
+  const resolvedExpectedValue = resolveExpectedValue(
+    employeeRow,
+    config.type,
+    config.value,
+  );
+  const passed = compareValues(
+    config.operator,
+    actualValue,
+    resolvedExpectedValue,
+  );
 
   return {
     ruleId: row.id,
     type: config.type,
     operator: config.operator,
-    expectedValue: config.value,
+    expectedValue: resolvedExpectedValue,
     actualValue,
     passed,
     reason: passed ? null : row.error_message,
@@ -208,12 +340,16 @@ export async function recomputeBenefitEligibility(
     const config = normalizeStoredRuleValue(row.value);
     return config.version === latestVersion;
   });
+  const now = input.computedAt ?? new Date().toISOString();
 
   const evaluations = activeVersionRules.map((row) =>
-    mapEvaluation(employeeRow, row, normalizeStoredRuleValue(row.value)),
+    mapEvaluation(
+      employeeRow,
+      row,
+      normalizeStoredRuleValue(row.value),
+      now,
+    ),
   );
-
-  const now = input.computedAt ?? new Date().toISOString();
   const computedStatus: EligibilityRow["status"] = evaluations.every((rule) => rule.passed)
     ? "eligible"
     : "locked";

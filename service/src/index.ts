@@ -24,10 +24,41 @@ type AppContext = {
 
 const app = new Hono<AppContext>();
 
+const LOCAL_FRONTEND_ORIGINS = [
+	'http://localhost:3000',
+	'http://127.0.0.1:3000',
+];
+
+function getConfiguredFrontendOrigins(env: Env): string[] {
+	return (env.FRONTEND_ORIGIN ?? '')
+		.split(',')
+		.map((value) => value.trim())
+		.filter((value) => value.length > 0);
+}
+
+function isLocalFrontendOrigin(origin: string): boolean {
+	return LOCAL_FRONTEND_ORIGINS.includes(origin);
+}
+
+function getAllowedFrontendOrigins(env: Env, requestOrigin?: string | null): string[] {
+	const configuredOrigins = getConfiguredFrontendOrigins(env);
+
+	if (requestOrigin && isLocalFrontendOrigin(requestOrigin)) {
+		return [...new Set([...configuredOrigins, requestOrigin, ...LOCAL_FRONTEND_ORIGINS])];
+	}
+
+	return configuredOrigins;
+}
+
 app.use(
 	'*',
 	cors({
-		origin: (origin, c) => c.env.FRONTEND_ORIGIN ?? origin ?? '*',
+		origin: (origin, c) => {
+			if (!origin) return '*';
+
+			const allowedOrigins = getAllowedFrontendOrigins(c.env, origin);
+			return allowedOrigins.includes(origin) ? origin : allowedOrigins[0] ?? 'null';
+		},
 		allowHeaders: ['Authorization', 'Content-Type'],
 		allowMethods: ['GET', 'POST', 'OPTIONS'],
 	})
@@ -60,10 +91,11 @@ const requireClerkAuth: MiddlewareHandler<AppContext> = async (c, next) => {
 		secretKey: c.env.CLERK_SECRET_KEY!,
 		publishableKey: c.env.CLERK_PUBLISHABLE_KEY!,
 	});
+	const requestOrigin = c.req.header('Origin');
 
 	const authState = await clerk.authenticateRequest(c.req.raw, {
 		acceptsToken: 'session_token',
-		authorizedParties: [c.env.FRONTEND_ORIGIN!],
+		authorizedParties: getAllowedFrontendOrigins(c.env, requestOrigin),
 		...(c.env.CLERK_JWT_KEY ? { jwtKey: c.env.CLERK_JWT_KEY } : {}),
 	});
 
