@@ -21,7 +21,7 @@
 	],
 	"vars": {
 		"CLERK_PUBLISHABLE_KEY": "pk_test_Ymxlc3NlZC1wcmltYXRlLTc0LmNsZXJrLmFjY291bnRzLmRldiQ",
-		"FRONTEND_ORIGIN": "https://talent.pinebaatars.mn",
+		"FRONTEND_ORIGIN": "http://localhost:3000",
 	},
 	/**
 	 * Smart Placement

@@ -1,13 +1,11 @@
-import { ClerkAppProvider } from "@/components/apollo-provider";
-
 /**
  * Public route group — нэвтрээгүй хэрэглэгчид.
- * Auth шаардлагагүй.
+ * Clerk context нь root layout дээр mount хийгдэнэ.
  */
 export default function PublicLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <ClerkAppProvider>{children}</ClerkAppProvider>;
+  return <>{children}</>;
 }

@@ -7,7 +7,7 @@ import { X } from "lucide-react"
 
 import { Header } from "@/components/layout/header"
 import { Sidebar } from "@/components/layout/sidebar"
-import { isManager, normalizeRole } from "@/lib/auth"
+import { getAdminHomePath, normalizeRole } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
 interface PageShellProps {
@@ -38,9 +38,10 @@ export function PageShell({
     user?.primaryEmailAddress?.emailAddress?.split("@")[0] ??
     "User"
   const resolvedSwitchHref =
-    switchHref ?? (role === "admin" ? "/dashboard" : isManager(userRole) ? "/admin" : undefined)
+    switchHref ?? (role === "admin" ? "/dashboard" : getAdminHomePath(userRole))
   const resolvedSwitchLabel =
-    switchLabel ?? (role === "admin" ? "Employee" : isManager(userRole) ? "Admin" : undefined)
+    switchLabel ??
+    (role === "admin" ? "Employee" : getAdminHomePath(userRole) ? "Admin" : undefined)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -69,6 +70,7 @@ export function PageShell({
           </button>
           <Sidebar
             role={role}
+            accessRole={userRole}
             activePath={pathname}
             pendingRequestCount={pendingRequestCount}
             userName={resolvedUserName}

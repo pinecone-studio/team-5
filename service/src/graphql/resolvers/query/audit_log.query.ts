@@ -4,6 +4,7 @@ import { getDb } from "../../../db/client";
 import { audit_logs } from "../../../db/schemas/audit_log.schema";
 import { benefits } from "../../../db/schemas/benefits.schema";
 import { employee } from "../../../db/schemas/employee.schema";
+import { requireManagerAccess } from "../shared/authenticated-employee";
 
 type AuditLogRow = typeof audit_logs.$inferSelect;
 
@@ -14,13 +15,14 @@ function mapMetadataJson(metadata: AuditLogRow["metadata_json"]) {
 
 export const auditLogQuery = {
 	Query: {
-		auditLog: async (
-			_parent: unknown,
-			args: { search?: string | null; action?: string | null; limit?: number | null },
-			context: { env: Env },
-		) => {
-			const db = getDb(context.env.DB);
-			const [rows, employeeRows, benefitRows] = await Promise.all([
+			auditLog: async (
+				_parent: unknown,
+				args: { search?: string | null; action?: string | null; limit?: number | null },
+				context: { env: Env },
+			) => {
+				await requireManagerAccess(context);
+				const db = getDb(context.env.DB);
+				const [rows, employeeRows, benefitRows] = await Promise.all([
 				db
 					.select()
 					.from(audit_logs)

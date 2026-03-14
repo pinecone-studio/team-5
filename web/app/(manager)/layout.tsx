@@ -3,8 +3,10 @@ import AuthGuard from "@/components/auth-guard"
 import { PageShell } from "@/components/layout/page-shell"
 
 /**
- * Manager route group — зөвхөн admin/hr (менеджер).
- * Нэвтрээгүй → /login, энгийн user → /dashboard.
+ * Manager route group.
+ * admin/hr нь бүх admin route руу орно.
+ * finance_manager нь зөвхөн /admin/requests руу орно.
+ * Нэвтрээгүй → /login, бусад user → /dashboard.
  */
 export default function ManagerLayout({
   children,

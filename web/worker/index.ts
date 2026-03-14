@@ -13,6 +13,11 @@ import {
 } from "vinext/server/image-optimization";
 import { createClerkClient } from "@clerk/backend";
 import handler from "vinext/server/app-router-entry";
+import {
+  canAccessAdminRoute,
+  getRoleLandingPath,
+  normalizeRole,
+} from "../lib/auth";
 
 type Fetcher = {
   fetch(request: Request): Response | Promise<Response>;
@@ -42,10 +47,6 @@ const protectedRoutes = [
   /^\/admin(?:\/|$)/,
 ];
 const managerRoutes = [/^\/admin(?:\/|$)/];
-
-function isManagerRole(role: unknown): boolean {
-  return role === "admin" || role === "hr";
-}
 
 function getMissingClerkKeys(env: Env): string[] {
   return [
@@ -157,9 +158,13 @@ export default {
         }
 
         const user = await clerk.users.getUser(auth.userId);
+        const role = normalizeRole(user.publicMetadata?.role);
 
-        if (!isManagerRole(user.publicMetadata?.role)) {
-          return Response.redirect(new URL("/dashboard", request.url), 307);
+        if (!canAccessAdminRoute(role, url.pathname)) {
+          return Response.redirect(
+            new URL(getRoleLandingPath(role), request.url),
+            307,
+          );
         }
       }
     }

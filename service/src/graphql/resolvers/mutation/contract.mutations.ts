@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { getDb } from "../../../db/client";
 import { contracts } from "../../../db/schemas/contract.schema";
+import { requireManagerAccess } from "../shared/authenticated-employee";
 
 const mapContract = (row: typeof contracts.$inferSelect) => ({
   id: row.id,
@@ -32,9 +33,10 @@ export const contractMutation = {
         };
       },
       context: { env: Env },
-    ) => {
-      const { input } = args;
-      const db = getDb(context.env.DB);
+	    ) => {
+	      await requireManagerAccess(context);
+	      const { input } = args;
+	      const db = getDb(context.env.DB);
 
       const inserted = await db
         .insert(contracts)
@@ -69,9 +71,10 @@ export const contractMutation = {
         };
       },
       context: { env: Env },
-    ) => {
-      const { input } = args;
-      const db = getDb(context.env.DB);
+	    ) => {
+	      await requireManagerAccess(context);
+	      const { input } = args;
+	      const db = getDb(context.env.DB);
 
       const updated = await db
         .update(contracts)
@@ -106,8 +109,9 @@ export const contractMutation = {
       _parent: unknown,
       args: { id: string },
       context: { env: Env },
-    ) => {
-      const db = getDb(context.env.DB);
+	    ) => {
+	      await requireManagerAccess(context);
+	      const db = getDb(context.env.DB);
       const deleted = await db
         .delete(contracts)
         .where(eq(contracts.id, args.id))
@@ -118,4 +122,3 @@ export const contractMutation = {
     },
   },
 };
-

@@ -3,7 +3,11 @@
 import { startTransition, type ReactNode, useEffect } from "react";
 import { useAuth, useUser } from "@clerk/react";
 import { usePathname, useRouter } from "next/navigation";
-import { isManager, normalizeRole } from "@/lib/auth";
+import {
+  canAccessAdminRoute,
+  getRoleLandingPath,
+  normalizeRole,
+} from "@/lib/auth";
 
 export default function AuthGuard({
   children,
@@ -14,13 +18,19 @@ export default function AuthGuard({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isLoaded, isSignedIn } = useAuth();
-  const { user } = useUser();
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
+  const { isLoaded: isUserLoaded, user } = useUser();
   const role = normalizeRole(user?.publicMetadata?.role);
-  const canAccessManager = !requireManager || isManager(role);
+  const isManagerPath = pathname == null ? false : pathname.startsWith("/admin");
+  const isReady = isAuthLoaded && (!requireManager || isUserLoaded);
+  const canAccessManager =
+    !requireManager ||
+    !isManagerPath ||
+    (isUserLoaded && canAccessAdminRoute(role, pathname));
+  const deniedRedirectPath = getRoleLandingPath(role);
 
   useEffect(() => {
-    if (!isLoaded) {
+    if (!isReady) {
       return;
     }
 
@@ -32,14 +42,27 @@ export default function AuthGuard({
       return;
     }
 
-    if (!canAccessManager) {
+    if (requireManager && isManagerPath && !canAccessManager) {
       startTransition(() => {
-        router.replace("/dashboard");
+        router.replace(deniedRedirectPath);
       });
     }
-  }, [canAccessManager, isLoaded, isSignedIn, pathname, router]);
+  }, [
+    canAccessManager,
+    deniedRedirectPath,
+    isManagerPath,
+    isReady,
+    isSignedIn,
+    pathname,
+    requireManager,
+    router,
+  ]);
 
-  if (!isLoaded || !isSignedIn || !canAccessManager) {
+  if (
+    !isReady ||
+    !isSignedIn ||
+    (requireManager && isManagerPath && !canAccessManager)
+  ) {
     return <div className="min-h-screen bg-background" />;
   }
 
