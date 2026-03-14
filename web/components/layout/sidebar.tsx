@@ -100,7 +100,6 @@ export function Sidebar({
   role,
   activePath,
   pendingRequestCount,
-  userName = "User",
   switchHref,
   switchLabel,
   onNavigate,
@@ -110,7 +109,6 @@ export function Sidebar({
     role === "admin" ? (adminNav[0]?.href ?? "/admin") : "/dashboard";
   const currentPath = activePath ?? defaultPath;
   const activeItem = getActiveNavItem(currentPath, navItems);
-  const initial = userName.trim().charAt(0).toUpperCase() || "U";
 
   return (
     <aside className="flex h-full w-60 flex-col border-r border-gray-200 bg-white">
@@ -169,26 +167,16 @@ export function Sidebar({
       </nav>
 
       <div className="border-t border-gray-200 px-4 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
-            {initial}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-gray-900">
-              {userName}
-            </p>
-            {switchHref && switchLabel ? (
-              <Link
-                href={switchHref}
-                onClick={onNavigate}
-                className="inline-flex items-center gap-1 text-xs text-gray-500 transition hover:text-gray-700"
-              >
-                <ArrowLeftRight className="h-3 w-3" />
-                Switch to {switchLabel}
-              </Link>
-            ) : null}
-          </div>
-        </div>
+        {switchHref && switchLabel ? (
+          <Link
+            href={switchHref}
+            onClick={onNavigate}
+            className="inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-gray-700"
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+            Switch to {switchLabel}
+          </Link>
+        ) : null}
       </div>
     </aside>
   );
