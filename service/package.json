@@ -4,7 +4,7 @@
 	"private": true,
 	"scripts": {
 		"deploy": "wrangler deploy",
-		"dev": "wrangler dev",
+		"dev": "npm run db:migrate:local && wrangler dev",
 		"start": "wrangler dev",
 		"test": "jest --coverage",
 		"cf-typegen": "wrangler types",

@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 
 import { getDb } from "../../../db/client";
 import { contracts } from "../../../db/schemas/contract.schema";
+import { requireManagerAccess } from "../shared/authenticated-employee";
 
 const mapContract = (row: typeof contracts.$inferSelect) => ({
   id: row.id,
@@ -17,12 +18,13 @@ const mapContract = (row: typeof contracts.$inferSelect) => ({
 
 export const contractQuery = {
   Query: {
-    contracts: async (
-      _parent: unknown,
-      _args: unknown,
-      context: { env: Env },
-    ) => {
-      const db = getDb(context.env.DB);
+	    contracts: async (
+	      _parent: unknown,
+	      _args: unknown,
+	      context: { env: Env },
+	    ) => {
+	      await requireManagerAccess(context);
+	      const db = getDb(context.env.DB);
       const rows = await db
         .select()
         .from(contracts)
@@ -31,12 +33,13 @@ export const contractQuery = {
       return rows.map(mapContract);
     },
 
-    contract: async (
-      _parent: unknown,
-      args: { id: string },
-      context: { env: Env },
-    ) => {
-      const db = getDb(context.env.DB);
+	    contract: async (
+	      _parent: unknown,
+	      args: { id: string },
+	      context: { env: Env },
+	    ) => {
+	      await requireManagerAccess(context);
+	      const db = getDb(context.env.DB);
       const row = await db
         .select()
         .from(contracts)
@@ -46,4 +49,3 @@ export const contractQuery = {
     },
   },
 };
-

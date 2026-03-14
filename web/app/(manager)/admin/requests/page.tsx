@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useUser } from "@clerk/react"
 import { gql } from "@apollo/client"
 import { useMutation, useQuery } from "@apollo/client/react"
 import {
@@ -13,6 +14,7 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { canAccessAdminRequests, isManager, normalizeRole } from "@/lib/auth"
 
 const ADMIN_REQUESTS_QUERY = gql`
   query AdminRequestsPageData {
@@ -21,6 +23,24 @@ const ADMIN_REQUESTS_QUERY = gql`
       fullName
       okrSubmitted
     }
+    benefits {
+      id
+      name
+    }
+    benefitRequests {
+      id
+      employeeId
+      benefitId
+      status
+      reviewedBy
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+const REVIEWER_REQUESTS_QUERY = gql`
+  query ReviewerRequestsPageData {
     benefits {
       id
       name
@@ -73,6 +93,11 @@ interface BenefitRequestItem {
 
 interface AdminRequestsQueryData {
   employees: EmployeeItem[]
+  benefits: BenefitItem[]
+  benefitRequests: BenefitRequestItem[]
+}
+
+interface ReviewerRequestsQueryData {
   benefits: BenefitItem[]
   benefitRequests: BenefitRequestItem[]
 }
@@ -191,30 +216,58 @@ function AdminRequestsSkeleton() {
 
 export default function AdminRequestsPage() {
   const [notice, setNotice] = useState<"approved" | "declined" | null>(null)
+  const { isLoaded: isRoleLoaded, user } = useUser()
+  const role = normalizeRole(user?.publicMetadata?.role)
+  const canViewStaffSummary = isManager(role)
+  const canReviewRequests = canAccessAdminRequests(role)
 
-  const { data, loading, error, refetch } =
-    useQuery<AdminRequestsQueryData>(ADMIN_REQUESTS_QUERY)
+  const {
+    data: adminData,
+    loading: adminLoading,
+    error: adminError,
+    refetch: refetchAdminData,
+  } = useQuery<AdminRequestsQueryData>(ADMIN_REQUESTS_QUERY, {
+    skip: !isRoleLoaded || !canViewStaffSummary,
+  })
+
+  const {
+    data: reviewerData,
+    loading: reviewerLoading,
+    error: reviewerError,
+    refetch: refetchReviewerData,
+  } = useQuery<ReviewerRequestsQueryData>(REVIEWER_REQUESTS_QUERY, {
+    skip: !isRoleLoaded || canViewStaffSummary || !canReviewRequests,
+  })
 
   const [updateRequestStatus, { loading: updateLoading }] = useMutation<
     UpdateRequestStatusMutationData,
     UpdateRequestStatusMutationVariables
   >(UPDATE_REQUEST_STATUS_MUTATION)
 
+  const employees = adminData?.employees ?? []
+  const benefits = canViewStaffSummary
+    ? adminData?.benefits ?? []
+    : reviewerData?.benefits ?? []
+  const benefitRequests = canViewStaffSummary
+    ? adminData?.benefitRequests ?? []
+    : reviewerData?.benefitRequests ?? []
+  const loading =
+    !isRoleLoaded || (canViewStaffSummary ? adminLoading : reviewerLoading)
+  const error = canViewStaffSummary ? adminError : reviewerError
+
   const employeeMap = useMemo(
-    () =>
-      new Map((data?.employees ?? []).map((employee) => [employee.id, employee])),
-    [data?.employees],
+    () => new Map(employees.map((employee) => [employee.id, employee])),
+    [employees],
   )
 
   const benefitMap = useMemo(
-    () =>
-      new Map((data?.benefits ?? []).map((benefit) => [benefit.id, benefit])),
-    [data?.benefits],
+    () => new Map(benefits.map((benefit) => [benefit.id, benefit])),
+    [benefits],
   )
 
   const requests = useMemo<RequestRow[]>(
     () =>
-      (data?.benefitRequests ?? [])
+      benefitRequests
         .map((request) => ({
           id: request.id,
           employee:
@@ -229,42 +282,66 @@ export default function AdminRequestsPage() {
             new Date(right.createdAt).getTime() -
             new Date(left.createdAt).getTime(),
         ),
-    [benefitMap, data?.benefitRequests, employeeMap],
+    [benefitMap, benefitRequests, employeeMap],
   )
 
   const pendingCount = requests.filter(
     (request) => request.status === "pending",
   ).length
-  const okrNotSubmittedCount = (data?.employees ?? []).filter(
+  const reviewedCount = requests.filter(
+    (request) => request.status !== "pending",
+  ).length
+  const okrNotSubmittedCount = employees.filter(
     (employee) => !employee.okrSubmitted,
   ).length
 
-  const summaryCards = [
-    {
-      title: "Total Staff",
-      value: data?.employees.length ?? 0,
-      icon: Users,
-      iconClassName: "text-blue-600",
-    },
-    {
-      title: "Pending",
-      value: pendingCount,
-      icon: Clock3,
-      iconClassName: "text-amber-500",
-    },
-    {
-      title: "OKR not submitted",
-      value: okrNotSubmittedCount,
-      icon: AlertTriangle,
-      iconClassName: "text-red-500",
-    },
-    {
-      title: "Total Requests",
-      value: requests.length,
-      icon: FileText,
-      iconClassName: "text-green-600",
-    },
-  ]
+  const summaryCards = canViewStaffSummary
+    ? [
+        {
+          title: "Total Staff",
+          value: employees.length,
+          icon: Users,
+          iconClassName: "text-blue-600",
+        },
+        {
+          title: "Pending",
+          value: pendingCount,
+          icon: Clock3,
+          iconClassName: "text-amber-500",
+        },
+        {
+          title: "OKR not submitted",
+          value: okrNotSubmittedCount,
+          icon: AlertTriangle,
+          iconClassName: "text-red-500",
+        },
+        {
+          title: "Total Requests",
+          value: requests.length,
+          icon: FileText,
+          iconClassName: "text-green-600",
+        },
+      ]
+    : [
+        {
+          title: "Pending",
+          value: pendingCount,
+          icon: Clock3,
+          iconClassName: "text-amber-500",
+        },
+        {
+          title: "Reviewed",
+          value: reviewedCount,
+          icon: Check,
+          iconClassName: "text-blue-600",
+        },
+        {
+          title: "Total Requests",
+          value: requests.length,
+          icon: FileText,
+          iconClassName: "text-green-600",
+        },
+      ]
 
   useEffect(() => {
     if (!notice) return
@@ -286,12 +363,24 @@ export default function AdminRequestsPage() {
       },
     })
 
-    await refetch()
+    if (canViewStaffSummary) {
+      await refetchAdminData()
+    } else {
+      await refetchReviewerData()
+    }
     setNotice(status === "approved" ? "approved" : "declined")
   }
 
   if (loading) {
     return <AdminRequestsSkeleton />
+  }
+
+  if (!canReviewRequests) {
+    return (
+      <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+        You do not have permission to review employee requests.
+      </section>
+    )
   }
 
   if (error) {
@@ -307,10 +396,12 @@ export default function AdminRequestsPage() {
       <section className="rounded-[28px] border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
         <div>
           <h2 className="text-3xl font-semibold tracking-tight text-gray-950">
-            HR Admin Dashboard
+            {canViewStaffSummary ? "HR Admin Dashboard" : "Finance Review Dashboard"}
           </h2>
           <p className="mt-2 text-base text-gray-500">
-            Employee Access Privilege Management and Control
+            {canViewStaffSummary
+              ? "Employee Access Privilege Management and Control"
+              : "Review and confirm benefit requests that need financial approval"}
           </p>
         </div>
 
@@ -340,10 +431,12 @@ export default function AdminRequestsPage() {
         <div className="mt-8 rounded-[24px] border border-gray-200 bg-white p-6 sm:p-7">
           <div>
             <h3 className="text-2xl font-semibold tracking-tight text-gray-950">
-              Preferential Requests
+              {canViewStaffSummary ? "Preferential Requests" : "Review Queue"}
             </h3>
             <p className="mt-2 text-base text-gray-500">
-              Monitor requests sent by employees
+              {canViewStaffSummary
+                ? "Monitor requests sent by employees"
+                : "Monitor and review incoming requests"}
             </p>
           </div>
 

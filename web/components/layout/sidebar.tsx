@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import type { Role } from "@/lib/auth";
 import {
   ArrowLeftRight,
   BriefcaseBusiness,
@@ -77,8 +78,19 @@ export const adminNav: NavItem[] = [
   },
 ];
 
+export const financeNav: NavItem[] = [
+  {
+    label: "Requests",
+    href: "/admin/requests",
+    icon: BriefcaseBusiness,
+    subtitle: "Санхүүгийн review хийх хүсэлтүүд",
+    showPendingBadge: true,
+  },
+];
+
 interface SidebarProps {
-  role: "employee" | "admin";
+  role: "employee" | "admin" | "finance_manager";
+  accessRole?: Role;
   activePath?: string;
   pendingRequestCount?: number;
   userName?: string;
@@ -98,15 +110,21 @@ export function getActiveNavItem(currentPath: string, navItems: NavItem[]) {
 
 export function Sidebar({
   role,
+  accessRole = "user",
   activePath,
   pendingRequestCount,
   switchHref,
   switchLabel,
   onNavigate,
 }: SidebarProps) {
-  const navItems = role === "admin" ? adminNav : employeeNav;
+  const navItems =
+    role === "admin"
+      ? accessRole === "finance_manager"
+        ? financeNav
+        : adminNav
+      : employeeNav;
   const defaultPath =
-    role === "admin" ? (adminNav[0]?.href ?? "/admin") : "/dashboard";
+    role === "admin" ? (navItems[0]?.href ?? "/admin") : "/dashboard";
   const currentPath = activePath ?? defaultPath;
   const activeItem = getActiveNavItem(currentPath, navItems);
 

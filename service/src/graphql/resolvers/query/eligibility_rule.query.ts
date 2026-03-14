@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 
 import { getDb } from "../../../db/client";
 import { eligibility_rules } from "../../../db/schemas/eligibility_rules.schema";
+import { requireManagerAccess } from "../shared/authenticated-employee";
 import {
   normalizeStoredRuleValue,
   toRuleValueJson,
@@ -30,16 +31,17 @@ function getRuleVersion(row: typeof eligibility_rules.$inferSelect): number {
 
 export const eligibilityRuleQuery = {
   Query: {
-    eligibilityRules: async (
-      _parent: unknown,
-      args: {
+	    eligibilityRules: async (
+	      _parent: unknown,
+	      args: {
         benefitId?: string | null;
         configVersion?: number | null;
         activeOnly?: boolean | null;
-      },
-      context: { env: Env },
-    ) => {
-      const db = getDb(context.env.DB);
+	      },
+	      context: { env: Env },
+	    ) => {
+	      await requireManagerAccess(context);
+	      const db = getDb(context.env.DB);
 
       let rows: typeof eligibility_rules.$inferSelect[];
       if (args.benefitId) {
@@ -68,12 +70,13 @@ export const eligibilityRuleQuery = {
       return rows.map(mapRule);
     },
 
-    eligibilityRuleLatestVersion: async (
-      _parent: unknown,
-      args: { benefitId: string },
-      context: { env: Env },
-    ) => {
-      const db = getDb(context.env.DB);
+	    eligibilityRuleLatestVersion: async (
+	      _parent: unknown,
+	      args: { benefitId: string },
+	      context: { env: Env },
+	    ) => {
+	      await requireManagerAccess(context);
+	      const db = getDb(context.env.DB);
       const rows = await db
         .select()
         .from(eligibility_rules)
