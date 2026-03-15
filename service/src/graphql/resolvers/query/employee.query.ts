@@ -1,6 +1,7 @@
 import { getDb } from "../../../db/client";
 import { employee } from "../../../db/schemas/employee.schema";
 import { desc } from "drizzle-orm";
+import { requireHrAdminAccess } from "../shared/authenticated-employee";
 
 const mapEmployee = (row: typeof employee.$inferSelect) => ({
     id: row.id,
@@ -33,6 +34,7 @@ export const employeeQuery = {
             _args: unknown,
             context: { env: Env }
         ) => {
+            await requireHrAdminAccess(context);
             const db = getDb(context.env.DB);
             const rows = await db
                 .select()

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../../../db/client";
 import { benefit_requests } from "../../../db/schemas/benefit_request.schema";
 import { recomputeBenefitEligibility } from "../shared/benefit-eligibility-engine";
+import { requireManagerAccess } from "../shared/authenticated-employee";
 
 const mapRequest = (row: typeof benefit_requests.$inferSelect) => ({
   id: row.id,
@@ -23,6 +24,7 @@ export const benefitRequestMutation = {
       args: { input: { employeeId: string; benefitId: string } },
       context: { env: Env },
     ) => {
+      await requireManagerAccess(context);
       const db = getDb(context.env.DB);
       const eligibility = await recomputeBenefitEligibility(db, {
         employeeId: args.input.employeeId,
@@ -66,6 +68,7 @@ export const benefitRequestMutation = {
       },
       context: { env: Env },
     ) => {
+      await requireManagerAccess(context);
       const db = getDb(context.env.DB);
       const { input } = args;
 
@@ -97,6 +100,7 @@ export const benefitRequestMutation = {
       args: { id: string },
       context: { env: Env },
     ) => {
+      await requireManagerAccess(context);
       const db = getDb(context.env.DB);
 
       const updated = await db

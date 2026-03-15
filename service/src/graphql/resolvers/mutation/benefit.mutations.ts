@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { getDb } from "../../../db/client";
 import { benefits } from "../../../db/schemas/benefits.schema";
+import { requireHrAdminAccess } from "../shared/authenticated-employee";
 
 const mapBenefit = (row: typeof benefits.$inferSelect) => ({
 	id: row.id,
@@ -31,6 +32,7 @@ export const benefitMutation = {
 			},
 			context: { env: Env },
 		) => {
+			await requireHrAdminAccess(context);
 			const { input } = args;
 			const db = getDb(context.env.DB);
 
@@ -67,6 +69,7 @@ export const benefitMutation = {
 			},
 			context: { env: Env },
 		) => {
+			await requireHrAdminAccess(context);
 			const { input } = args;
 			const db = getDb(context.env.DB);
 
@@ -107,6 +110,7 @@ export const benefitMutation = {
 			args: { id: string },
 			context: { env: Env },
 		) => {
+			await requireHrAdminAccess(context);
 			const db = getDb(context.env.DB);
 			const deleted = await db
 				.delete(benefits)

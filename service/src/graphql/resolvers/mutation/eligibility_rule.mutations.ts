@@ -9,6 +9,7 @@ import {
   type RuleOperator,
   type StoredEligibilityRuleValue,
 } from "../shared/eligibility-rule-config";
+import { requireHrAdminAccess } from "../shared/authenticated-employee";
 
 const mapRule = (row: typeof eligibility_rules.$inferSelect) => {
   const normalized = normalizeStoredRuleValue(row.value);
@@ -123,6 +124,7 @@ export const eligibilityRuleMutation = {
       },
       context: { env: Env },
     ) => {
+      await requireHrAdminAccess(context);
       const db = getDb(context.env.DB);
       const { input } = args;
       const latestVersion = await getLatestVersionForBenefit(db, input.benefitId);
@@ -175,6 +177,7 @@ export const eligibilityRuleMutation = {
       },
       context: { env: Env },
     ) => {
+      await requireHrAdminAccess(context);
       const db = getDb(context.env.DB);
       const { input } = args;
       const existing = await db
@@ -228,6 +231,7 @@ export const eligibilityRuleMutation = {
       args: { id: string },
       context: { env: Env },
     ) => {
+      await requireHrAdminAccess(context);
       const db = getDb(context.env.DB);
       const deleted = await db
         .delete(eligibility_rules)

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { getDb } from "../../../db/client";
 import { contracts } from "../../../db/schemas/contract.schema";
+import { requireHrAdminAccess } from "../shared/authenticated-employee";
 
 const mapContract = (row: typeof contracts.$inferSelect) => ({
   id: row.id,
@@ -33,6 +34,7 @@ export const contractMutation = {
       },
       context: { env: Env },
     ) => {
+      await requireHrAdminAccess(context);
       const { input } = args;
       const db = getDb(context.env.DB);
 
@@ -70,6 +72,7 @@ export const contractMutation = {
       },
       context: { env: Env },
     ) => {
+      await requireHrAdminAccess(context);
       const { input } = args;
       const db = getDb(context.env.DB);
 
@@ -107,6 +110,7 @@ export const contractMutation = {
       args: { id: string },
       context: { env: Env },
     ) => {
+      await requireHrAdminAccess(context);
       const db = getDb(context.env.DB);
       const deleted = await db
         .delete(contracts)
@@ -118,4 +122,3 @@ export const contractMutation = {
     },
   },
 };
-

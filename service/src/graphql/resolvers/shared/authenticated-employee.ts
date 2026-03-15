@@ -13,6 +13,8 @@ type ResolverContext = {
 	clerkUserId?: string | null;
 };
 
+export type ApplicationRole = 'employee' | 'hr_admin' | 'finance_manager';
+
 function requireClerkUserId(context: ResolverContext): string {
 	if (!context.clerkUserId) {
 		throw new Error('Authenticated user context is missing.');
@@ -21,7 +23,23 @@ function requireClerkUserId(context: ResolverContext): string {
 	return context.clerkUserId;
 }
 
-export async function requireAuthenticatedEmployee(context: ResolverContext) {
+export function normalizeApplicationRole(role: unknown): ApplicationRole {
+	if (
+		role === 'admin' ||
+		role === 'hr' ||
+		role === 'hr_admin'
+	) {
+		return 'hr_admin';
+	}
+
+	if (role === 'finance' || role === 'finance_manager') {
+		return 'finance_manager';
+	}
+
+	return 'employee';
+}
+
+export async function resolveAuthenticatedSession(context: ResolverContext) {
 	const clerkUserId = requireClerkUserId(context);
 	const clerk = createClerkClient({
 		secretKey: context.env.CLERK_SECRET_KEY!,
@@ -45,15 +63,50 @@ export async function requireAuthenticatedEmployee(context: ResolverContext) {
 		.where(eq(employee.email, email))
 		.get();
 
-	if (!employeeRow) {
-		throw new Error(
-			`No employee record is mapped to Clerk email ${email}. Seed employee.email before using employee portal queries.`,
-		);
-	}
+	const role = normalizeApplicationRole(
+		user.publicMetadata?.role ?? employeeRow?.role,
+	);
 
 	return {
 		clerkUserId,
 		clerkEmail: email,
-		employee: employeeRow,
+		clerkUser: user,
+		employee: employeeRow ?? null,
+		role,
 	};
+}
+
+export async function requireAuthenticatedEmployee(context: ResolverContext) {
+	const session = await resolveAuthenticatedSession(context);
+
+	if (!session.employee) {
+		throw new Error(
+			`No employee record is mapped to Clerk email ${session.clerkEmail}. Seed employee.email before using employee portal queries.`,
+		);
+	}
+
+	return {
+		...session,
+		employee: session.employee,
+	};
+}
+
+export async function requireManagerAccess(context: ResolverContext) {
+	const session = await resolveAuthenticatedSession(context);
+
+	if (session.role === 'employee') {
+		throw new Error('Manager access is required for this operation.');
+	}
+
+	return session;
+}
+
+export async function requireHrAdminAccess(context: ResolverContext) {
+	const session = await resolveAuthenticatedSession(context);
+
+	if (session.role !== 'hr_admin') {
+		throw new Error('HR admin access is required for this operation.');
+	}
+
+	return session;
 }

@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../db/client";
 import { benefit_eligibility } from "../../../db/schemas/benefit_eligibility.schema";
 import { recomputeBenefitEligibility } from "../shared/benefit-eligibility-engine";
+import { requireHrAdminAccess } from "../shared/authenticated-employee";
 
 const mapEligibility = (row: typeof benefit_eligibility.$inferSelect) => ({
   employeeId: row.employee_id,
@@ -51,6 +52,7 @@ export const benefitEligibilityMutation = {
       },
       context: { env: Env },
     ) => {
+      await requireHrAdminAccess(context);
       const db = getDb(context.env.DB);
       const { input } = args;
       const shouldUseRuleEngine = !hasManualFields(input);
@@ -148,6 +150,7 @@ export const benefitEligibilityMutation = {
       },
       context: { env: Env },
     ) => {
+      await requireHrAdminAccess(context);
       const db = getDb(context.env.DB);
       const computed = await recomputeBenefitEligibility(db, args.input);
       return mapEligibility(computed.row);

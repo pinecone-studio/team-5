@@ -44,7 +44,13 @@ const protectedRoutes = [
 const managerRoutes = [/^\/admin(?:\/|$)/];
 
 function isManagerRole(role: unknown): boolean {
-  return role === "admin" || role === "hr";
+  return (
+    role === "admin" ||
+    role === "hr" ||
+    role === "hr_admin" ||
+    role === "finance_manager" ||
+    role === "finance"
+  );
 }
 
 function getMissingClerkKeys(env: Env): string[] {
