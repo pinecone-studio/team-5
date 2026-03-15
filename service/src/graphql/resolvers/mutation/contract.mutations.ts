@@ -2,7 +2,17 @@ import { eq } from "drizzle-orm";
 
 import { getDb } from "../../../db/client";
 import { contracts } from "../../../db/schemas/contract.schema";
-import { requireManagerAccess } from "../shared/authenticated-employee";
+import {
+  requireHrAdminAccess,
+} from "../shared/authenticated-employee";
+import {
+  ensureBenefitExists,
+  ensureUniqueContractVersion,
+  getContractById,
+  setActiveContractForBenefit,
+  syncBenefitActiveContract,
+} from "../shared/contract-lifecycle";
+import { getBenefitName, writeAuditLog } from "../shared/audit-log";
 
 const mapContract = (row: typeof contracts.$inferSelect) => ({
   id: row.id,
@@ -33,10 +43,17 @@ export const contractMutation = {
         };
       },
       context: { env: Env },
-	    ) => {
-	      await requireManagerAccess(context);
-	      const { input } = args;
-	      const db = getDb(context.env.DB);
+    ) => {
+      const auth = await requireHrAdminAccess(context);
+      const { input } = args;
+      const db = getDb(context.env.DB);
+      const benefitRow = await ensureBenefitExists(db, input.benefitId);
+
+      await ensureUniqueContractVersion({
+        db,
+        benefitId: input.benefitId,
+        version: input.version,
+      });
 
       const inserted = await db
         .insert(contracts)
@@ -53,7 +70,29 @@ export const contractMutation = {
         .returning()
         .get();
 
-      return mapContract(inserted);
+      const lifecycleRow =
+        inserted.is_active ?? false
+          ? await setActiveContractForBenefit(db, inserted.benefit_id, inserted.id)
+          : inserted;
+
+      await writeAuditLog(db, {
+        benefitId: inserted.benefit_id,
+        action: "Contract Created",
+        detail:
+          inserted.is_active ?? false
+            ? `${benefitRow.name} contract ${inserted.version} created and activated.`
+            : `${benefitRow.name} contract ${inserted.version} created.`,
+        performedByEmployeeId: auth.employee?.id ?? null,
+        performedByLabel: auth.employee?.full_name ?? auth.clerkEmail,
+        metadata: {
+          contractId: inserted.id,
+          version: inserted.version,
+          isActive: lifecycleRow?.is_active ?? inserted.is_active ?? false,
+          source: "createContract",
+        },
+      });
+
+      return mapContract(lifecycleRow ?? inserted);
     },
 
     updateContract: async (
@@ -71,10 +110,22 @@ export const contractMutation = {
         };
       },
       context: { env: Env },
-	    ) => {
-	      await requireManagerAccess(context);
-	      const { input } = args;
-	      const db = getDb(context.env.DB);
+    ) => {
+      const auth = await requireHrAdminAccess(context);
+      const { input } = args;
+      const db = getDb(context.env.DB);
+      const existing = await getContractById(db, input.id);
+
+      if (!existing) throw new Error("Contract not found");
+
+      if (input.version != null && input.version !== existing.version) {
+        await ensureUniqueContractVersion({
+          db,
+          benefitId: existing.benefit_id,
+          version: input.version,
+          excludeId: existing.id,
+        });
+      }
 
       const updated = await db
         .update(contracts)
@@ -101,22 +152,90 @@ export const contractMutation = {
         .returning()
         .get();
 
-      if (!updated) throw new Error("Contract not found");
-      return mapContract(updated);
+      const lifecycleRow =
+        updated.is_active ?? false
+          ? await setActiveContractForBenefit(db, updated.benefit_id, updated.id)
+          : existing.is_active
+            ? await syncBenefitActiveContract(db, updated.benefit_id)
+            : updated;
+
+      const benefitName = await getBenefitName(db, updated.benefit_id);
+      const becameActive =
+        !(existing.is_active ?? false) && Boolean(updated.is_active ?? false);
+      const deactivated =
+        Boolean(existing.is_active ?? false) && updated.is_active === false;
+
+      await writeAuditLog(db, {
+        benefitId: updated.benefit_id,
+        action: becameActive
+          ? "Contract Activated"
+          : deactivated
+            ? "Contract Deactivated"
+            : "Contract Updated",
+        detail: benefitName
+          ? `${benefitName} contract ${updated.version} ${
+              becameActive
+                ? "was activated."
+                : deactivated
+                  ? "was deactivated."
+                  : "was updated."
+            }`
+          : `Contract ${updated.version} ${
+              becameActive
+                ? "was activated."
+                : deactivated
+                  ? "was deactivated."
+                  : "was updated."
+            }`,
+        performedByEmployeeId: auth.employee?.id ?? null,
+        performedByLabel: auth.employee?.full_name ?? auth.clerkEmail,
+        metadata: {
+          contractId: updated.id,
+          previousVersion: existing.version,
+          version: updated.version,
+          isActive: lifecycleRow?.is_active ?? updated.is_active ?? false,
+          source: "updateContract",
+        },
+      });
+
+      return mapContract(lifecycleRow ?? updated);
     },
 
     deleteContract: async (
       _parent: unknown,
       args: { id: string },
       context: { env: Env },
-	    ) => {
-	      await requireManagerAccess(context);
-	      const db = getDb(context.env.DB);
+    ) => {
+      const auth = await requireHrAdminAccess(context);
+      const db = getDb(context.env.DB);
+      const existing = await getContractById(db, args.id);
+
+      if (!existing) throw new Error("Contract not found");
       const deleted = await db
         .delete(contracts)
         .where(eq(contracts.id, args.id))
         .returning()
         .get();
+
+      if (deleted) {
+        await syncBenefitActiveContract(db, deleted.benefit_id);
+        const benefitName = await getBenefitName(db, deleted.benefit_id);
+
+        await writeAuditLog(db, {
+          benefitId: deleted.benefit_id,
+          action: "Contract Deleted",
+          detail: benefitName
+            ? `${benefitName} contract ${deleted.version} was deleted.`
+            : `Contract ${deleted.version} was deleted.`,
+          performedByEmployeeId: auth.employee?.id ?? null,
+          performedByLabel: auth.employee?.full_name ?? auth.clerkEmail,
+          metadata: {
+            contractId: deleted.id,
+            version: deleted.version,
+            source: "deleteContract",
+          },
+        });
+      }
 
       return !!deleted;
     },

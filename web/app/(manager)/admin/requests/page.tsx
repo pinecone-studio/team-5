@@ -244,13 +244,25 @@ export default function AdminRequestsPage() {
     UpdateRequestStatusMutationVariables
   >(UPDATE_REQUEST_STATUS_MUTATION)
 
-  const employees = adminData?.employees ?? []
-  const benefits = canViewStaffSummary
-    ? adminData?.benefits ?? []
-    : reviewerData?.benefits ?? []
-  const benefitRequests = canViewStaffSummary
-    ? adminData?.benefitRequests ?? []
-    : reviewerData?.benefitRequests ?? []
+  const employees = useMemo(() => adminData?.employees ?? [], [adminData?.employees])
+  const benefits = useMemo(
+    () =>
+      canViewStaffSummary
+        ? adminData?.benefits ?? []
+        : reviewerData?.benefits ?? [],
+    [adminData?.benefits, canViewStaffSummary, reviewerData?.benefits],
+  )
+  const benefitRequests = useMemo(
+    () =>
+      canViewStaffSummary
+        ? adminData?.benefitRequests ?? []
+        : reviewerData?.benefitRequests ?? [],
+    [
+      adminData?.benefitRequests,
+      canViewStaffSummary,
+      reviewerData?.benefitRequests,
+    ],
+  )
   const loading =
     !isRoleLoaded || (canViewStaffSummary ? adminLoading : reviewerLoading)
   const error = canViewStaffSummary ? adminError : reviewerError

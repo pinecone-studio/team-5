@@ -145,6 +145,18 @@ export async function requireManagerAccess(
 	return auth;
 }
 
+export async function requireHrAdminAccess(
+	context: ResolverContext,
+): Promise<AuthenticatedEmployee> {
+	const auth = await requireAuthenticatedEmployee(context);
+
+	if (auth.clerkRole !== 'hr' && auth.clerkRole !== 'admin') {
+		throw new Error('Forbidden: HR admin access is required.');
+	}
+
+	return auth;
+}
+
 export async function requireBenefitRequestReviewerAccess(
 	context: ResolverContext,
 ): Promise<AuthenticatedEmployee> {

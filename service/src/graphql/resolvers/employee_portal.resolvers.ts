@@ -9,6 +9,7 @@ import { employee } from '../../db/schemas/employee.schema';
 import { recomputeBenefitEligibility } from './shared/benefit-eligibility-engine';
 import { requireAuthenticatedEmployee } from './shared/authenticated-employee';
 import { writeAuditLog } from './shared/audit-log';
+import { findActiveContractForBenefit } from './shared/contract-lifecycle';
 
 type ResolverContext = {
 	env: {
@@ -121,30 +122,7 @@ async function findActiveContract(
 	context: ResolverContext,
 	benefitRow: BenefitRow,
 ): Promise<ContractRow | null> {
-	const db = getDb(context.env.DB);
-
-	if (benefitRow.active_contract_id) {
-		const activeById = await db
-			.select()
-			.from(contracts)
-			.where(eq(contracts.id, benefitRow.active_contract_id))
-			.get();
-
-		if (activeById) return activeById;
-	}
-
-	return db
-		.select()
-		.from(contracts)
-		.where(
-			and(
-				eq(contracts.benefit_id, benefitRow.id),
-				eq(contracts.is_active, true),
-			),
-		)
-		.orderBy(desc(contracts.effective_date), desc(contracts.version))
-		.get()
-		.then((row) => row ?? null);
+	return findActiveContractForBenefit(getDb(context.env.DB), benefitRow.id);
 }
 
 async function findLatestRequest(
