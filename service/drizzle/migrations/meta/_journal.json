@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1773127403932,
-      "tag": "0000_chubby_ultimates",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1773127580783,
-      "tag": "0001_short_daredevil",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1773227894206,
-      "tag": "0002_nosy_mister_fear",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1773381001876,
-      "tag": "0003_same_eternals",
+      "when": 1773638447584,
+      "tag": "0000_noisy_reaper",
       "breakpoints": true
     }
   ]

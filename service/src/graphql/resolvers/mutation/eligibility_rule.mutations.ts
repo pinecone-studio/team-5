@@ -151,6 +151,8 @@ export const eligibilityRuleMutation = {
         .values({
           benefit_id: input.benefitId,
           value: storedRuleValue,
+          rule_type: storedRuleValue.type,
+          operator: storedRuleValue.operator,
           error_message: input.errorMessage,
           priority: nextPriority,
           is_active: input.isActive ?? true,

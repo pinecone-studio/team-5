@@ -10,6 +10,10 @@ export const eligibility_rules = sqliteTable("eligibility_rules", {
     .references(() => benefits.id)
     .notNull(),
 
+  rule_type: text("rule_type").notNull(),
+
+  operator: text("operator").notNull(),
+
   // JSON object: { type, operator, value, version }
   value: text("value", { mode: "json" }),
 
