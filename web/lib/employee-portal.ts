@@ -1,5 +1,67 @@
 import { gql } from "@apollo/client";
 
+export const EMPLOYEE_DASHBOARD_QUERY = gql`
+  query EmployeeDashboard {
+    me {
+      id
+      fullName
+      name
+      email
+      role
+      department
+      responsibilityLevel
+      employmentStatus
+      hireDate
+      okrStatus
+      okrSubmitted
+      lateArrivalCount
+      employeeCode
+    }
+    myBenefits {
+      status
+      canRequest
+      failureReasons
+      benefit {
+        id
+        name
+        category
+        subsidyPercent
+        vendorName
+        requiresContract
+        activeContractId
+        isActive
+      }
+      eligibility {
+        employeeId
+        benefitId
+        status
+        ruleEvaluationJson
+        computedAt
+        overrideReason
+      }
+      latestRequest {
+        id
+        benefitId
+        status
+        contractVersionAccepted
+        contractAcceptedAt
+        reviewedBy
+        createdAt
+        updatedAt
+      }
+      activeContract {
+        id
+        benefitId
+        vendorName
+        version
+        effectiveDate
+        expiryDate
+        isActive
+      }
+    }
+  }
+`;
+
 export const MY_BENEFITS_QUERY = gql`
   query MyBenefits {
     myBenefits {

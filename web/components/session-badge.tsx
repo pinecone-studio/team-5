@@ -57,15 +57,15 @@ export default function SessionBadge({
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-gray-100"
+        className="flex items-center gap-2.5 rounded-[0.9rem] px-2 py-1.5 transition hover:bg-gray-100"
         aria-expanded={open}
         aria-haspopup="menu"
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
           {initial}
         </div>
         <div className="hidden sm:flex sm:flex-col sm:items-start">
-          <span className="text-sm font-medium text-gray-700">{displayName}</span>
+          <span className="text-[0.95rem] font-medium text-gray-700">{displayName}</span>
         </div>
         <ChevronDown
           className={`hidden h-4 w-4 text-gray-400 transition sm:block ${open ? "rotate-180" : ""}`}
@@ -74,7 +74,7 @@ export default function SessionBadge({
 
       {open ? (
         <div
-          className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-gray-200 bg-white p-2 shadow-lg"
+          className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-gray-200 bg-white p-2"
           role="menu"
         >
           <div className="border-b border-gray-100 px-3 py-2">

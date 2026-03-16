@@ -1,22 +1,22 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { usePathname } from "next/navigation"
-import { useUser } from "@clerk/react"
-import { X } from "lucide-react"
+import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useUser } from "@clerk/react";
+import { X } from "lucide-react";
 
-import { Header } from "@/components/layout/header"
-import { Sidebar } from "@/components/layout/sidebar"
-import { getAdminHomePath, normalizeRole } from "@/lib/auth"
-import { cn } from "@/lib/utils"
+import { Header } from "@/components/layout/header";
+import { Sidebar } from "@/components/layout/sidebar";
+import { getAdminHomePath, normalizeRole } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 interface PageShellProps {
-  role: "employee" | "admin"
-  pendingRequestCount?: number
-  userName?: string
-  switchHref?: string
-  switchLabel?: string
-  children: React.ReactNode
+  role: "employee" | "admin";
+  pendingRequestCount?: number;
+  userName?: string;
+  switchHref?: string;
+  switchLabel?: string;
+  children: React.ReactNode;
 }
 
 export function PageShell({
@@ -27,24 +27,33 @@ export function PageShell({
   switchLabel,
   children,
 }: PageShellProps) {
-  const pathname = usePathname()
-  const { user } = useUser()
-  const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const userRole = normalizeRole(user?.publicMetadata?.role)
+  const pathname = usePathname();
+  const { user } = useUser();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const userRole = normalizeRole(user?.publicMetadata?.role);
   const resolvedUserName =
     userName ??
     user?.fullName?.trim() ??
     user?.firstName ??
     user?.primaryEmailAddress?.emailAddress?.split("@")[0] ??
-    "User"
+    "User";
   const resolvedSwitchHref =
-    switchHref ?? (role === "admin" ? "/dashboard" : getAdminHomePath(userRole))
+    switchHref ??
+    (role === "admin" ? "/dashboard" : getAdminHomePath(userRole));
   const resolvedSwitchLabel =
     switchLabel ??
-    (role === "admin" ? "Employee" : getAdminHomePath(userRole) ? "Admin" : undefined)
+    (role === "admin"
+      ? "Employee"
+      : getAdminHomePath(userRole)
+        ? "Admin"
+        : undefined);
+  const isPortalShell = role === "employee" || role === "admin";
+  const sidebarWidthClass = isPortalShell ? "md:ml-[19rem]" : "md:ml-60";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      className={cn("min-h-screen", isPortalShell ? "bg-white" : "bg-gray-50")}
+    >
       <div
         className={cn(
           "fixed inset-0 z-40 bg-gray-900/30 transition-opacity md:hidden",
@@ -55,7 +64,8 @@ export function PageShell({
 
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-60 transition-transform md:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 transition-transform md:translate-x-0",
+          isPortalShell ? "w-[19rem]" : "w-60",
           mobileNavOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -81,17 +91,31 @@ export function PageShell({
         </div>
       </div>
 
-      <main className="min-h-screen md:ml-60">
+      <main className={cn("min-h-screen bg-[#F9FAFB]", sidebarWidthClass)}>
         <Header
+          role={role}
           userName={resolvedUserName}
           onMenuClick={() => setMobileNavOpen(true)}
         />
-        <div className="p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto w-full max-w-[130rem] 2xl:max-w-[100rem]">
+        <div
+          className={cn(
+            isPortalShell
+              ? "px-4 py-6 sm:px-6 lg:px-8 lg:py-7"
+              : "p-4 sm:p-6 lg:p-8",
+          )}
+        >
+          <div
+            className={cn(
+              "mx-auto w-full",
+              isPortalShell
+                ? "max-w-[98rem]"
+                : "max-w-[130rem] 2xl:max-w-[100rem]",
+            )}
+          >
             {children}
           </div>
         </div>
       </main>
     </div>
-  )
+  );
 }
