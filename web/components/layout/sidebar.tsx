@@ -5,7 +5,6 @@ import {
   Activity,
   ArrowLeftRight,
   CircleHelp,
-  FileCheck2,
   FileText,
   LayoutGrid,
   Users,
@@ -96,12 +95,6 @@ export const adminNav: NavItem[] = [
     href: "/admin/rules",
     icon: FileText,
     subtitle: "Benefit eligibility rules",
-  },
-  {
-    label: "Contract",
-    href: "/admin/contract",
-    icon: FileCheck2,
-    subtitle: "Гэрээ болон нөхцөлийн тохиргоо",
   },
   {
     label: "Activity Log",
