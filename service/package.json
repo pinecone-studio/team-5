@@ -4,12 +4,12 @@
 	"private": true,
 	"scripts": {
 		"deploy": "wrangler deploy",
-		"dev": "npm run db:migrate:local && wrangler dev",
-		"start": "wrangler dev",
+		"dev": "sh ./scripts/ensure-dev-vars.sh && npm run db:migrate:local && wrangler dev",
+		"start": "sh ./scripts/ensure-dev-vars.sh && wrangler dev",
 		"test": "jest --coverage",
 		"cf-typegen": "wrangler types",
 		"db:generate": "drizzle-kit generate",
-		"db:migrate:local": "wrangler d1 migrations apply team5-db --local",
+		"db:migrate:local": "sh ./scripts/ensure-dev-vars.sh && wrangler d1 migrations apply team5-db --local",
 		"db:migrate:remote": "wrangler d1 migrations apply team5-db --remote"
 	},
 	"devDependencies": {
