@@ -24,6 +24,11 @@ export const employeePortalTypeDefs = `
     failureReasons: [String!]!
   }
 
+  type MyBenefitRequest {
+    benefit: Benefit!
+    request: BenefitRequest!
+  }
+
   input RequestBenefitInput {
     benefitId: ID!
   }
@@ -37,6 +42,7 @@ export const employeePortalTypeDefs = `
   extend type Query {
     me: Employee!
     myBenefits: [MyBenefit!]!
+    myRequests: [MyBenefitRequest!]!
   }
 
   extend type Mutation {

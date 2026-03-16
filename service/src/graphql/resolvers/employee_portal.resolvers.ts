@@ -10,12 +10,14 @@ import { recomputeBenefitEligibility } from './shared/benefit-eligibility-engine
 import { requireAuthenticatedEmployee } from './shared/authenticated-employee';
 import { writeAuditLog } from './shared/audit-log';
 import { findActiveContractForBenefit } from './shared/contract-lifecycle';
+import { ensureLocalBenefitsSeeded } from './shared/local-dev-bootstrap';
 
 type ResolverContext = {
 	env: {
 		DB: D1Database;
 		CLERK_SECRET_KEY?: string;
 		CLERK_PUBLISHABLE_KEY?: string;
+		FRONTEND_ORIGIN?: string;
 	};
 	clerkUserId?: string | null;
 };
@@ -229,6 +231,7 @@ export const employeePortalResolvers = {
 		myBenefits: async (_parent: unknown, _args: unknown, context: ResolverContext) => {
 			const auth = await requireAuthenticatedEmployee(context);
 			const db = getDb(context.env.DB);
+			await ensureLocalBenefitsSeeded(db, context.env.FRONTEND_ORIGIN);
 			const benefitRows = await db
 				.select()
 				.from(benefits)
@@ -243,6 +246,37 @@ export const employeePortalResolvers = {
 			);
 
 			return myBenefits;
+		},
+
+		myRequests: async (_parent: unknown, _args: unknown, context: ResolverContext) => {
+			const auth = await requireAuthenticatedEmployee(context);
+			const db = getDb(context.env.DB);
+			const [requestRows, benefitRows] = await Promise.all([
+				db
+					.select()
+					.from(benefit_requests)
+					.where(eq(benefit_requests.employee_id, auth.employee.id))
+					.orderBy(desc(benefit_requests.updated_at), desc(benefit_requests.created_at))
+					.all(),
+				db.select().from(benefits).all(),
+			]);
+
+			const benefitMap = new Map(benefitRows.map((row) => [row.id, row] as const));
+
+			return requestRows
+				.map((requestRow) => {
+					const benefitRow = benefitMap.get(requestRow.benefit_id);
+
+					if (!benefitRow) {
+						return null;
+					}
+
+					return {
+						benefit: mapBenefit(benefitRow),
+						request: mapRequest(requestRow),
+					};
+				})
+				.filter((item): item is NonNullable<typeof item> => item != null);
 		},
 	},
 

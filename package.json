@@ -6,6 +6,8 @@
   "scripts": {
     "prepare": "husky",
     "commit": "cz",
+    "setup:local": "sh ./scripts/setup-local.sh",
+    "doctor": "sh ./scripts/doctor.sh",
     "service:dev": "npm run dev --prefix service",
     "service:test": "npm test --prefix service",
     "service:lint": "npm run lint --prefix service || echo \"(no service lint script)\"",
