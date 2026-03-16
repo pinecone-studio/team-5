@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { useMemo, useState } from "react"
-import { gql } from "@apollo/client"
-import { useQuery } from "@apollo/client/react"
-import { Search } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react";
+import { gql } from "@apollo/client";
+import { useQuery } from "@apollo/client/react";
+import { Search, ChevronDown, Check } from "lucide-react";
 
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton";
 
 const ADMIN_ACTIVITY_LOG_QUERY = gql`
   query AdminActivityLog($limit: Int) {
@@ -22,43 +22,56 @@ const ADMIN_ACTIVITY_LOG_QUERY = gql`
       createdAt
     }
   }
-`
+`;
+
+const ACTION_FILTERS = [
+  "All Actions",
+  "Requested",
+  "Approved",
+  "Locked",
+] as const;
 
 interface AuditLogItem {
-  id: string
-  employeeId: string | null
-  employeeName: string | null
-  benefitId: string | null
-  benefitName: string | null
-  action: string
-  detail: string
-  performedByEmployeeId: string | null
-  performedBy: string
-  createdAt: string
+  id: string;
+  employeeId: string | null;
+  employeeName: string | null;
+  benefitId: string | null;
+  benefitName: string | null;
+  action: string;
+  detail: string;
+  performedByEmployeeId: string | null;
+  performedBy: string;
+  createdAt: string;
 }
 
 interface AdminActivityLogQueryData {
-  auditLog: AuditLogItem[]
+  auditLog: AuditLogItem[];
 }
 
 function formatTimestamp(isoDate: string) {
-  const parsed = new Date(isoDate)
-  if (Number.isNaN(parsed.getTime())) return isoDate
+  const parsed = new Date(isoDate);
+  if (Number.isNaN(parsed.getTime())) return isoDate;
+
+  const now = new Date();
+  const diffMs = now.getTime() - parsed.getTime();
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+  if (diffHours < 24 && diffHours >= 1) {
+    return `${diffHours} hours ago`;
+  }
 
   return parsed.toLocaleString("en-GB", {
-    day: "2-digit",
+    day: "numeric",
     month: "short",
     year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+  });
 }
 
 function getActionTone(action: string) {
-  const normalized = action.toLowerCase()
+  const normalized = action.toLowerCase();
 
   if (normalized.includes("approved")) {
-    return "bg-green-100 text-green-800"
+    return "bg-green-100 text-green-700";
   }
 
   if (
@@ -66,42 +79,45 @@ function getActionTone(action: string) {
     normalized.includes("rejected") ||
     normalized.includes("cancelled")
   ) {
-    return "bg-amber-100 text-amber-800"
+    return "bg-amber-100 text-amber-700";
   }
 
-  return "bg-sky-100 text-sky-800"
+  return "bg-sky-100 text-sky-700";
 }
 
 function ActionBadge({ action }: { action: string }) {
   return (
     <span
-      className={`inline-flex rounded-2xl px-4 py-1.5 text-sm font-medium ${getActionTone(
+      className={`inline-flex h-8 items-center rounded-[10px] px-3 text-[14px] font-medium ${getActionTone(
         action,
       )}`}
     >
       {action}
     </span>
-  )
+  );
 }
 
 function AdminActivityLogSkeleton() {
   return (
     <section className="space-y-8">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <Skeleton className="h-9 w-48" />
-          <Skeleton className="mt-2 h-5 w-72" />
+          <Skeleton className="h-10 w-52" />
+          <Skeleton className="mt-3 h-6 w-80" />
         </div>
 
-        <Skeleton className="h-14 w-full max-w-md rounded-2xl" />
+        <div className="flex w-full max-w-xl gap-4">
+          <Skeleton className="h-14 flex-1 rounded-2xl" />
+          <Skeleton className="h-14 w-56 rounded-2xl" />
+        </div>
       </div>
 
-      <div className="overflow-hidden rounded-[24px] border border-gray-200 bg-white p-6 shadow-sm sm:p-7">
-        <div className="space-y-4">
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="space-y-0">
           {Array.from({ length: 5 }).map((_, index) => (
             <div
               key={index}
-              className="grid grid-cols-6 gap-4 rounded-2xl border border-gray-100 p-4"
+              className="grid grid-cols-6 gap-4 border-b border-gray-100 px-6 py-5 last:border-b-0"
             >
               {Array.from({ length: 6 }).map((__, cellIndex) => (
                 <Skeleton key={cellIndex} className="h-6 w-full" />
@@ -111,127 +127,212 @@ function AdminActivityLogSkeleton() {
         </div>
       </div>
     </section>
-  )
+  );
 }
 
 export default function AdminActivityLogPage() {
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState("All Actions");
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
   const { data, loading, error } = useQuery<AdminActivityLogQueryData>(
     ADMIN_ACTIVITY_LOG_QUERY,
     {
       variables: { limit: 200 },
     },
-  )
+  );
 
-  const filteredLogs = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase()
-    const logs = data?.auditLog ?? []
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
 
-    if (!normalizedSearch) {
-      return logs
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
+        setDropdownOpen(false);
+      }
     }
 
-    return logs.filter((log) =>
-      [
-        log.employeeName,
-        log.benefitName,
-        log.action,
-        log.detail,
-        log.performedBy,
-      ]
-        .filter((value): value is string => Boolean(value))
-        .some((value) => value.toLowerCase().includes(normalizedSearch)),
-    )
-  }, [data?.auditLog, search])
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const logs = data?.auditLog ?? [];
+
+  const filteredLogs = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+
+    return logs.filter((log) => {
+      const employeeName = (log.employeeName ?? "").toLowerCase();
+      const benefitName = (log.benefitName ?? "").toLowerCase();
+      const detail = log.detail.toLowerCase();
+      const performedBy = log.performedBy.toLowerCase();
+
+      const matchesSearch =
+        normalizedSearch === "" ||
+        employeeName.includes(normalizedSearch) ||
+        benefitName.includes(normalizedSearch) ||
+        detail.includes(normalizedSearch) ||
+        performedBy.includes(normalizedSearch);
+
+      const matchesFilter =
+        selectedFilter === "All Actions" || log.action === selectedFilter;
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [logs, search, selectedFilter]);
 
   if (loading) {
-    return <AdminActivityLogSkeleton />
+    return <AdminActivityLogSkeleton />;
   }
 
   if (error) {
     return (
       <section className="space-y-8">
         <div>
-          <h2 className="text-3xl font-semibold tracking-tight text-gray-950">
+          <h2 className="text-4xl font-bold tracking-tight text-gray-950">
             Activity Log
           </h2>
-          <p className="mt-2 text-base text-rose-600">
+          <p className="mt-3 text-base text-rose-600">
             Activity log could not be loaded. {error.message}
           </p>
         </div>
       </section>
-    )
+    );
   }
 
   return (
     <section className="space-y-8">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h2 className="text-3xl font-semibold tracking-tight text-gray-950">
+      <div className="flex items-start justify-between gap-6">
+        <div className="flex h-15 w-94.5 flex-col gap-1">
+          <h2 className="text-[20px] font-semibold leading-7 tracking-[-0.02em] text-[#111827]">
             Activity Log
           </h2>
-          <p className="mt-2 text-base text-gray-500">
+          <p className="text-[14px] leading-5 text-[#64748B]">
             Track all system changes and actions
           </p>
         </div>
 
-        <div className="relative w-full max-w-md">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search activity log..."
-            className="h-14 w-full rounded-2xl border border-gray-200 bg-white pl-12 pr-4 text-base text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-blue-300"
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative w-[288px]">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name..."
+              className="h-10 w-full rounded-[10px] border border-[#E2E8F0] bg-white pl-9 pr-4 text-[14px] text-slate-700 outline-none placeholder:text-slate-400 focus:border-[#CBD5E1]"
+            />
+          </div>
+
+          <div className="relative h-10 w-48.75" ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="flex h-10 w-full items-center justify-between rounded-[10px] border border-[#E2E8F0] bg-white px-4 text-[14px] font-medium text-slate-700"
+            >
+              {selectedFilter}
+
+              <ChevronDown
+                className={`h-4 w-4 text-slate-400 transition ${
+                  dropdownOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {dropdownOpen && (
+              <div className="absolute right-0 top-11 z-50 w-48.75 overflow-hidden rounded-[8px] border border-[#E2E8F0] bg-white py-1 shadow-lg">
+                {ACTION_FILTERS.map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => {
+                      setSelectedFilter(filter);
+                      setDropdownOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-[14px] ${
+                      selectedFilter === filter
+                        ? "bg-slate-50 font-medium text-slate-900"
+                        : "text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>{filter}</span>
+                    {selectedFilter === filter && (
+                      <Check className="h-4 w-4 text-slate-700" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-
-      <div className="overflow-hidden rounded-[24px] border border-gray-200 bg-white p-6 shadow-sm sm:p-7">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left">
-            <thead>
-              <tr className="border-b border-gray-200 text-base font-semibold text-gray-950">
-                <th className="px-3 py-4 first:pl-0">Timestamp</th>
-                <th className="px-3 py-4">Employee</th>
-                <th className="px-3 py-4">Benefits</th>
-                <th className="px-3 py-4">Action</th>
-                <th className="px-3 py-4">Detail</th>
-                <th className="px-3 py-4">Performed by</th>
+      <div className="overflow-x-auto">
+        <div className="overflow-hidden rounded-[12px] border border-[#E2E8F0] bg-white">
+          <table className="w-full max-w-[294.5] table-fixed">
+            <thead className="bg-[#E1E7F0]">
+              <tr className="border-b border-[#E2E8F0] ">
+                {[
+                  "TIMESTAMP",
+                  "EMPLOYEE",
+                  "BENEFITS",
+                  "ACTION",
+                  "DETAIL",
+                  "PERFORMED BY",
+                ].map((col) => (
+                  <th
+                    key={col}
+                    className="px-9 text-left text-font/size/base font-semibold text-[#65748B] h-14.5"
+                  >
+                    {col}
+                  </th>
+                ))}
               </tr>
             </thead>
+
             <tbody>
               {filteredLogs.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
-                    className="px-3 py-10 text-center text-base text-gray-500"
+                    className="h-13.5 px-9 text-center text-sm text-[#94A3B8] align-middle"
                   >
                     No activity logs found.
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((log) => (
+                filteredLogs.map((log, idx) => (
                   <tr
                     key={log.id}
-                    className="border-b border-gray-100 last:border-b-0"
+                    className={`h-13.5 align-middle ${
+                      idx !== filteredLogs.length - 1
+                        ? "border-b border-[#E2E8F0]"
+                        : ""
+                    }`}
                   >
-                    <td className="px-3 py-7 first:pl-0 text-lg text-gray-900">
+                    <td className="px-9 py-0 text-[14px] font-normal whitespace-nowrap align-middle text-[#667085]">
                       {formatTimestamp(log.createdAt)}
                     </td>
-                    <td className="px-3 py-7 text-lg text-gray-900">
+
+                    <td className="px-9 py-0 text-[14px] font-semibold whitespace-nowrap align-middle text-[#0F172A]">
                       {log.employeeName ?? "System"}
                     </td>
-                    <td className="px-3 py-7 text-lg text-gray-900">
+
+                    <td className="px-9 py-0 text-[14px] whitespace-nowrap align-middle text-[#334155]">
                       {log.benefitName ?? "-"}
                     </td>
-                    <td className="px-3 py-7">
+
+                    <td className="px-9 py-0 whitespace-nowrap align-middle">
                       <ActionBadge action={log.action} />
                     </td>
-                    <td className="px-3 py-7 text-lg text-gray-900">
+
+                    <td className="px-9 py-0 text-[14px] align-middle text-[#334155]">
                       {log.detail}
                     </td>
-                    <td className="px-3 py-7 text-lg text-gray-900">
+
+                    <td className="px-9 py-0 text-[14px] whitespace-nowrap align-middle text-[#667085]">
                       {log.performedBy}
                     </td>
                   </tr>
@@ -242,5 +343,5 @@ export default function AdminActivityLogPage() {
         </div>
       </div>
     </section>
-  )
+  );
 }
