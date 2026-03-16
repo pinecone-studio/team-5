@@ -68,6 +68,7 @@ app.use(
 			const allowedOrigins = getAllowedFrontendOrigins(c.env, origin);
 			return allowedOrigins.includes(origin) ? origin : allowedOrigins[0] ?? 'null';
 		},
+		credentials: true,
 		allowHeaders: ['Authorization', 'Content-Type'],
 		allowMethods: ['GET', 'POST', 'OPTIONS'],
 	})
