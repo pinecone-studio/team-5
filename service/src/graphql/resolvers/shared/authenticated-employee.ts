@@ -22,12 +22,30 @@ export type ResolverContext = {
 		DB: D1Database;
 		CLERK_SECRET_KEY?: string;
 		CLERK_PUBLISHABLE_KEY?: string;
+		FRONTEND_ORIGIN?: string;
 	};
 	clerkUserId?: string | null;
 	clerkEmail?: string | null;
 	clerkRole?: AppRole | null;
 	clerkDisplayName?: string | null;
 };
+
+export type AuthenticatedEmployee = {
+	clerkUserId: string;
+	clerkEmail: string;
+	clerkRole: AppRole;
+	clerkDisplayName: string;
+	employee: typeof employee.$inferSelect;
+};
+
+function isLocalFrontendOrigin(frontendOrigin?: string): boolean {
+	return (frontendOrigin ?? '')
+		.split(',')
+		.map((value) => value.trim())
+		.some(
+			(value) => value === 'http://localhost:3000' || value === 'http://127.0.0.1:3000',
+		);
+}
 
 function requireClerkUserId(context: ResolverContext): string {
 	if (!context.clerkUserId) {
@@ -50,6 +68,11 @@ async function getClerkUser(context: ResolverContext) {
 	return clerk.users.getUser(clerkUserId);
 }
 
+function requireClerkEmail(context: ResolverContext): string | null {
+	const email = context.clerkEmail?.trim();
+	return email && email.length > 0 ? email : null;
+}
+
 export function getPrimaryClerkEmail(user: ClerkLikeUser): string | null {
 	return user.primaryEmailAddress?.emailAddress ?? user.emailAddresses?.[0]?.emailAddress ?? null;
 }
@@ -70,9 +93,11 @@ export function getClerkDisplayName(user: ClerkLikeUser): string {
 	return getPrimaryClerkEmail(user)?.split('@')[0] ?? 'Employee';
 }
 
-export async function requireAuthenticatedEmployee(context: ResolverContext) {
+export async function requireAuthenticatedEmployee(
+	context: ResolverContext,
+): Promise<AuthenticatedEmployee> {
 	const clerkUserId = requireClerkUserId(context);
-	let email = context.clerkEmail?.trim() ?? null;
+	let email = requireClerkEmail(context);
 	let displayName = context.clerkDisplayName?.trim() ?? null;
 
 	if (!email) {
@@ -92,19 +117,40 @@ export async function requireAuthenticatedEmployee(context: ResolverContext) {
 		.where(eq(employee.email, email))
 		.get();
 
-	if (!employeeRow) {
-		throw new Error(
-			`No employee record is mapped to Clerk email ${email}. Seed employee.email before using employee portal queries.`,
-		);
+	if (employeeRow) {
+		return {
+			clerkUserId,
+			clerkEmail: email,
+			clerkRole: context.clerkRole ?? 'employee',
+			clerkDisplayName: displayName ?? email.split('@')[0] ?? 'Local Employee',
+			employee: employeeRow,
+		};
 	}
 
-	return {
-		clerkUserId,
-		clerkEmail: email,
-		clerkRole: context.clerkRole ?? 'employee',
-		clerkDisplayName: displayName ?? email.split('@')[0] ?? 'Employee',
-		employee: employeeRow,
-	};
+	if (isLocalFrontendOrigin(context.env.FRONTEND_ORIGIN)) {
+		const localEmployee = await db
+			.insert(employee)
+			.values({
+				full_name: displayName ?? email.split('@')[0] ?? 'Local Employee',
+				email,
+				status: 'active',
+				employment_status: 'active',
+			})
+			.returning()
+			.get();
+
+		return {
+			clerkUserId,
+			clerkEmail: email,
+			clerkRole: context.clerkRole ?? 'employee',
+			clerkDisplayName: displayName ?? email.split('@')[0] ?? 'Local Employee',
+			employee: localEmployee,
+		};
+	}
+
+	throw new Error(
+		`No employee record is mapped to Clerk email ${email}. Seed employee.email before using employee portal queries.`,
+	);
 }
 
 export async function requireManagerAccess(context: ResolverContext) {
