@@ -324,31 +324,6 @@ function getEmployeeInitials(name: string) {
   return initials || "U";
 }
 
-function getEmploymentClasses(status: EmploymentStatus) {
-  switch (status) {
-    case "leave":
-      return {
-        dot: "bg-amber-500",
-        text: "text-amber-600",
-      };
-    case "probation":
-      return {
-        dot: "bg-blue-500",
-        text: "text-blue-600",
-      };
-    case "terminated":
-      return {
-        dot: "bg-rose-500",
-        text: "text-rose-600",
-      };
-    default:
-      return {
-        dot: "bg-emerald-500",
-        text: "text-emerald-600",
-      };
-  }
-}
-
 function getOkrValue(employee: EmployeeRecord) {
   if (
     employee.okrSubmitted ||
@@ -386,7 +361,7 @@ function getEmployeeSubtitle(employee: EmployeeRecord) {
 }
 
 function getAttendanceValue(employee: EmployeeRecord) {
-  return `${employee.lateArrivalCount}/3 late arrivals`;
+  return `${employee.lateArrivalCount}/3 lates`;
 }
 
 function getPrimaryButtonLabel(benefit: BenefitItem) {
@@ -415,16 +390,30 @@ function getCardMetaLine(benefit: BenefitItem) {
 function getCriteriaBadgeClasses(status: BenefitStatus) {
   switch (status) {
     case "active":
-    case "available":
       return "border-emerald-200 bg-emerald-50 text-emerald-600";
+    case "available":
+      return "border-[#9ab2ff] bg-[#f5f8ff] text-[#3268f6]";
     case "pending":
       return "border-amber-200 bg-amber-50 text-amber-700";
     case "locked":
-      return "border-slate-200 bg-slate-100 text-slate-500";
+      return "border-rose-200 bg-rose-50 text-rose-500";
   }
 }
 
-function SummaryStat({
+function getEmploymentValue(status: EmploymentStatus) {
+  switch (status) {
+    case "leave":
+      return "On Leave";
+    case "probation":
+      return "Probation";
+    case "terminated":
+      return "Terminated";
+    default:
+      return "Active";
+  }
+}
+
+function SummaryMetric({
   label,
   value,
   valueClassName,
@@ -434,13 +423,13 @@ function SummaryStat({
   valueClassName?: string;
 }) {
   return (
-    <div className="rounded-[1rem] border border-[#d9e1ef] bg-white px-4 py-4">
+    <div className="space-y-2">
       <p className="text-[0.8rem] font-medium tracking-[0.08em] text-[#74839b] uppercase">
         {label}
       </p>
       <p
         className={cn(
-          "mt-2.5 text-[1.15rem] font-normal tracking-[-0.03em] text-[#18243d] sm:text-[1.2rem]",
+          "text-[1rem] font-medium tracking-[-0.03em] text-[#18243d]",
           valueClassName,
         )}
       >
@@ -526,21 +515,24 @@ function BenefitCard({
 function BenefitsBoardSkeleton() {
   return (
     <section className="space-y-10">
-      <div className="rounded-[2.25rem] border border-[#d9e1ef] bg-white p-7">
-        <div className="flex flex-col gap-8 xl:flex-row xl:items-start xl:justify-between">
-          <div className="flex items-center gap-5">
-            <Skeleton className="h-20 w-20 rounded-full" />
+      <div className="rounded-[1.15rem] border border-[#d9e1ef] bg-white p-6">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-center">
+          <div className="flex items-center gap-5 xl:min-w-[22rem] xl:pr-8">
+            <Skeleton className="h-16 w-16 rounded-full" />
             <div className="space-y-3">
-              <Skeleton className="h-10 w-52" />
-              <Skeleton className="h-7 w-36" />
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-6 w-28" />
             </div>
           </div>
-          <Skeleton className="h-8 w-24 rounded-full" />
-        </div>
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-32 rounded-[1.5rem]" />
-          ))}
+          <div className="hidden xl:block xl:h-[76px] xl:w-px xl:bg-[#e8edf5]" />
+          <div className="grid flex-1 gap-5 sm:grid-cols-2 xl:grid-cols-5 xl:gap-8">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="space-y-3">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-6 w-24" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -554,6 +546,55 @@ function BenefitsBoardSkeleton() {
           </div>
         </div>
       ))}
+    </section>
+  );
+}
+
+function BenefitsHeader({ employee }: { employee: EmployeeRecord }) {
+  return (
+    <section className="rounded-[1.15rem] border border-[#d9e1ef] bg-white px-6 py-6">
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-center">
+        <div className="flex items-center gap-4 xl:min-w-[22rem] xl:pr-8">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f1f3f7] text-[1.35rem] font-medium tracking-[-0.04em] text-[#18243d]">
+            {getEmployeeInitials(employee.fullName)}
+          </div>
+
+          <div className="space-y-1.5">
+            <h1 className="text-[1.85rem] font-medium tracking-[-0.05em] text-[#18243d]">
+              {employee.fullName}
+            </h1>
+            <p className="text-[0.95rem] font-normal text-[#607089]">
+              {getEmployeeSubtitle(employee)}
+            </p>
+          </div>
+        </div>
+
+        <div className="hidden xl:block xl:h-[76px] xl:w-px xl:bg-[#e8edf5]" />
+
+        <div className="grid flex-1 gap-5 sm:grid-cols-2 xl:grid-cols-5 xl:gap-8">
+          <SummaryMetric
+            label="Employment"
+            value={getEmploymentValue(employee.employmentStatus)}
+          />
+          <SummaryMetric
+            label="OKR"
+            value={getOkrValue(employee)}
+            valueClassName={getOkrClasses(employee)}
+          />
+          <SummaryMetric
+            label="Attendance"
+            value={getAttendanceValue(employee)}
+          />
+          <SummaryMetric
+            label="Responsibility"
+            value={`Level ${employee.responsibilityLevel}`}
+          />
+          <SummaryMetric
+            label="Hired"
+            value={formatDateValue(employee.hireDate) ?? "Not set"}
+          />
+        </div>
+      </div>
     </section>
   );
 }
@@ -688,72 +729,7 @@ export default function BenefitsBoard() {
     <section className="space-y-11">
       {employee ? (
         <section className="pt-2">
-          <div className="flex flex-col gap-7 xl:flex-row xl:items-start xl:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="relative">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f1f3f7] text-[1.35rem] font-medium tracking-[-0.04em] text-[#18243d]">
-                  {getEmployeeInitials(employee.fullName)}
-                </div>
-                <span
-                  className={cn(
-                    "absolute right-0 bottom-0 h-5 w-5 translate-x-[3px] translate-y-[2px] rounded-full border-[3px] border-white",
-                    getEmploymentClasses(employee.employmentStatus).dot,
-                  )}
-                  aria-hidden="true"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <h1 className="text-[1.9rem] font-medium tracking-[-0.05em] text-[#18243d]">
-                  {employee.fullName}
-                </h1>
-                <div className="flex items-center gap-3 text-[0.95rem] font-normal text-[#607089]">
-                  <span>{getEmployeeSubtitle(employee)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div
-              className={cn(
-                "inline-flex items-center gap-2 self-start pt-1 text-[0.95rem] font-normal",
-                getEmploymentClasses(employee.employmentStatus).text,
-              )}
-            >
-              <span
-                className={cn(
-                  "h-2 w-2 rounded-full",
-                  getEmploymentClasses(employee.employmentStatus).dot,
-                )}
-              />
-              {employee.employmentStatus === "leave"
-                ? "On Leave"
-                : employee.employmentStatus === "probation"
-                  ? "Probation"
-                  : employee.employmentStatus === "terminated"
-                    ? "Terminated"
-                    : "Active"}
-            </div>
-          </div>
-
-          <div className="mt-7 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <SummaryStat
-              label="Responsibility"
-              value={`Level ${employee.responsibilityLevel}`}
-            />
-            <SummaryStat
-              label="Hired"
-              value={formatDateValue(employee.hireDate) ?? "Not set"}
-            />
-            <SummaryStat
-              label="Attendance"
-              value={getAttendanceValue(employee)}
-            />
-            <SummaryStat
-              label="OKR"
-              value={getOkrValue(employee)}
-              valueClassName={getOkrClasses(employee)}
-            />
-          </div>
+          <BenefitsHeader employee={employee} />
         </section>
       ) : null}
 
