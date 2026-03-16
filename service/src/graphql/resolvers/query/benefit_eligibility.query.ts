@@ -17,13 +17,13 @@ const mapEligibility = (row: typeof benefit_eligibility.$inferSelect) => ({
 
 export const benefitEligibilityQuery = {
   Query: {
-    benefitEligibility: async (
-      _parent: unknown,
-      args: { employeeId?: string | null; benefitId?: string | null },
-      context: { env: Env },
-    ) => {
-      await requireManagerAccess(context);
-      const db = getDb(context.env.DB);
+	    benefitEligibility: async (
+	      _parent: unknown,
+	      args: { employeeId?: string | null; benefitId?: string | null },
+	      context: { env: Env },
+	    ) => {
+	      await requireManagerAccess(context);
+	      const db = getDb(context.env.DB);
 
       const conditions = [];
       if (args.employeeId) {

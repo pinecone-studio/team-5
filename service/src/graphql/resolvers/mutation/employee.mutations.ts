@@ -53,10 +53,10 @@ export const employeeMutation = {
 				employeeCode?: string | null;
 			},
 			context: { env: Env },
-		) => {
-			await requireManagerAccess(context);
-			const db = getDb(context.env.DB);
-			const now = new Date().toISOString();
+			) => {
+				await requireManagerAccess(context);
+				const db = getDb(context.env.DB);
+				const now = new Date().toISOString();
 			const fullName = args.name ?? args.fullName;
 			const employmentStatus = args.employmentStatus ?? args.status ?? 'active';
 			const okrStatus =
@@ -121,10 +121,10 @@ export const employeeMutation = {
 				employeeCode?: string | null;
 			},
 			context: { env: Env },
-		) => {
-			await requireManagerAccess(context);
-			const db = getDb(context.env.DB);
-			const now = new Date().toISOString();
+			) => {
+				await requireManagerAccess(context);
+				const db = getDb(context.env.DB);
+				const now = new Date().toISOString();
 			const fullName = args.name ?? args.fullName;
 			const employmentStatus = args.employmentStatus ?? args.status;
 			const lateArrivalCount = args.lateArrivalCount ?? args.lateCount;
@@ -190,9 +190,9 @@ export const employeeMutation = {
 			return mapEmployee(updated);
 		},
 
-		deleteEmployee: async (_parent: unknown, args: { id: string }, context: { env: Env }) => {
-			await requireManagerAccess(context);
-			const db = getDb(context.env.DB);
+			deleteEmployee: async (_parent: unknown, args: { id: string }, context: { env: Env }) => {
+				await requireManagerAccess(context);
+				const db = getDb(context.env.DB);
 
 			const deleted = await db.delete(employee).where(eq(employee.id, args.id)).returning().get();
 

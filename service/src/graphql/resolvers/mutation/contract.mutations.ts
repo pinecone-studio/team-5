@@ -33,10 +33,10 @@ export const contractMutation = {
         };
       },
       context: { env: Env },
-    ) => {
-      await requireManagerAccess(context);
-      const { input } = args;
-      const db = getDb(context.env.DB);
+	    ) => {
+	      await requireManagerAccess(context);
+	      const { input } = args;
+	      const db = getDb(context.env.DB);
 
       const inserted = await db
         .insert(contracts)
@@ -71,10 +71,10 @@ export const contractMutation = {
         };
       },
       context: { env: Env },
-    ) => {
-      await requireManagerAccess(context);
-      const { input } = args;
-      const db = getDb(context.env.DB);
+	    ) => {
+	      await requireManagerAccess(context);
+	      const { input } = args;
+	      const db = getDb(context.env.DB);
 
       const updated = await db
         .update(contracts)
@@ -109,9 +109,9 @@ export const contractMutation = {
       _parent: unknown,
       args: { id: string },
       context: { env: Env },
-    ) => {
-      await requireManagerAccess(context);
-      const db = getDb(context.env.DB);
+	    ) => {
+	      await requireManagerAccess(context);
+	      const db = getDb(context.env.DB);
       const deleted = await db
         .delete(contracts)
         .where(eq(contracts.id, args.id))

@@ -93,10 +93,8 @@ export default function AppApolloProvider({
   }
 
   return (
-    <ClerkProvider publishableKey={clerkPublishableKey} signInUrl="/login">
-      <AuthenticatedApolloProvider graphqlUrl={graphqlUrl}>
-        {children}
-      </AuthenticatedApolloProvider>
-    </ClerkProvider>
+    <AuthenticatedApolloProvider graphqlUrl={graphqlUrl}>
+      {children}
+    </AuthenticatedApolloProvider>
   );
 }

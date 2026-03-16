@@ -3,8 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../db/client";
 import { benefit_eligibility } from "../../../db/schemas/benefit_eligibility.schema";
 import { recomputeBenefitEligibility } from "../shared/benefit-eligibility-engine";
+import { requireManagerAccess } from "../shared/authenticated-employee";
 import {
-  SYSTEM_AUDIT_ACTOR,
   getBenefitName,
   writeAuditLog,
 } from "../shared/audit-log";
@@ -132,7 +132,7 @@ export const benefitEligibilityMutation = {
         await writeAuditLog(db, {
           employeeId: input.employeeId,
           benefitId: input.benefitId,
-          action: input.overrideBy || input.overrideReason ? "Eligibility Overridden" : "Eligibility Updated",
+          action: "Eligibility Overridden",
           detail: detailParts.join(" "),
           performedByEmployeeId: auth.employee.id,
           performedByLabel: auth.employee.full_name,
@@ -197,7 +197,7 @@ export const benefitEligibilityMutation = {
       await writeAuditLog(db, {
         employeeId: input.employeeId,
         benefitId: input.benefitId,
-        action: input.overrideBy || input.overrideReason ? "Eligibility Overridden" : "Eligibility Updated",
+        action: "Eligibility Overridden",
         detail: detailParts.join(" "),
         performedByEmployeeId: auth.employee.id,
         performedByLabel: auth.employee.full_name,

@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 
 import { getDb } from "../../../db/client";
 import { eligibility_rules } from "../../../db/schemas/eligibility_rules.schema";
+import { requireManagerAccess } from "../shared/authenticated-employee";
 import {
   normalizeStoredRuleValue,
   parseRuleInputValue,
@@ -123,10 +124,10 @@ export const eligibilityRuleMutation = {
         };
       },
       context: { env: Env },
-    ) => {
-      await requireManagerAccess(context);
-      const db = getDb(context.env.DB);
-      const { input } = args;
+	    ) => {
+	      await requireManagerAccess(context);
+	      const db = getDb(context.env.DB);
+	      const { input } = args;
       const latestVersion = await getLatestVersionForBenefit(db, input.benefitId);
       const targetVersion = input.configVersion ?? latestVersion;
       const baseValue: StoredEligibilityRuleValue = {
@@ -176,10 +177,10 @@ export const eligibilityRuleMutation = {
         };
       },
       context: { env: Env },
-    ) => {
-      await requireManagerAccess(context);
-      const db = getDb(context.env.DB);
-      const { input } = args;
+	    ) => {
+	      await requireManagerAccess(context);
+	      const db = getDb(context.env.DB);
+	      const { input } = args;
       const existing = await db
         .select()
         .from(eligibility_rules)
@@ -230,9 +231,9 @@ export const eligibilityRuleMutation = {
       _parent: unknown,
       args: { id: string },
       context: { env: Env },
-    ) => {
-      await requireManagerAccess(context);
-      const db = getDb(context.env.DB);
+	    ) => {
+	      await requireManagerAccess(context);
+	      const db = getDb(context.env.DB);
       const deleted = await db
         .delete(eligibility_rules)
         .where(eq(eligibility_rules.id, args.id))

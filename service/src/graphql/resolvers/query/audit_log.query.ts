@@ -15,14 +15,14 @@ function mapMetadataJson(metadata: AuditLogRow["metadata_json"]) {
 
 export const auditLogQuery = {
 	Query: {
-		auditLog: async (
-			_parent: unknown,
-			args: { search?: string | null; action?: string | null; limit?: number | null },
-			context: { env: Env },
-		) => {
-			await requireManagerAccess(context);
-			const db = getDb(context.env.DB);
-			const [rows, employeeRows, benefitRows] = await Promise.all([
+			auditLog: async (
+				_parent: unknown,
+				args: { search?: string | null; action?: string | null; limit?: number | null },
+				context: { env: Env },
+			) => {
+				await requireManagerAccess(context);
+				const db = getDb(context.env.DB);
+				const [rows, employeeRows, benefitRows] = await Promise.all([
 				db
 					.select()
 					.from(audit_logs)

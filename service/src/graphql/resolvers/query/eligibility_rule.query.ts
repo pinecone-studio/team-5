@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 
 import { getDb } from "../../../db/client";
 import { eligibility_rules } from "../../../db/schemas/eligibility_rules.schema";
+import { requireManagerAccess } from "../shared/authenticated-employee";
 import {
   normalizeStoredRuleValue,
   toRuleValueJson,
@@ -31,9 +32,9 @@ function getRuleVersion(row: typeof eligibility_rules.$inferSelect): number {
 
 export const eligibilityRuleQuery = {
   Query: {
-    eligibilityRules: async (
-      _parent: unknown,
-      args: {
+	    eligibilityRules: async (
+	      _parent: unknown,
+	      args: {
         benefitId?: string | null;
         configVersion?: number | null;
         activeOnly?: boolean | null;

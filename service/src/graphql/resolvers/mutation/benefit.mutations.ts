@@ -31,10 +31,10 @@ export const benefitMutation = {
 				};
 			},
 			context: { env: Env },
-		) => {
-			await requireManagerAccess(context);
-			const { input } = args;
-			const db = getDb(context.env.DB);
+			) => {
+				await requireManagerAccess(context);
+				const { input } = args;
+				const db = getDb(context.env.DB);
 
 			const inserted = await db
 				.insert(benefits)
@@ -68,10 +68,10 @@ export const benefitMutation = {
 				};
 			},
 			context: { env: Env },
-		) => {
-			await requireManagerAccess(context);
-			const { input } = args;
-			const db = getDb(context.env.DB);
+			) => {
+				await requireManagerAccess(context);
+				const { input } = args;
+				const db = getDb(context.env.DB);
 
 			const updated = await db
 				.update(benefits)
@@ -109,9 +109,9 @@ export const benefitMutation = {
 			_parent: unknown,
 			args: { id: string },
 			context: { env: Env },
-		) => {
-			await requireManagerAccess(context);
-			const db = getDb(context.env.DB);
+			) => {
+				await requireManagerAccess(context);
+				const db = getDb(context.env.DB);
 			const deleted = await db
 				.delete(benefits)
 				.where(eq(benefits.id, args.id))
