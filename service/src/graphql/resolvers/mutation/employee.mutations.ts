@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../../db/client';
 import { employee } from '../../../db/schemas/employee.schema';
+import { requireManagerAccess } from '../shared/authenticated-employee';
 
 type EmployeeStatus = 'active' | 'terminated' | 'leave' | 'probation';
 type EmployeeOkrStatus = 'submitted' | 'success' | 'fail';
@@ -53,6 +54,7 @@ export const employeeMutation = {
 			},
 			context: { env: Env },
 		) => {
+			await requireManagerAccess(context);
 			const db = getDb(context.env.DB);
 			const now = new Date().toISOString();
 			const fullName = args.name ?? args.fullName;
@@ -120,6 +122,7 @@ export const employeeMutation = {
 			},
 			context: { env: Env },
 		) => {
+			await requireManagerAccess(context);
 			const db = getDb(context.env.DB);
 			const now = new Date().toISOString();
 			const fullName = args.name ?? args.fullName;
@@ -188,6 +191,7 @@ export const employeeMutation = {
 		},
 
 		deleteEmployee: async (_parent: unknown, args: { id: string }, context: { env: Env }) => {
+			await requireManagerAccess(context);
 			const db = getDb(context.env.DB);
 
 			const deleted = await db.delete(employee).where(eq(employee.id, args.id)).returning().get();

@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 
 import { getDb } from "../../../db/client";
 import { benefit_eligibility } from "../../../db/schemas/benefit_eligibility.schema";
+import { requireManagerAccess } from "../shared/authenticated-employee";
 
 const mapEligibility = (row: typeof benefit_eligibility.$inferSelect) => ({
   employeeId: row.employee_id,
@@ -21,6 +22,7 @@ export const benefitEligibilityQuery = {
       args: { employeeId?: string | null; benefitId?: string | null },
       context: { env: Env },
     ) => {
+      await requireManagerAccess(context);
       const db = getDb(context.env.DB);
 
       const conditions = [];
@@ -47,4 +49,3 @@ export const benefitEligibilityQuery = {
     },
   },
 };
-

@@ -3,11 +3,13 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../../../db/client";
 import { benefit_requests } from "../../../db/schemas/benefit_request.schema";
 import { recomputeBenefitEligibility } from "../shared/benefit-eligibility-engine";
+import { canReviewBenefitRequests } from "../shared/access-control";
 import {
-  SYSTEM_AUDIT_ACTOR,
+  requireAuthenticatedEmployee,
+  requireBenefitRequestReviewerAccess,
+} from "../shared/authenticated-employee";
+import {
   getBenefitName,
-  getEmployeeName,
-  resolvePerformedByLabel,
   writeAuditLog,
 } from "../shared/audit-log";
 
@@ -30,6 +32,11 @@ export const benefitRequestMutation = {
       args: { input: { employeeId: string; benefitId: string } },
       context: { env: Env },
     ) => {
+      const auth = await requireAuthenticatedEmployee(context);
+      if (args.input.employeeId !== auth.employee.id) {
+        throw new Error("Forbidden: you can only create requests for yourself.");
+      }
+
       const db = getDb(context.env.DB);
       const eligibility = await recomputeBenefitEligibility(db, {
         employeeId: args.input.employeeId,
@@ -57,10 +64,7 @@ export const benefitRequestMutation = {
         .returning()
         .get();
 
-      const [employeeName, benefitName] = await Promise.all([
-        getEmployeeName(db, inserted.employee_id),
-        getBenefitName(db, inserted.benefit_id),
-      ]);
+      const benefitName = await getBenefitName(db, inserted.benefit_id);
 
       await writeAuditLog(db, {
         employeeId: inserted.employee_id,
@@ -69,8 +73,8 @@ export const benefitRequestMutation = {
         detail: benefitName
           ? `${benefitName} benefit request submitted.`
           : "Benefit request submitted.",
-        performedByEmployeeId: inserted.employee_id,
-        performedByLabel: employeeName ?? SYSTEM_AUDIT_ACTOR,
+        performedByEmployeeId: auth.employee.id,
+        performedByLabel: auth.employee.full_name,
         metadata: {
           requestId: inserted.id,
           status: inserted.status,
@@ -94,6 +98,7 @@ export const benefitRequestMutation = {
       },
       context: { env: Env },
     ) => {
+      const reviewer = await requireBenefitRequestReviewerAccess(context);
       const db = getDb(context.env.DB);
       const { input } = args;
       const existing = await db
@@ -114,19 +119,14 @@ export const benefitRequestMutation = {
           ...(input.contractAcceptedAt !== undefined
             ? { contract_accepted_at: input.contractAcceptedAt }
             : {}),
-          ...(input.reviewedBy !== undefined
-            ? { reviewed_by: input.reviewedBy }
-            : {}),
+          reviewed_by: reviewer.employee.id,
           updated_at: new Date().toISOString(),
         })
         .where(eq(benefit_requests.id, input.id))
         .returning()
         .get();
 
-      const [benefitName, performedByLabel] = await Promise.all([
-        getBenefitName(db, updated.benefit_id),
-        resolvePerformedByLabel(db, updated.reviewed_by, SYSTEM_AUDIT_ACTOR),
-      ]);
+      const benefitName = await getBenefitName(db, updated.benefit_id);
 
       const action =
         updated.status === "approved"
@@ -144,8 +144,8 @@ export const benefitRequestMutation = {
         detail: benefitName
           ? `${benefitName} request status changed from ${existing.status} to ${updated.status}.`
           : `Benefit request status changed from ${existing.status} to ${updated.status}.`,
-        performedByEmployeeId: updated.reviewed_by,
-        performedByLabel,
+        performedByEmployeeId: reviewer.employee.id,
+        performedByLabel: reviewer.employee.full_name,
         metadata: {
           requestId: updated.id,
           previousStatus: existing.status,
@@ -162,6 +162,7 @@ export const benefitRequestMutation = {
       args: { id: string },
       context: { env: Env },
     ) => {
+      const auth = await requireAuthenticatedEmployee(context);
       const db = getDb(context.env.DB);
       const existing = await db
         .select()
@@ -170,6 +171,12 @@ export const benefitRequestMutation = {
         .get();
 
       if (!existing) throw new Error("Benefit request not found");
+      if (
+        existing.employee_id !== auth.employee.id &&
+        !canReviewBenefitRequests(auth.clerkRole)
+      ) {
+        throw new Error("Forbidden: you can only cancel your own requests.");
+      }
 
       const updated = await db
         .update(benefit_requests)
@@ -181,10 +188,7 @@ export const benefitRequestMutation = {
         .returning()
         .get();
 
-      const [employeeName, benefitName] = await Promise.all([
-        getEmployeeName(db, updated.employee_id),
-        getBenefitName(db, updated.benefit_id),
-      ]);
+      const benefitName = await getBenefitName(db, updated.benefit_id);
 
       await writeAuditLog(db, {
         employeeId: updated.employee_id,
@@ -193,8 +197,8 @@ export const benefitRequestMutation = {
         detail: benefitName
           ? `${benefitName} request was cancelled.`
           : "Benefit request was cancelled.",
-        performedByEmployeeId: updated.employee_id,
-        performedByLabel: employeeName ?? SYSTEM_AUDIT_ACTOR,
+        performedByEmployeeId: auth.employee.id,
+        performedByLabel: auth.employee.full_name,
         metadata: {
           requestId: updated.id,
           previousStatus: existing.status,

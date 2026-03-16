@@ -3,6 +3,15 @@ import { Hono } from 'hono';
 import type { MiddlewareHandler } from 'hono';
 import { cors } from 'hono/cors';
 
+import {
+	getClerkDisplayName,
+	getPrimaryClerkEmail,
+} from './graphql/resolvers/shared/authenticated-employee';
+import {
+	isManagerRole,
+	normalizeClerkRole,
+	type AppRole,
+} from './graphql/resolvers/shared/access-control';
 import { yoga } from './server';
 import { employees } from './mockEmployees/employees';
 import { employeeTimeData } from './mockEmployees/employee-time-data';
@@ -19,6 +28,9 @@ type AppContext = {
 	Bindings: Env;
 	Variables: {
 		clerkUserId: string | null;
+		clerkEmail: string | null;
+		clerkRole: AppRole;
+		clerkDisplayName: string | null;
 	};
 };
 
@@ -107,19 +119,45 @@ const requireClerkAuth: MiddlewareHandler<AppContext> = async (c, next) => {
 		return response;
 	}
 
-	c.set('clerkUserId', authState.toAuth().userId);
+	const auth = authState.toAuth();
+	const userId = auth.userId;
+
+	if (!userId) {
+		return c.json({ error: 'Unauthorized' }, 401);
+	}
+
+	const user = await clerk.users.getUser(userId);
+
+	c.set('clerkUserId', userId);
+	c.set('clerkEmail', getPrimaryClerkEmail(user));
+	c.set('clerkRole', normalizeClerkRole(user.publicMetadata?.role));
+	c.set('clerkDisplayName', getClerkDisplayName(user));
+	await next();
+};
+
+const requireManagerRole: MiddlewareHandler<AppContext> = async (c, next) => {
+	if (!isManagerRole(c.get('clerkRole'))) {
+		return c.json({ error: 'Forbidden' }, 403);
+	}
+
 	await next();
 };
 
 app.all('/graphql', requireClerkAuth, (c) =>
-	yoga.fetch(c.req.raw, { env: c.env, clerkUserId: c.get('clerkUserId') }),
+	yoga.fetch(c.req.raw, {
+		env: c.env,
+		clerkUserId: c.get('clerkUserId'),
+		clerkEmail: c.get('clerkEmail'),
+		clerkRole: c.get('clerkRole'),
+		clerkDisplayName: c.get('clerkDisplayName'),
+	}),
 );
 
-app.get('/employees', requireClerkAuth, (c) => {
+app.get('/employees', requireClerkAuth, requireManagerRole, (c) => {
 	return c.json(employees);
 });
 
-app.get('/employee-time-data', requireClerkAuth, (c) => {
+app.get('/employee-time-data', requireClerkAuth, requireManagerRole, (c) => {
 	return c.json(employeeTimeData);
 });
 

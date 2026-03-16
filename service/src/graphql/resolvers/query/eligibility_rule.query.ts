@@ -6,6 +6,7 @@ import {
   normalizeStoredRuleValue,
   toRuleValueJson,
 } from "../shared/eligibility-rule-config";
+import { requireManagerAccess } from "../shared/authenticated-employee";
 
 const mapRule = (row: typeof eligibility_rules.$inferSelect) => {
   const normalized = normalizeStoredRuleValue(row.value);
@@ -39,6 +40,7 @@ export const eligibilityRuleQuery = {
       },
       context: { env: Env },
     ) => {
+      await requireManagerAccess(context);
       const db = getDb(context.env.DB);
 
       let rows: typeof eligibility_rules.$inferSelect[];
@@ -73,6 +75,7 @@ export const eligibilityRuleQuery = {
       args: { benefitId: string },
       context: { env: Env },
     ) => {
+      await requireManagerAccess(context);
       const db = getDb(context.env.DB);
       const rows = await db
         .select()

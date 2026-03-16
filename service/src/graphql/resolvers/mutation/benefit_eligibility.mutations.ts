@@ -6,9 +6,9 @@ import { recomputeBenefitEligibility } from "../shared/benefit-eligibility-engin
 import {
   SYSTEM_AUDIT_ACTOR,
   getBenefitName,
-  resolvePerformedByLabel,
   writeAuditLog,
 } from "../shared/audit-log";
+import { requireManagerAccess } from "../shared/authenticated-employee";
 
 const mapEligibility = (row: typeof benefit_eligibility.$inferSelect) => ({
   employeeId: row.employee_id,
@@ -57,6 +57,7 @@ export const benefitEligibilityMutation = {
       },
       context: { env: Env },
     ) => {
+      const auth = await requireManagerAccess(context);
       const db = getDb(context.env.DB);
       const { input } = args;
       const shouldUseRuleEngine = !hasManualFields(input);
@@ -77,7 +78,8 @@ export const benefitEligibilityMutation = {
           detail: firstFailure?.reason
             ? `${benefitName ?? "Benefit"} eligibility recomputed: ${computed.row.status}. ${firstFailure.reason}`
             : `${benefitName ?? "Benefit"} eligibility recomputed: ${computed.row.status}.`,
-          performedByLabel: SYSTEM_AUDIT_ACTOR,
+          performedByEmployeeId: auth.employee.id,
+          performedByLabel: auth.employee.full_name,
           metadata: {
             status: computed.row.status,
             source: "upsertBenefitEligibility",
@@ -110,17 +112,14 @@ export const benefitEligibilityMutation = {
                 ? JSON.parse(input.ruleEvaluationJson)
                 : [],
             computed_at: input.computedAt ?? new Date().toISOString(),
-            override_by: input.overrideBy ?? null,
+            override_by: auth.employee.id,
             override_reason: input.overrideReason ?? null,
             override_expires_at: input.overrideExpiresAt ?? null,
           })
           .returning()
           .get();
 
-        const [benefitName, performedByLabel] = await Promise.all([
-          getBenefitName(db, input.benefitId),
-          resolvePerformedByLabel(db, input.overrideBy, SYSTEM_AUDIT_ACTOR),
-        ]);
+        const benefitName = await getBenefitName(db, input.benefitId);
 
         const detailParts = [
           `${benefitName ?? "Benefit"} eligibility manually set to ${inserted.status}.`,
@@ -135,8 +134,8 @@ export const benefitEligibilityMutation = {
           benefitId: input.benefitId,
           action: input.overrideBy || input.overrideReason ? "Eligibility Overridden" : "Eligibility Updated",
           detail: detailParts.join(" "),
-          performedByEmployeeId: input.overrideBy,
-          performedByLabel,
+          performedByEmployeeId: auth.employee.id,
+          performedByLabel: auth.employee.full_name,
           metadata: {
             status: inserted.status,
             overrideReason: input.overrideReason ?? null,
@@ -168,9 +167,7 @@ export const benefitEligibilityMutation = {
                     : new Date().toISOString(),
               }
             : {}),
-          ...(input.overrideBy !== undefined
-            ? { override_by: input.overrideBy }
-            : {}),
+          override_by: auth.employee.id,
           ...(input.overrideReason !== undefined
             ? { override_reason: input.overrideReason }
             : {}),
@@ -187,10 +184,7 @@ export const benefitEligibilityMutation = {
         .returning()
         .get();
 
-      const [benefitName, performedByLabel] = await Promise.all([
-        getBenefitName(db, input.benefitId),
-        resolvePerformedByLabel(db, input.overrideBy, SYSTEM_AUDIT_ACTOR),
-      ]);
+      const benefitName = await getBenefitName(db, input.benefitId);
 
       const detailParts = [
         `${benefitName ?? "Benefit"} eligibility manually updated to ${updated.status}.`,
@@ -205,8 +199,8 @@ export const benefitEligibilityMutation = {
         benefitId: input.benefitId,
         action: input.overrideBy || input.overrideReason ? "Eligibility Overridden" : "Eligibility Updated",
         detail: detailParts.join(" "),
-        performedByEmployeeId: input.overrideBy,
-        performedByLabel,
+        performedByEmployeeId: auth.employee.id,
+        performedByLabel: auth.employee.full_name,
         metadata: {
           status: updated.status,
           overrideReason: input.overrideReason ?? null,
@@ -228,6 +222,7 @@ export const benefitEligibilityMutation = {
       },
       context: { env: Env },
     ) => {
+      const auth = await requireManagerAccess(context);
       const db = getDb(context.env.DB);
       const computed = await recomputeBenefitEligibility(db, args.input);
       const benefitName = await getBenefitName(db, args.input.benefitId);
@@ -240,7 +235,8 @@ export const benefitEligibilityMutation = {
         detail: firstFailure?.reason
           ? `${benefitName ?? "Benefit"} eligibility recomputed: ${computed.row.status}. ${firstFailure.reason}`
           : `${benefitName ?? "Benefit"} eligibility recomputed: ${computed.row.status}.`,
-        performedByLabel: SYSTEM_AUDIT_ACTOR,
+        performedByEmployeeId: auth.employee.id,
+        performedByLabel: auth.employee.full_name,
         metadata: {
           status: computed.row.status,
           source: "recomputeBenefitEligibility",

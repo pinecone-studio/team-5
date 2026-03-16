@@ -2,6 +2,11 @@ import { and, eq } from "drizzle-orm";
 
 import { getDb } from "../../../db/client";
 import { benefit_requests } from "../../../db/schemas/benefit_request.schema";
+import {
+	canAccessOwnEmployeeRecord,
+	canReviewBenefitRequests,
+} from "../shared/access-control";
+import { requireAuthenticatedEmployee } from "../shared/authenticated-employee";
 
 const mapRequest = (row: typeof benefit_requests.$inferSelect) => ({
   id: row.id,
@@ -22,11 +27,28 @@ export const benefitRequestQuery = {
       args: { employeeId?: string | null; benefitId?: string | null },
       context: { env: Env },
     ) => {
+      const auth = await requireAuthenticatedEmployee(context);
       const db = getDb(context.env.DB);
+      const canReviewAllRequests = canReviewBenefitRequests(auth.clerkRole);
+      const requestedEmployeeId = args.employeeId ?? auth.employee.id;
+
+      if (
+        !canAccessOwnEmployeeRecord(
+          auth.clerkRole,
+          auth.employee.id,
+          requestedEmployeeId,
+        )
+      ) {
+        throw new Error("Forbidden: you can only view your own requests.");
+      }
 
       const conditions = [];
-      if (args.employeeId) {
-        conditions.push(eq(benefit_requests.employee_id, args.employeeId));
+      if (canReviewAllRequests) {
+        if (args.employeeId) {
+          conditions.push(eq(benefit_requests.employee_id, args.employeeId));
+        }
+      } else {
+        conditions.push(eq(benefit_requests.employee_id, auth.employee.id));
       }
       if (args.benefitId) {
         conditions.push(eq(benefit_requests.benefit_id, args.benefitId));
@@ -48,4 +70,3 @@ export const benefitRequestQuery = {
     },
   },
 };
-
