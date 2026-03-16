@@ -46,6 +46,7 @@ function AuthenticatedApolloProvider({
 
       const httpLink = new HttpLink({
         uri: graphqlUrl,
+        credentials: "include",
       });
 
       clientRef.current = new ApolloClient({
