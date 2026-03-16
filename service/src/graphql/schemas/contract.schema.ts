@@ -34,8 +34,9 @@ export const contractTypeDefs = `
   }
 
   extend type Query {
-    contracts: [Contract!]!
+    contracts(benefitId: ID): [Contract!]!
     contract(id: ID!): Contract
+    activeContract(benefitId: ID!): Contract
   }
 
   extend type Mutation {
@@ -44,4 +45,3 @@ export const contractTypeDefs = `
     deleteContract(id: ID!): Boolean!
   }
 `;
-
