@@ -3,14 +3,15 @@
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
-		"deploy": "wrangler deploy",
-		"dev": "sh ./scripts/ensure-dev-vars.sh && npm run db:migrate:local && wrangler dev",
-		"start": "sh ./scripts/ensure-dev-vars.sh && wrangler dev",
+		"deploy": "sh ./scripts/with-env.sh wrangler deploy",
+		"dev": "sh ./scripts/ensure-dev-vars.sh && npm run db:migrate:local && sh ./scripts/with-env.sh wrangler dev",
+		"start": "sh ./scripts/ensure-dev-vars.sh && sh ./scripts/with-env.sh wrangler dev",
 		"test": "jest --coverage",
-		"cf-typegen": "wrangler types",
+		"cf-typegen": "sh ./scripts/with-env.sh wrangler types",
 		"db:generate": "drizzle-kit generate",
-		"db:migrate:local": "sh ./scripts/ensure-dev-vars.sh && wrangler d1 migrations apply team5-db --local",
-		"db:migrate:remote": "wrangler d1 migrations apply team5-db --remote"
+		"db:migrate:local": "sh ./scripts/ensure-dev-vars.sh && sh ./scripts/with-env.sh wrangler d1 migrations apply team5-db --local",
+		"db:migrate:remote": "sh ./scripts/with-env.sh wrangler d1 migrations apply team5-db --remote",
+		"cf:whoami": "sh ./scripts/with-env.sh wrangler whoami"
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.12.4",

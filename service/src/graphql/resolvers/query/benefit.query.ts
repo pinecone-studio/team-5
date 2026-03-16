@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 
 import { getDb } from "../../../db/client";
 import { benefits } from "../../../db/schemas/benefits.schema";
+import { ensureLocalBenefitsSeeded } from "../shared/local-dev-bootstrap";
 
 const mapBenefit = (row: typeof benefits.$inferSelect) => ({
 	id: row.id,
@@ -22,6 +23,7 @@ export const benefitQuery = {
 			context: { env: Env },
 		) => {
 			const db = getDb(context.env.DB);
+			await ensureLocalBenefitsSeeded(db, context.env.FRONTEND_ORIGIN);
 			const rows = await db
 				.select()
 				.from(benefits)
@@ -37,6 +39,7 @@ export const benefitQuery = {
 			context: { env: Env },
 		) => {
 			const db = getDb(context.env.DB);
+			await ensureLocalBenefitsSeeded(db, context.env.FRONTEND_ORIGIN);
 			const row = await db
 				.select()
 				.from(benefits)

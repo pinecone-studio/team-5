@@ -47,6 +47,25 @@ export const MY_BENEFITS_QUERY = gql`
   }
 `;
 
+export const MY_REQUESTS_QUERY = gql`
+  query MyRequests {
+    myRequests {
+      benefit {
+        id
+        name
+      }
+      request {
+        id
+        benefitId
+        status
+        reviewedBy
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
 export const REQUEST_BENEFIT_MUTATION = gql`
   mutation RequestBenefit($input: RequestBenefitInput!) {
     requestBenefit(input: $input) {

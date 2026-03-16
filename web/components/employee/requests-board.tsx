@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@apollo/client/react";
 
-import { MY_BENEFITS_QUERY } from "@/lib/employee-portal";
+import { MY_REQUESTS_QUERY } from "@/lib/employee-portal";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface RequestItem {
@@ -18,19 +18,19 @@ interface RequestItem {
 
 const steps = ["Submitted", "HR Review", "Active"] as const;
 
-type MyBenefitsResponse = {
-  myBenefits: Array<{
+type MyRequestsResponse = {
+  myRequests: Array<{
     benefit: {
       id: string;
       name: string;
     };
-    latestRequest: {
+    request: {
       id: string;
       status: "pending" | "approved" | "rejected" | "cancelled";
       reviewedBy: string | null;
       createdAt: string;
       updatedAt: string;
-    } | null;
+    };
   }>;
 };
 
@@ -45,28 +45,22 @@ function formatLabel(prefix: string, isoDate: string) {
   })}`;
 }
 
-function getRequestItems(data: MyBenefitsResponse | undefined): RequestItem[] {
-  return (data?.myBenefits ?? [])
-    .flatMap((item) => {
-      if (!item.latestRequest) return [];
-
-      return [
-        {
-          id: item.latestRequest.id,
-          title: item.benefit.name,
-          submittedAt: formatLabel("Submitted", item.latestRequest.createdAt),
-          submittedAtRaw: item.latestRequest.createdAt,
-          approvedBy:
-            item.latestRequest.reviewedBy ??
-            (item.latestRequest.status === "approved" ? "System" : "Pending"),
-          approvedAt: formatLabel(
-            item.latestRequest.status === "approved" ? "Approved" : "Updated",
-            item.latestRequest.updatedAt,
-          ),
-          status: item.latestRequest.status,
-        },
-      ];
-    })
+function getRequestItems(data: MyRequestsResponse | undefined): RequestItem[] {
+  return (data?.myRequests ?? [])
+    .map((item) => ({
+      id: item.request.id,
+      title: item.benefit.name,
+      submittedAt: formatLabel("Submitted", item.request.createdAt),
+      submittedAtRaw: item.request.createdAt,
+      approvedBy:
+        item.request.reviewedBy ??
+        (item.request.status === "approved" ? "System" : "Pending"),
+      approvedAt: formatLabel(
+        item.request.status === "approved" ? "Approved" : "Updated",
+        item.request.updatedAt,
+      ),
+      status: item.request.status,
+    }))
     .sort(
       (left, right) =>
         new Date(right.submittedAtRaw).getTime() -
@@ -192,7 +186,7 @@ function RequestsBoardSkeleton() {
 }
 
 export default function RequestsBoard() {
-  const { data, loading, error } = useQuery<MyBenefitsResponse>(MY_BENEFITS_QUERY);
+  const { data, loading, error } = useQuery<MyRequestsResponse>(MY_REQUESTS_QUERY);
 
   const requests = useMemo(() => getRequestItems(data), [data]);
 
