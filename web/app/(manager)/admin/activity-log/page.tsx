@@ -273,22 +273,30 @@ export default function AdminActivityLogPage() {
         <div className="overflow-hidden rounded-[12px] border border-[#E2E8F0] bg-white">
           <table className="w-full max-w-[294.5] table-fixed">
             <thead className="bg-[#E1E7F0]">
-              <tr className="border-b border-[#E2E8F0] ">
-                {[
-                  "TIMESTAMP",
-                  "EMPLOYEE",
-                  "BENEFITS",
-                  "ACTION",
-                  "DETAIL",
-                  "PERFORMED BY",
-                ].map((col) => (
-                  <th
-                    key={col}
-                    className="px-9 text-left text-font/size/base font-semibold text-[#65748B] h-14.5"
-                  >
-                    {col}
-                  </th>
-                ))}
+              <tr className="h-14.5 border-b border-[#E2E8F0]">
+                <th className="w-17.5 px-5 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                  TIMESTAMP
+                </th>
+
+                <th className="w-45 px-5 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                  EMPLOYEE
+                </th>
+
+                <th className="w-30 px-5 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                  BENEFITS
+                </th>
+
+                <th className="w-25 px-5 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                  ACTION
+                </th>
+
+                <th className="w-50.5 px-5 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                  DETAIL
+                </th>
+
+                <th className="w-33 px-5 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                  PERFORMED BY
+                </th>
               </tr>
             </thead>
 
@@ -297,7 +305,7 @@ export default function AdminActivityLogPage() {
                 <tr>
                   <td
                     colSpan={6}
-                    className="h-13.5 px-9 text-center text-sm text-[#94A3B8] align-middle"
+                    className="h-13.5 px-5 text-center text-sm text-[#94A3B8] align-middle"
                   >
                     No activity logs found.
                   </td>
@@ -312,27 +320,27 @@ export default function AdminActivityLogPage() {
                         : ""
                     }`}
                   >
-                    <td className="px-9 py-0 text-[14px] font-normal whitespace-nowrap align-middle text-[#667085]">
+                    <td className="px-5 py-0 text-[14px] font-normal whitespace-nowrap align-middle text-[#667085]">
                       {formatTimestamp(log.createdAt)}
                     </td>
 
-                    <td className="px-9 py-0 text-[14px] font-semibold whitespace-nowrap align-middle text-[#0F172A]">
+                    <td className="px-5 py-0 text-[14px] font-semibold whitespace-nowrap align-middle text-[#0F172A]">
                       {log.employeeName ?? "System"}
                     </td>
 
-                    <td className="px-9 py-0 text-[14px] whitespace-nowrap align-middle text-[#334155]">
+                    <td className="px-5 py-0 text-[14px] whitespace-nowrap align-middle text-[#334155]">
                       {log.benefitName ?? "-"}
                     </td>
 
-                    <td className="px-9 py-0 whitespace-nowrap align-middle">
+                    <td className="px-5 py-0 whitespace-nowrap align-middle">
                       <ActionBadge action={log.action} />
                     </td>
 
-                    <td className="px-9 py-0 text-[14px] align-middle text-[#334155]">
+                    <td className="px-5 py-0 text-[14px] align-middle text-[#334155]">
                       {log.detail}
                     </td>
 
-                    <td className="px-9 py-0 text-[14px] whitespace-nowrap align-middle text-[#667085]">
+                    <td className="px-5 py-0 text-[14px] whitespace-nowrap align-middle text-[#667085]">
                       {log.performedBy}
                     </td>
                   </tr>
