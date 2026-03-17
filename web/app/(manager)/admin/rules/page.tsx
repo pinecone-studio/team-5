@@ -5,40 +5,68 @@ import { Check, ChevronDown, Pencil, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { gql } from "@apollo/client";
+import { useQuery } from "@apollo/client/react";
 
-const benefitOptions = [
-  "Private Insurance",
-  "Digital Welness",
-  "Shit Happened Days",
-  "Gym - Pinefit",
-  "Remote Work",
-  "Bonus (OKR-based)",
-  "Extra Responsibility",
-  "Advance Payment",
-  "Macbook",
-  "Travel",
-];
+const GET_BENEFITS = gql`
+query{
+  benefits{
+    id
+    activeContractId
+    isActive
+    name
+    vendorName
+    category
+    requiresContract
+    subsidyPercent
+  }
+}
+`
 
-const rules = [
-  {
-    id: 1,
-    type: "Employment Status",
-    condition: "status = active",
-    failMessage: "Must be an active employee",
-  },
-  {
-    id: 2,
-    type: "OKR Submitted",
-    condition: "okr_submitted = true",
-    failMessage: "Must submit current quarter OKR",
-  },
-  {
-    id: 3,
-    type: "Attendance",
-    condition: "late_arrivals < 3",
-    failMessage: "Must have fewer than 3 late arrivals",
-  },
-];
+const GET_RULES = gql`
+query{
+  eligibilityRules{
+    id
+    benefitId
+    operator
+    type
+    value
+    errorMessage
+    priority
+  }
+}
+`
+
+interface BenefitData {
+  benefits: BenefitDataItem[]
+}
+
+interface BenefitDataItem {
+  activeContractId: string
+  category: string
+  id: string
+  isActive: boolean
+  name: string
+  requiresContract: boolean
+  subsidyPercent: number
+  vendorName: string
+
+}
+
+
+interface RuleData {
+  eligibilityRules: RuleDataItem[]
+}
+
+interface RuleDataItem {
+  benefitId: string
+  errorMessage: string
+  id: string
+  operator: string
+  priority: number
+  type: string
+  value: string
+}
 
 const conditionFields = ["Employment...", "Attendance", "OKR submitted"];
 const conditionOperators = [
@@ -49,12 +77,11 @@ const conditionOperators = [
 ];
 
 export default function AdminRulesPage() {
-  const [selectedBenefit, setSelectedBenefit] = useState("Gym - Pinefit");
   const [isBenefitOpen, setIsBenefitOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [deletingRuleId, setDeletingRuleId] = useState<number | null>(null);
+  const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
   const [isDeleteSuccessOpen, setIsDeleteSuccessOpen] = useState(false);
-  const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [ruleTypeValue, setRuleTypeValue] = useState("Responsibility level");
   const [conditionField, setConditionField] = useState(conditionFields[0]);
   const [conditionOperator, setConditionOperator] = useState(
@@ -63,6 +90,17 @@ export default function AdminRulesPage() {
   const [conditionValue, setConditionValue] = useState("2");
   const [failMessageValue, setFailMessageValue] = useState("Level must be 2");
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const { data: benefitData } = useQuery<BenefitData>(GET_BENEFITS)
+  const [selectedBenefit, setSelectedBenefit] = useState(benefitData?.benefits[0].name);
+
+  const [selectedBenefitId, setSelectedBenefitId] = useState(benefitData?.benefits[0].id || null)
+
+  const { data: rulesData } = useQuery<RuleData>(GET_RULES)
+
+  useEffect(() => {
+    console.log(rulesData)
+  }, [rulesData])
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -75,7 +113,7 @@ export default function AdminRulesPage() {
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, []);
 
-  const handleEditRule = (ruleId: number) => {
+  const handleEditRule = (ruleId: string) => {
     setEditingRuleId(ruleId);
     setRuleTypeValue("Responsibility level");
     setConditionField(conditionFields[0]);
@@ -119,9 +157,8 @@ export default function AdminRulesPage() {
           >
             <span>{selectedBenefit}</span>
             <ChevronDown
-              className={`h-5 w-5 text-gray-800 transition-transform ${
-                isBenefitOpen ? "rotate-180" : ""
-              }`}
+              className={`h-5 w-5 text-gray-800 transition-transform ${isBenefitOpen ? "rotate-180" : ""
+                }`}
             />
           </button>
 
@@ -132,17 +169,18 @@ export default function AdminRulesPage() {
                 aria-label="Benefit options"
                 className="max-h-[560px] overflow-y-auto py-2"
               >
-                {benefitOptions.map((option) => (
-                  <li key={option}>
+                {benefitData?.benefits.map((benefit) => (
+                  <li key={benefit.id}>
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedBenefit(option);
+                        setSelectedBenefit(benefit.name);
+                        setSelectedBenefitId(benefit.id)
                         setIsBenefitOpen(false);
                       }}
                       className="w-full px-4 py-3 text-left text-base text-gray-800 transition hover:bg-gray-50"
                     >
-                      {option}
+                      {benefit.name}
                     </button>
                   </li>
                 ))}
@@ -173,22 +211,31 @@ export default function AdminRulesPage() {
               </tr>
             </thead>
             <tbody>
-              {rules.map((rule) => (
+              {rulesData?.eligibilityRules.map((rule, index) => (rule.benefitId === selectedBenefitId &&
                 <tr
                   key={rule.id}
                   className="border-b border-gray-200 last:border-b-0"
                 >
                   <td className="px-4 py-5 text-base text-gray-700">
-                    {rule.id}
+                    {index}
                   </td>
                   <td className="px-4 py-5 text-[15px] font-medium text-gray-900">
                     {rule.type}
                   </td>
                   <td className="px-4 py-5 font-mono text-[15px] text-gray-600">
-                    {rule.condition}
+                    {rule.type}
+                    <span>{rule.operator === 'eq' && '='}</span>
+                    <span>{rule.operator === 'neq' && '!='}</span>
+                    <span>{rule.operator === 'lt' && '<'}</span>
+                    <span>{rule.operator === 'lte' && '=<'}</span>
+                    <span>{rule.operator === 'ht' && '>'}</span>
+                    <span>{rule.operator === 'hte' && '>='}</span>
+                    <span>{rule.operator === 'in' && '='}</span>
+                    <span>{rule.operator === 'not_in' && '!='}</span>
+                    {rule.value}
                   </td>
                   <td className="px-4 py-5 text-[15px] text-gray-600">
-                    {rule.failMessage}
+                    {rule.errorMessage}
                   </td>
                   <td className="px-4 py-5">
                     <div className="flex items-center gap-2 text-gray-400">
