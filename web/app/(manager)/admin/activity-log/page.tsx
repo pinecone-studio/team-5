@@ -266,10 +266,10 @@ export default function AdminActivityLogPage() {
           </div>
         </div>
       </div>
-      <div className="overflow-x-auto pt-3">
-        <div className="overflow-hidden rounded-[12px] border border-[#E2E8F0] bg-white">
-          <table className="w-full max-w-[294.5] table-fixed">
-            <thead className="bg-[#E1E7F0]">
+      <div className="pt-3">
+        <div className="max-h-[calc(100vh-17rem)] overflow-auto rounded-[12px] border border-[#E2E8F0] bg-white">
+          <table className="w-full min-w-[980px] table-fixed">
+            <thead className="sticky top-0 z-10 bg-[#E1E7F0]">
               <tr className="h-14.5 border-b border-[#E2E8F0]">
                 <th className="w-15 px-6 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
                   TIMESTAMP
