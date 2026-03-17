@@ -6,6 +6,7 @@ import { useQuery } from "@apollo/client/react";
 import { MY_REQUESTS_QUERY } from "@/lib/employee-portal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { Check } from "lucide-react";
 
 interface RequestItem {
   id: string;
@@ -146,33 +147,32 @@ function getStepState(request: RequestItem, stepIndex: number): StepState {
 
   return "upcoming";
 }
-
 function getCircleClasses(state: StepState) {
   if (state === "done") {
-    return "border-[#16A34A] bg-white";
+    return "border-[#57C970] bg-[#57C970]";
   }
 
   if (state === "current") {
-    return "border-[#16A34A] bg-white";
+    return "border-[#57C970] bg-[#57C970]";
   }
 
   if (state === "rejected") {
-    return "border-[#FF3B30] bg-white";
+    return "border-[#FF7373] bg-[#FF7373]";
   }
 
-  return "border-[#737373] bg-white";
+  return "border-[#ECECEC] bg-[#ECECEC]";
 }
 
 function getLineClasses(state: StepState) {
   if (state === "done" || state === "current") {
-    return "bg-[#16A34A]";
+    return "bg-[#57C970]";
   }
 
   if (state === "rejected") {
-    return "bg-[#737373]";
+    return "bg-[#FF7373]";
   }
 
-  return "bg-[#737373]";
+  return "bg-[#ECECEC]";
 }
 
 function getStepDate(request: RequestItem, stepIndex: number) {
@@ -202,31 +202,31 @@ function getStepDate(request: RequestItem, stepIndex: number) {
 function StepIcon({ state }: { state: StepState }) {
   if (state === "done") {
     return (
-      <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[#22C55E] text-white">
-        ✓
+      <div className="flex h-4 w-4 items-center justify-center rounded-[9999px] bg-[#22C55E] text-white">
+        <Check width={13} height={13} />
       </div>
     );
   }
 
   if (state === "current") {
     return (
-      <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[#DCFCE7] text-[#22C55E]">
-        ✓
+      <div className="flex h-4 w-4 items-center justify-center rounded-[9999px] bg-[#DCFCE7] text-[#22C55E]">
+        <Check width={13} height={13} />
       </div>
     );
   }
 
   if (state === "rejected") {
     return (
-      <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[#FCA5A5] text-white">
-        ✓
+      <div className="flex h-4 w-4 items-center justify-center rounded-[9999px] bg-[#FCA5A5] text-white">
+        <Check width={13} height={13} />
       </div>
     );
   }
 
   return (
-    <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[#F1F5F9] text-[#CBD5E1]">
-      ✓
+    <div className="flex h-4 w-4 items-center justify-center rounded-[9999px] bg-[#F1F5F9] text-[#D8DAE5]">
+      <Check width={13} height={13} />
     </div>
   );
 }
@@ -241,7 +241,7 @@ function StepTimeline({ request }: { request: RequestItem }) {
 
         return (
           <div key={step} className="flex items-start gap-4">
-            <div className="flex w-4 flex-col items-center">
+            <div className="flex w-4 pt-1 flex-col items-center">
               <div
                 className={cn(
                   "rounded-full",
