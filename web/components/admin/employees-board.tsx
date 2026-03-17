@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { gql } from "@apollo/client";
 import { useMutation, useQuery } from "@apollo/client/react";
 import {
   ArrowLeft,
   Check,
   ChevronUp,
+  LoaderCircle,
   Minus,
   Plus,
   Search,
@@ -16,15 +17,70 @@ import {
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const ADMIN_OVERRIDE_LOOKUP_QUERY = gql`
-  query AdminOverrideLookup {
+const ADMIN_EMPLOYEES_QUERY = gql`
+  query AdminEmployeesPageData {
     employees {
       id
+      fullName
       email
+      role
+      department
+      responsibilityLevel
+      status
+      hireDate
+      okrStatus
+      lateArrivalCount
+      lateArrivalUpdatedAt
     }
     benefits {
       id
       name
+      requiresContract
+      isActive
+    }
+    benefitEligibility {
+      employeeId
+      benefitId
+      status
+      ruleEvaluationJson
+      overrideReason
+      overrideExpiresAt
+    }
+    benefitRequests {
+      id
+      employeeId
+      benefitId
+      status
+      contractVersionAccepted
+      contractAcceptedAt
+      reviewNotes
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+const UPDATE_EMPLOYEE_MUTATION = gql`
+  mutation UpdateEmployeeAdminPage(
+    $id: ID!
+    $okrStatus: EmployeeOkrStatus
+    $okrSubmitted: Boolean
+    $lateArrivalCount: Int
+    $lateArrivalUpdatedAt: String
+  ) {
+    updateEmployee(
+      id: $id
+      okrStatus: $okrStatus
+      okrSubmitted: $okrSubmitted
+      lateArrivalCount: $lateArrivalCount
+      lateArrivalUpdatedAt: $lateArrivalUpdatedAt
+    ) {
+      id
+      okrStatus
+      okrSubmitted
+      lateArrivalCount
+      lateArrivalUpdatedAt
+      updatedAt
     }
   }
 `;
@@ -41,16 +97,11 @@ const UPSERT_BENEFIT_ELIGIBILITY_MUTATION = gql`
   }
 `;
 
-type DepartmentFilter =
-  | "all"
-  | "development"
-  | "designer"
-  | "marketing"
-  | "backoffice";
 type OkrStatus = "Success" | "Submitted" | "Failed";
 type BenefitStatus = "Active" | "Available" | "Pending" | "Not Yet Available";
 
 interface EmployeeBenefit {
+  id: string;
   name: string;
   status: BenefitStatus;
   reason: string;
@@ -58,10 +109,11 @@ interface EmployeeBenefit {
 }
 
 interface EmployeeItem {
+  id: string;
   name: string;
   email: string;
-  status: "Active";
-  department: Exclude<DepartmentFilter, "all">;
+  status: string;
+  department: string;
   roleLabel: string;
   okr: OkrStatus;
   lateDates: string[];
@@ -70,169 +122,65 @@ interface EmployeeItem {
   benefits: EmployeeBenefit[];
 }
 
-const departmentFilters: Array<{ label: string; value: DepartmentFilter }> = [
-  { label: "All", value: "all" },
-  { label: "Development", value: "development" },
-  { label: "Designer", value: "designer" },
-  { label: "Marketing", value: "marketing" },
-  { label: "Backoffice", value: "backoffice" },
-];
-
-const defaultBenefits: EmployeeBenefit[] = [
-  {
-    name: "Gym - Pinefit",
-    status: "Active",
-    reason: "Approved Oct 20, 2025",
-    contractLabel: "Gym - PineFit PDF",
-  },
-  {
-    name: "Private Insurance",
-    status: "Active",
-    reason: "Approved Oct 20, 2025",
-    contractLabel: "Private Insurance PDF",
-  },
-  {
-    name: "Digital Wellness",
-    status: "Active",
-    reason: "Auto (core)",
-    contractLabel: "-",
-  },
-  {
-    name: "Down Payment Assistance",
-    status: "Available",
-    reason: "All eligibility rules met",
-    contractLabel: "Down Payment Assistance PDF",
-  },
-  {
-    name: "Digital Wellness",
-    status: "Pending",
-    reason: "Auto (core)",
-    contractLabel: "-",
-  },
-  {
-    name: "Macbook",
-    status: "Not Yet Available",
-    reason: "All eligibility rules met",
-    contractLabel: "Macbook PDF",
-  },
-];
-
-const initialEmployees: EmployeeItem[] = [
-  {
-    name: "Болд Батбаяр",
-    email: "bold@pinequest.mn",
-    status: "Active",
-    department: "development",
-    roleLabel: "Developer",
-    okr: "Success",
-    lateDates: ["2025-10-20"],
-    contract: "Oct 20, 2025",
-    responsibilityLevel: 2,
-    benefits: defaultBenefits,
-  },
-  {
-    name: "Саран Дорж",
-    email: "saran@pinequest.mn",
-    status: "Active",
-    department: "development",
-    roleLabel: "Developer",
-    okr: "Submitted",
-    lateDates: [],
-    contract: "Nov 12, 2025",
-    responsibilityLevel: 1,
-    benefits: defaultBenefits,
-  },
-  {
-    name: "Тэмүүлэн Ганбат",
-    email: "temuulen@pinequest.mn",
-    status: "Active",
-    department: "development",
-    roleLabel: "Developer",
-    okr: "Success",
-    lateDates: ["2024-03-17", "2026-03-11"],
-    contract: "Mar 17, 2024",
-    responsibilityLevel: 2,
-    benefits: defaultBenefits,
-  },
-  {
-    name: "Оюунаа Батсүх",
-    email: "oyunaa@pinequest.mn",
-    status: "Active",
-    department: "development",
-    roleLabel: "Developer",
-    okr: "Failed",
-    lateDates: ["2024-06-23", "2024-10-09", "2025-08-14", "2026-02-18"],
-    contract: "Jun 23, 2024",
-    responsibilityLevel: 3,
-    benefits: defaultBenefits,
-  },
-  {
-    name: "Номин Эрдэнэ",
-    email: "nomin@pinequest.mn",
-    status: "Active",
-    department: "development",
-    roleLabel: "Frontend Developer",
-    okr: "Success",
-    lateDates: [],
-    contract: "Jan 14, 2026",
-    responsibilityLevel: 1,
-    benefits: defaultBenefits,
-  },
-  {
-    name: "Ануужин Төгөлдөр",
-    email: "anujin@pinequest.mn",
-    status: "Active",
-    department: "designer",
-    roleLabel: "Product Designer",
-    okr: "Success",
-    lateDates: ["2025-09-02"],
-    contract: "Sep 2, 2025",
-    responsibilityLevel: 2,
-    benefits: defaultBenefits,
-  },
-  {
-    name: "Энхбаяр Мөнх",
-    email: "enkhbayar@pinequest.mn",
-    status: "Active",
-    department: "marketing",
-    roleLabel: "Marketing Lead",
-    okr: "Submitted",
-    lateDates: [],
-    contract: "Aug 11, 2025",
-    responsibilityLevel: 3,
-    benefits: defaultBenefits,
-  },
-  {
-    name: "Гэрэлмаа Сүх",
-    email: "gerelmaa@pinequest.mn",
-    status: "Active",
-    department: "backoffice",
-    roleLabel: "HR Operations",
-    okr: "Success",
-    lateDates: ["2024-12-18"],
-    contract: "Dec 18, 2024",
-    responsibilityLevel: 2,
-    benefits: defaultBenefits,
-  },
-];
-
 type PendingLateAction =
-  | { type: "add"; employeeEmail: string }
-  | { type: "delete"; employeeEmail: string; date: string };
+  | { type: "add"; employeeId: string }
+  | { type: "delete"; employeeId: string; date: string };
 type OverrideDialogState = {
-  employeeEmail: string;
+  employeeId: string;
+  benefitId: string;
   benefitName: string;
 };
 
-type AdminOverrideLookupResponse = {
+type EmployeeRecord = {
   employees: Array<{
     id: string;
+    fullName: string;
     email: string | null;
+    role: string | null;
+    department: string | null;
+    responsibilityLevel: number;
+    status: string | null;
+    hireDate: string | null;
+    okrStatus: "submitted" | "success" | "fail" | null;
+    lateArrivalCount: number;
+    lateArrivalUpdatedAt: string | null;
   }>;
   benefits: Array<{
     id: string;
     name: string;
+    requiresContract: boolean | null;
+    isActive: boolean | null;
   }>;
+  benefitEligibility: Array<{
+    employeeId: string;
+    benefitId: string;
+    status: "active" | "eligible" | "locked" | "pending";
+    ruleEvaluationJson: string;
+    overrideReason: string | null;
+    overrideExpiresAt: string | null;
+  }>;
+  benefitRequests: Array<{
+    id: string;
+    employeeId: string;
+    benefitId: string;
+    status: "pending" | "approved" | "rejected" | "cancelled";
+    contractVersionAccepted: string | null;
+    contractAcceptedAt: string | null;
+    reviewNotes: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+};
+
+type UpdateEmployeeMutationResponse = {
+  updateEmployee: {
+    id: string;
+    okrStatus: "submitted" | "success" | "fail" | null;
+    okrSubmitted: boolean;
+    lateArrivalCount: number;
+    lateArrivalUpdatedAt: string | null;
+    updatedAt: string;
+  };
 };
 
 type UpsertBenefitEligibilityResponse = {
@@ -244,6 +192,114 @@ type UpsertBenefitEligibilityResponse = {
     overrideExpiresAt: string | null;
   };
 };
+
+function titleCase(value: string) {
+  return value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatContractLabel(name: string, requiresContract: boolean | null) {
+  return requiresContract ? `${name} PDF` : "-";
+}
+
+function parseFailureReason(ruleEvaluationJson: string) {
+  try {
+    const parsed = JSON.parse(ruleEvaluationJson) as Array<{
+      passed?: boolean;
+      reason?: string;
+    }>;
+
+    if (!Array.isArray(parsed)) {
+      return null;
+    }
+
+    return (
+      parsed.find((item) => item?.passed === false && typeof item.reason === "string")
+        ?.reason ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
+function deriveLateDates(count: number, updatedAt: string | null) {
+  if (count <= 0) {
+    return [];
+  }
+
+  const baseDate = updatedAt ? new Date(updatedAt) : new Date();
+  if (Number.isNaN(baseDate.getTime())) {
+    return [];
+  }
+
+  return Array.from({ length: count }, (_, index) => {
+    const lateDate = new Date(baseDate);
+    lateDate.setDate(baseDate.getDate() - index);
+    return lateDate.toISOString().slice(0, 10);
+  }).sort();
+}
+
+function mapOkrStatus(status: EmployeeRecord["employees"][number]["okrStatus"]): OkrStatus {
+  switch (status) {
+    case "success":
+      return "Success";
+    case "submitted":
+      return "Submitted";
+    default:
+      return "Failed";
+  }
+}
+
+function mapBenefitStatus(params: {
+  eligibilityStatus?: "active" | "eligible" | "locked" | "pending";
+  latestRequestStatus?: "pending" | "approved" | "rejected" | "cancelled";
+}): BenefitStatus {
+  if (params.latestRequestStatus === "approved") {
+    return "Active";
+  }
+  if (params.latestRequestStatus === "pending") {
+    return "Pending";
+  }
+  if (
+    params.eligibilityStatus === "active" ||
+    params.eligibilityStatus === "eligible"
+  ) {
+    return "Available";
+  }
+
+  return "Not Yet Available";
+}
+
+function buildBenefitReason(params: {
+  status: BenefitStatus;
+  latestRequestUpdatedAt?: string;
+  latestRequestReviewNotes?: string | null;
+  eligibilityOverrideReason?: string | null;
+  eligibilityFailureReason?: string | null;
+}) {
+  if (params.status === "Active") {
+    return params.latestRequestUpdatedAt
+      ? `Approved ${formatLateDate(params.latestRequestUpdatedAt)}`
+      : "Approved";
+  }
+
+  if (params.status === "Pending") {
+    return params.latestRequestReviewNotes?.trim() || "Pending HR review";
+  }
+
+  if (params.status === "Available") {
+    return params.eligibilityOverrideReason?.trim() || "All eligibility rules met";
+  }
+
+  return (
+    params.eligibilityOverrideReason?.trim() ||
+    params.eligibilityFailureReason?.trim() ||
+    "Eligibility requirements not met"
+  );
+}
 
 function getOkrClasses(status: OkrStatus) {
   switch (status) {
@@ -290,26 +346,14 @@ function formatLateDate(date: string) {
   });
 }
 
-function getTodayDateKey() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 export default function EmployeesBoard() {
-  const [employees, setEmployees] = useState(initialEmployees);
   const [search, setSearch] = useState("");
-  const [selectedDepartment, setSelectedDepartment] =
-    useState<DepartmentFilter>("development");
-  const [detailEmployeeEmail, setDetailEmployeeEmail] = useState<string | null>(
+  const [selectedDepartment, setSelectedDepartment] = useState("all");
+  const [detailEmployeeId, setDetailEmployeeId] = useState<string | null>(null);
+  const [openOkrMenuId, setOpenOkrMenuId] = useState<string | null>(null);
+  const [lateDialogEmployeeId, setLateDialogEmployeeId] = useState<string | null>(
     null,
   );
-  const [openOkrMenuEmail, setOpenOkrMenuEmail] = useState<string | null>(null);
-  const [lateDialogEmployeeEmail, setLateDialogEmployeeEmail] = useState<
-    string | null
-  >(null);
   const [overrideDialog, setOverrideDialog] =
     useState<OverrideDialogState | null>(null);
   const [overrideEnabled, setOverrideEnabled] = useState(true);
@@ -318,8 +362,12 @@ export default function EmployeesBoard() {
     useState<PendingLateAction | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { data: overrideLookupData } =
-    useQuery<AdminOverrideLookupResponse>(ADMIN_OVERRIDE_LOOKUP_QUERY);
+  const { data, loading, error, refetch } =
+    useQuery<EmployeeRecord>(ADMIN_EMPLOYEES_QUERY, {
+      notifyOnNetworkStatusChange: true,
+    });
+  const [updateEmployee] =
+    useMutation<UpdateEmployeeMutationResponse>(UPDATE_EMPLOYEE_MUTATION);
   const [upsertBenefitEligibility, { loading: savingOverride }] =
     useMutation<UpsertBenefitEligibilityResponse>(
       UPSERT_BENEFIT_ELIGIBILITY_MUTATION,
@@ -350,54 +398,169 @@ export default function EmployeesBoard() {
   }, [errorMessage]);
 
   useEffect(() => {
-    if (!openOkrMenuEmail) {
+    if (!openOkrMenuId) {
       return;
     }
 
     function handleWindowClick() {
-      setOpenOkrMenuEmail(null);
+      setOpenOkrMenuId(null);
     }
 
     window.addEventListener("click", handleWindowClick);
 
     return () => window.removeEventListener("click", handleWindowClick);
-  }, [openOkrMenuEmail]);
+  }, [openOkrMenuId]);
 
-  const filteredEmployees = employees.filter((employee) => {
-    const matchesDepartment =
-      selectedDepartment === "all" ||
-      employee.department === selectedDepartment;
+  const employees = useMemo<EmployeeItem[]>(() => {
+    if (!data) {
+      return [];
+    }
+
+    const activeBenefits = data.benefits
+      .filter((benefit) => benefit.isActive !== false)
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    const eligibilityByKey = new Map(
+      data.benefitEligibility.map((item) => [
+        `${item.employeeId}:${item.benefitId}`,
+        item,
+      ]),
+    );
+
+    const latestRequestByKey = new Map<
+      string,
+      EmployeeRecord["benefitRequests"][number]
+    >();
+
+    data.benefitRequests.forEach((request) => {
+      const key = `${request.employeeId}:${request.benefitId}`;
+      const current = latestRequestByKey.get(key);
+      if (!current) {
+        latestRequestByKey.set(key, request);
+        return;
+      }
+
+      const currentTimestamp = new Date(current.updatedAt).getTime();
+      const nextTimestamp = new Date(request.updatedAt).getTime();
+      if (nextTimestamp >= currentTimestamp) {
+        latestRequestByKey.set(key, request);
+      }
+    });
+
+    return data.employees.map((employee) => {
+      const department = employee.department?.trim().toLowerCase() || "general";
+      const benefits = activeBenefits.map((benefit) => {
+        const key = `${employee.id}:${benefit.id}`;
+        const eligibility = eligibilityByKey.get(key);
+        const latestRequest = latestRequestByKey.get(key);
+        const status = mapBenefitStatus({
+          eligibilityStatus: eligibility?.status,
+          latestRequestStatus: latestRequest?.status,
+        });
+
+        return {
+          id: benefit.id,
+          name: benefit.name,
+          status,
+          reason: buildBenefitReason({
+            status,
+            latestRequestUpdatedAt:
+              latestRequest?.updatedAt ?? latestRequest?.createdAt,
+            latestRequestReviewNotes: latestRequest?.reviewNotes,
+            eligibilityOverrideReason: eligibility?.overrideReason,
+            eligibilityFailureReason: eligibility
+              ? parseFailureReason(eligibility.ruleEvaluationJson)
+              : null,
+          }),
+          contractLabel: formatContractLabel(
+            benefit.name,
+            benefit.requiresContract,
+          ),
+        };
+      });
+
+      return {
+        id: employee.id,
+        name: employee.fullName,
+        email: employee.email ?? "-",
+        status: titleCase((employee.status ?? "active").toLowerCase()),
+        department,
+        roleLabel: employee.role?.trim() || titleCase(department),
+        okr: mapOkrStatus(employee.okrStatus),
+        lateDates: deriveLateDates(
+          employee.lateArrivalCount ?? 0,
+          employee.lateArrivalUpdatedAt,
+        ),
+        contract: employee.hireDate ? formatLateDate(employee.hireDate) : "-",
+        responsibilityLevel: employee.responsibilityLevel ?? 0,
+        benefits,
+      };
+    });
+  }, [data]);
+
+  const departmentFilters = useMemo(
+    () => [
+      { label: "All", value: "all" },
+      ...Array.from(new Set(employees.map((employee) => employee.department)))
+        .sort((left, right) => left.localeCompare(right))
+        .map((department) => ({
+          label: titleCase(department),
+          value: department,
+        })),
+    ],
+    [employees],
+  );
+
+  const filteredEmployees = useMemo(() => {
     const keyword = search.trim().toLowerCase();
-    const matchesSearch =
-      keyword.length === 0 ||
-      employee.name.toLowerCase().includes(keyword) ||
-      employee.email.toLowerCase().includes(keyword);
 
-    return matchesDepartment && matchesSearch;
-  });
+    return employees.filter((employee) => {
+      const matchesDepartment =
+        selectedDepartment === "all" ||
+        employee.department === selectedDepartment;
+      const matchesSearch =
+        keyword.length === 0 ||
+        employee.name.toLowerCase().includes(keyword) ||
+        employee.email.toLowerCase().includes(keyword);
 
-  const detailEmployee = detailEmployeeEmail
-    ? (employees.find((employee) => employee.email === detailEmployeeEmail) ??
-      null)
+      return matchesDepartment && matchesSearch;
+    });
+  }, [employees, search, selectedDepartment]);
+
+  const detailEmployee = detailEmployeeId
+    ? (employees.find((employee) => employee.id === detailEmployeeId) ?? null)
     : null;
 
-  const selectedEmployee = lateDialogEmployeeEmail
-    ? (employees.find(
-        (employee) => employee.email === lateDialogEmployeeEmail,
-      ) ?? null)
+  const selectedEmployee = lateDialogEmployeeId
+    ? (employees.find((employee) => employee.id === lateDialogEmployeeId) ?? null)
     : null;
 
   function closeLateDialogs() {
-    setLateDialogEmployeeEmail(null);
+    setLateDialogEmployeeId(null);
     setPendingLateAction(null);
   }
 
-  function updateEmployeeOkr(employeeEmail: string, okr: OkrStatus) {
-    setEmployees((currentEmployees) =>
-      currentEmployees.map((employee) =>
-        employee.email === employeeEmail ? { ...employee, okr } : employee,
-      ),
-    );
+  async function updateEmployeeOkr(employeeId: string, okr: OkrStatus) {
+    const okrStatus =
+      okr === "Success" ? "success" : okr === "Submitted" ? "submitted" : "fail";
+
+    try {
+      await updateEmployee({
+        variables: {
+          id: employeeId,
+          okrStatus,
+          okrSubmitted: okr !== "Failed",
+        },
+      });
+      await refetch();
+      setSuccessMessage("OKR status updated successfully.");
+    } catch (mutationError) {
+      setErrorMessage(
+        mutationError instanceof Error
+          ? mutationError.message
+          : "OKR status could not be updated.",
+      );
+    }
   }
 
   function closeOverrideDialog() {
@@ -407,9 +570,10 @@ export default function EmployeesBoard() {
     setErrorMessage(null);
   }
 
-  function openOverrideDialog(employeeEmail: string, benefit: EmployeeBenefit) {
+  function openOverrideDialog(employee: EmployeeItem, benefit: EmployeeBenefit) {
     setOverrideDialog({
-      employeeEmail,
+      employeeId: employee.id,
+      benefitId: benefit.id,
       benefitName: benefit.name,
     });
     setOverrideEnabled(
@@ -425,24 +589,12 @@ export default function EmployeesBoard() {
       return;
     }
 
-    const employeeId = overrideLookupData?.employees.find(
-      (employee) => employee.email === overrideDialog.employeeEmail,
-    )?.id;
-    const benefitId = overrideLookupData?.benefits.find(
-      (benefit) => benefit.name === overrideDialog.benefitName,
-    )?.id;
-
-    if (!employeeId || !benefitId) {
-      setErrorMessage("Override target could not be mapped to backend data.");
-      return;
-    }
-
     try {
       await upsertBenefitEligibility({
         variables: {
           input: {
-            employeeId,
-            benefitId,
+            employeeId: overrideDialog.employeeId,
+            benefitId: overrideDialog.benefitId,
             status: overrideEnabled ? "active" : "locked",
             overrideReason:
               overrideJustification.trim() ||
@@ -452,32 +604,7 @@ export default function EmployeesBoard() {
           },
         },
       });
-
-      setEmployees((currentEmployees) =>
-        currentEmployees.map((employee) => {
-          if (employee.email !== overrideDialog.employeeEmail) {
-            return employee;
-          }
-
-          return {
-            ...employee,
-            benefits: employee.benefits.map((benefit) =>
-              benefit.name !== overrideDialog.benefitName
-                ? benefit
-                : {
-                    ...benefit,
-                    status: overrideEnabled ? "Active" : "Not Yet Available",
-                    reason:
-                      overrideJustification.trim() ||
-                      (overrideEnabled
-                        ? "Manual override granted"
-                        : "Manual override restricted"),
-                  },
-            ),
-          };
-        }),
-      );
-
+      await refetch();
       setSuccessMessage("Eligibility override saved successfully.");
       closeOverrideDialog();
     } catch (error) {
@@ -489,45 +616,48 @@ export default function EmployeesBoard() {
     }
   }
 
-  function confirmLateAction() {
+  async function confirmLateAction() {
     if (!pendingLateAction) {
       return;
     }
 
-    const todayDate = getTodayDateKey();
-
-    setEmployees((currentEmployees) =>
-      currentEmployees.map((employee) => {
-        if (employee.email !== pendingLateAction.employeeEmail) {
-          return employee;
-        }
-
-        if (pendingLateAction.type === "add") {
-          if (employee.lateDates.includes(todayDate)) {
-            return employee;
-          }
-
-          return {
-            ...employee,
-            lateDates: [...employee.lateDates, todayDate].sort(),
-          };
-        }
-
-        return {
-          ...employee,
-          lateDates: employee.lateDates.filter(
-            (date) => date !== pendingLateAction.date,
-          ),
-        };
-      }),
+    const targetEmployee = employees.find(
+      (employee) => employee.id === pendingLateAction.employeeId,
     );
 
-    setSuccessMessage(
+    if (!targetEmployee) {
+      setErrorMessage("Employee record could not be loaded.");
+      closeLateDialogs();
+      return;
+    }
+
+    const nextLateCount =
       pendingLateAction.type === "add"
-        ? "Late attendance marked successfully."
-        : "Late attendance removed successfully.",
-    );
-    closeLateDialogs();
+        ? targetEmployee.lateDates.length + 1
+        : Math.max(0, targetEmployee.lateDates.length - 1);
+
+    try {
+      await updateEmployee({
+        variables: {
+          id: targetEmployee.id,
+          lateArrivalCount: nextLateCount,
+          lateArrivalUpdatedAt: new Date().toISOString(),
+        },
+      });
+      await refetch();
+      setSuccessMessage(
+        pendingLateAction.type === "add"
+          ? "Late attendance marked successfully."
+          : "Late attendance removed successfully.",
+      );
+      closeLateDialogs();
+    } catch (mutationError) {
+      setErrorMessage(
+        mutationError instanceof Error
+          ? mutationError.message
+          : "Late attendance could not be updated.",
+      );
+    }
   }
 
   return (
@@ -536,7 +666,7 @@ export default function EmployeesBoard() {
         <section className="w-full space-y-8">
           <button
             type="button"
-            onClick={() => setDetailEmployeeEmail(null)}
+            onClick={() => setDetailEmployeeId(null)}
             className="inline-flex items-center gap-3 text-[1.05rem] font-medium text-slate-600 transition hover:text-slate-900"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -624,7 +754,7 @@ export default function EmployeesBoard() {
                 <tbody>
                   {detailEmployee.benefits.map((benefit) => (
                     <tr
-                      key={`${detailEmployee.email}-${benefit.name}`}
+                      key={`${detailEmployee.id}-${benefit.id}`}
                       className="border-b border-slate-200 last:border-b-0"
                     >
                       <td className="px-7 py-5 text-[1rem] font-medium text-slate-900">
@@ -659,7 +789,7 @@ export default function EmployeesBoard() {
                         <button
                           type="button"
                           onClick={() =>
-                            openOverrideDialog(detailEmployee.email, benefit)
+                            openOverrideDialog(detailEmployee, benefit)
                           }
                           className="rounded-[0.95rem] border border-slate-200 bg-white px-4 py-2 text-[0.95rem] font-medium text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition hover:bg-slate-50"
                         >
@@ -735,13 +865,35 @@ export default function EmployeesBoard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredEmployees.map((employee) => {
+                    {loading && employees.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-10 py-12 text-center text-base text-slate-500"
+                        >
+                          <span className="inline-flex items-center gap-3">
+                            <LoaderCircle className="h-5 w-5 animate-spin" />
+                            Loading employees...
+                          </span>
+                        </td>
+                      </tr>
+                    ) : error ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-10 py-12 text-center text-base text-rose-500"
+                        >
+                          {error.message}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredEmployees.map((employee) => {
                       const lateCount = employee.lateDates.length;
 
                       return (
                         <tr
-                          key={employee.email}
-                          onClick={() => setDetailEmployeeEmail(employee.email)}
+                          key={employee.id}
+                          onClick={() => setDetailEmployeeId(employee.id)}
                           className="cursor-pointer border-b border-slate-200 transition hover:bg-slate-50/70 last:border-b-0"
                         >
                           <td className="px-7 py-4">
@@ -770,7 +922,7 @@ export default function EmployeesBoard() {
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                setLateDialogEmployeeEmail(employee.email);
+                                setLateDialogEmployeeId(employee.id);
                                 setPendingLateAction(null);
                               }}
                               className={cn(
@@ -790,10 +942,10 @@ export default function EmployeesBoard() {
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  setOpenOkrMenuEmail((currentValue) =>
-                                    currentValue === employee.email
+                                  setOpenOkrMenuId((currentValue) =>
+                                    currentValue === employee.id
                                       ? null
-                                      : employee.email,
+                                      : employee.id,
                                   );
                                 }}
                                 className={cn(
@@ -805,14 +957,14 @@ export default function EmployeesBoard() {
                                 <ChevronUp
                                   className={cn(
                                     "h-5 w-5 text-slate-900 transition-transform",
-                                    openOkrMenuEmail === employee.email
+                                    openOkrMenuId === employee.id
                                       ? "rotate-0"
                                       : "rotate-180",
                                   )}
                                 />
                               </button>
 
-                              {openOkrMenuEmail === employee.email ? (
+                              {openOkrMenuId === employee.id ? (
                                 <div
                                   className="absolute top-full left-0 z-20 mt-1 min-w-[12.25rem] overflow-hidden rounded-sm border border-stone-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.12)]"
                                   onClick={(event) => event.stopPropagation()}
@@ -827,12 +979,9 @@ export default function EmployeesBoard() {
                                     <button
                                       key={status}
                                       type="button"
-                                      onClick={() => {
-                                        updateEmployeeOkr(
-                                          employee.email,
-                                          status,
-                                        );
-                                        setOpenOkrMenuEmail(null);
+                                      onClick={async () => {
+                                        await updateEmployeeOkr(employee.id, status);
+                                        setOpenOkrMenuId(null);
                                       }}
                                       className={cn(
                                         "flex w-full items-center bg-white px-5 py-3 text-left text-[1rem] font-medium transition hover:bg-stone-50",
@@ -848,8 +997,8 @@ export default function EmployeesBoard() {
                           </td>
                         </tr>
                       );
-                    })}
-                    {filteredEmployees.length === 0 ? (
+                    }))}
+                    {!loading && !error && filteredEmployees.length === 0 ? (
                       <tr>
                         <td
                           colSpan={6}
@@ -900,7 +1049,7 @@ export default function EmployeesBoard() {
                       onClick={() =>
                         setPendingLateAction({
                           type: "delete",
-                          employeeEmail: selectedEmployee.email,
+                          employeeId: selectedEmployee.id,
                           date,
                         })
                       }
@@ -923,7 +1072,7 @@ export default function EmployeesBoard() {
               onClick={() =>
                 setPendingLateAction({
                   type: "add",
-                  employeeEmail: selectedEmployee.email,
+                  employeeId: selectedEmployee.id,
                 })
               }
               className="mt-6 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
