@@ -138,9 +138,9 @@ export async function requireManagerAccess(
 ): Promise<AuthenticatedEmployee> {
 	const auth = await requireAuthenticatedEmployee(context);
 
-	// if (!isManagerRole(auth.clerkRole)) {
-	// 	throw new Error('Forbidden: HR or admin access is required.');
-	// }
+	if (!isManagerRole(auth.clerkRole)) {
+		throw new Error('Forbidden: HR or admin access is required.');
+	}
 
 	return auth;
 }

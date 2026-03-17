@@ -123,10 +123,10 @@ export const eligibilityRuleMutation = {
         };
       },
       context: { env: Env },
-	    ) => {
-	      await requireManagerAccess(context);
-	      const db = getDb(context.env.DB);
-	      const { input } = args;
+    ) => {
+      await requireManagerAccess(context);
+      const db = getDb(context.env.DB);
+      const { input } = args;
       const latestVersion = await getLatestVersionForBenefit(db, input.benefitId);
       const targetVersion = input.configVersion ?? latestVersion;
       const baseValue: StoredEligibilityRuleValue = {
@@ -178,10 +178,10 @@ export const eligibilityRuleMutation = {
         };
       },
       context: { env: Env },
-	    ) => {
-	      await requireManagerAccess(context);
-	      const db = getDb(context.env.DB);
-	      const { input } = args;
+    ) => {
+      await requireManagerAccess(context);
+      const db = getDb(context.env.DB);
+      const { input } = args;
       const existing = await db
         .select()
         .from(eligibility_rules)
@@ -203,9 +203,9 @@ export const eligibilityRuleMutation = {
         .update(eligibility_rules)
         .set({
           ...(input.value !== undefined ||
-          input.type !== undefined ||
-          input.operator !== undefined ||
-          input.configVersion !== undefined
+            input.type !== undefined ||
+            input.operator !== undefined ||
+            input.configVersion !== undefined
             ? { value: nextValue }
             : {}),
           ...(input.errorMessage !== undefined
@@ -232,9 +232,9 @@ export const eligibilityRuleMutation = {
       _parent: unknown,
       args: { id: string },
       context: { env: Env },
-	    ) => {
-	      await requireManagerAccess(context);
-	      const db = getDb(context.env.DB);
+    ) => {
+      await requireManagerAccess(context);
+      const db = getDb(context.env.DB);
       const deleted = await db
         .delete(eligibility_rules)
         .where(eq(eligibility_rules.id, args.id))

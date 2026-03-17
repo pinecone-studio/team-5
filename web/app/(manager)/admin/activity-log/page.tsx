@@ -236,9 +236,8 @@ export default function AdminActivityLogPage() {
               {selectedFilter}
 
               <ChevronDown
-                className={`h-4 w-4 text-slate-400 transition ${
-                  dropdownOpen ? "rotate-180" : ""
-                }`}
+                className={`h-4 w-4 text-slate-400 transition ${dropdownOpen ? "rotate-180" : ""
+                  }`}
               />
             </button>
 
@@ -252,11 +251,10 @@ export default function AdminActivityLogPage() {
                       setSelectedFilter(filter);
                       setDropdownOpen(false);
                     }}
-                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-[14px] ${
-                      selectedFilter === filter
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-[14px] ${selectedFilter === filter
                         ? "bg-slate-50 font-medium text-slate-900"
                         : "text-slate-600 hover:bg-slate-50"
-                    }`}
+                      }`}
                   >
                     <span>{filter}</span>
                     {selectedFilter === filter && (
@@ -314,11 +312,10 @@ export default function AdminActivityLogPage() {
                 filteredLogs.map((log, idx) => (
                   <tr
                     key={log.id}
-                    className={`h-13.5 align-middle ${
-                      idx !== filteredLogs.length - 1
+                    className={`h-13.5 align-middle ${idx !== filteredLogs.length - 1
                         ? "border-b border-[#E2E8F0]"
                         : ""
-                    }`}
+                      }`}
                   >
                     <td className="px-5 py-0 text-[14px] font-normal whitespace-nowrap align-middle text-[#667085]">
                       {formatTimestamp(log.createdAt)}
