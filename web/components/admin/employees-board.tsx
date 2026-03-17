@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Check, ChevronUp, Minus, Plus, Search } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronUp,
+  Minus,
+  Plus,
+  Search,
+  X,
+} from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -51,34 +59,34 @@ const defaultBenefits: EmployeeBenefit[] = [
     contractLabel: "Gym - PineFit PDF",
   },
   {
-    name: "Remote Work",
+    name: "Private Insurance",
     status: "Active",
     reason: "Approved Oct 20, 2025",
-    contractLabel: "-",
+    contractLabel: "Private Insurance PDF",
   },
   {
     name: "Digital Wellness",
     status: "Active",
     reason: "Auto (core)",
-    contractLabel: "Gym - PineFit PDF",
+    contractLabel: "-",
   },
   {
     name: "Down Payment Assistance",
     status: "Available",
     reason: "All eligibility rules met",
-    contractLabel: "Gym - PineFit PDF",
+    contractLabel: "Down Payment Assistance PDF",
   },
   {
-    name: "Notebook",
+    name: "Digital Wellness",
     status: "Pending",
-    reason: "Under manager review",
-    contractLabel: "Gym - PineFit PDF",
+    reason: "Auto (core)",
+    contractLabel: "-",
   },
   {
-    name: "Housing Support",
+    name: "Macbook",
     status: "Not Yet Available",
-    reason: "Eligibility period not reached",
-    contractLabel: "Gym - PineFit PDF",
+    reason: "All eligibility rules met",
+    contractLabel: "Macbook PDF",
   },
 ];
 
@@ -184,6 +192,10 @@ const initialEmployees: EmployeeItem[] = [
 type PendingLateAction =
   | { type: "add"; employeeEmail: string }
   | { type: "delete"; employeeEmail: string; date: string };
+type OverrideDialogState = {
+  employeeEmail: string;
+  benefitName: string;
+};
 
 function getOkrClasses(status: OkrStatus) {
   switch (status) {
@@ -203,13 +215,13 @@ function getLateClasses(value: number) {
 function getBenefitStatusClasses(status: BenefitStatus) {
   switch (status) {
     case "Active":
-      return "text-emerald-600";
+      return "border-emerald-300 bg-emerald-50 text-emerald-600";
     case "Available":
-      return "text-blue-600";
+      return "border-blue-300 bg-blue-50 text-blue-600";
     case "Pending":
-      return "text-amber-500";
+      return "border-amber-300 bg-amber-50 text-amber-500";
     case "Not Yet Available":
-      return "text-stone-500";
+      return "border-stone-300 bg-stone-50 text-stone-500";
   }
 }
 
@@ -250,6 +262,10 @@ export default function EmployeesBoard() {
   const [lateDialogEmployeeEmail, setLateDialogEmployeeEmail] = useState<
     string | null
   >(null);
+  const [overrideDialog, setOverrideDialog] =
+    useState<OverrideDialogState | null>(null);
+  const [overrideEnabled, setOverrideEnabled] = useState(true);
+  const [overrideJustification, setOverrideJustification] = useState("");
   const [pendingLateAction, setPendingLateAction] =
     useState<PendingLateAction | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -299,8 +315,9 @@ export default function EmployeesBoard() {
     : null;
 
   const selectedEmployee = lateDialogEmployeeEmail
-    ? (employees.find((employee) => employee.email === lateDialogEmployeeEmail) ??
-      null)
+    ? (employees.find(
+        (employee) => employee.email === lateDialogEmployeeEmail,
+      ) ?? null)
     : null;
 
   function closeLateDialogs() {
@@ -314,6 +331,59 @@ export default function EmployeesBoard() {
         employee.email === employeeEmail ? { ...employee, okr } : employee,
       ),
     );
+  }
+
+  function closeOverrideDialog() {
+    setOverrideDialog(null);
+    setOverrideJustification("");
+    setOverrideEnabled(true);
+  }
+
+  function openOverrideDialog(employeeEmail: string, benefit: EmployeeBenefit) {
+    setOverrideDialog({
+      employeeEmail,
+      benefitName: benefit.name,
+    });
+    setOverrideEnabled(
+      benefit.status === "Active" ||
+        benefit.status === "Available" ||
+        benefit.status === "Pending",
+    );
+    setOverrideJustification("");
+  }
+
+  function saveOverride() {
+    if (!overrideDialog) {
+      return;
+    }
+
+    setEmployees((currentEmployees) =>
+      currentEmployees.map((employee) => {
+        if (employee.email !== overrideDialog.employeeEmail) {
+          return employee;
+        }
+
+        return {
+          ...employee,
+          benefits: employee.benefits.map((benefit) =>
+            benefit.name !== overrideDialog.benefitName
+              ? benefit
+              : {
+                  ...benefit,
+                  status: overrideEnabled ? "Active" : "Not Yet Available",
+                  reason:
+                    overrideJustification.trim() ||
+                    (overrideEnabled
+                      ? "Manual override granted"
+                      : "Manual override restricted"),
+                },
+          ),
+        };
+      }),
+    );
+
+    setSuccessMessage("Eligibility override saved successfully.");
+    closeOverrideDialog();
   }
 
   function confirmLateAction() {
@@ -370,17 +440,17 @@ export default function EmployeesBoard() {
             Back to employees
           </button>
 
-          <div className="rounded-[12px] border border-slate-200 bg-white px-6 py-6 shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
-            <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
-              <div className="flex items-center gap-4 border-b border-slate-200 pb-6 xl:border-r xl:border-b-0 xl:pb-0 xl:pr-6">
-                <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full bg-stone-100 text-[1.6rem] font-medium text-slate-900">
+          <div className="rounded-[1.35rem] border border-slate-200 bg-white px-7 py-7 shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
+            <div className="grid gap-7 xl:grid-cols-[1.15fr_1.85fr] xl:items-center">
+              <div className="flex items-center gap-5 border-b border-slate-200 pb-7 xl:border-r xl:border-b-0 xl:pb-0 xl:pr-9">
+                <div className="flex h-[5.5rem] w-[5.5rem] items-center justify-center rounded-full bg-stone-100 text-[1.9rem] font-medium text-slate-900">
                   {getInitials(detailEmployee.name)}
                 </div>
                 <div>
-                  <h2 className="text-[1.8rem] font-semibold text-slate-900">
+                  <h2 className="text-[1.9rem] font-semibold tracking-[-0.03em] text-slate-900">
                     {detailEmployee.name}
                   </h2>
-                  <p className="text-[1.15rem] text-slate-500">
+                  <p className="mt-1 text-[1.15rem] text-slate-500">
                     {detailEmployee.roleLabel}
                   </p>
                 </div>
@@ -388,42 +458,47 @@ export default function EmployeesBoard() {
 
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
                 <div>
-                  <p className="text-sm font-medium uppercase tracking-[0.03em] text-slate-500">
+                  <p className="text-[0.92rem] font-medium uppercase tracking-[0.03em] text-slate-500">
                     Employment
                   </p>
-                  <p className="mt-2 text-[1rem] font-medium text-slate-900">
+                  <p className="mt-3 text-[1rem] font-medium text-slate-900">
                     {detailEmployee.status}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium uppercase tracking-[0.03em] text-slate-500">
+                  <p className="text-[0.92rem] font-medium uppercase tracking-[0.03em] text-slate-500">
                     OKR
                   </p>
-                  <p className={cn("mt-2 text-[1rem] font-medium", getOkrClasses(detailEmployee.okr))}>
+                  <p
+                    className={cn(
+                      "mt-3 text-[1rem] font-medium",
+                      getOkrClasses(detailEmployee.okr),
+                    )}
+                  >
                     {detailEmployee.okr}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium uppercase tracking-[0.03em] text-slate-500">
+                  <p className="text-[0.92rem] font-medium uppercase tracking-[0.03em] text-slate-500">
                     Attendance
                   </p>
-                  <p className="mt-2 text-[1rem] font-medium text-slate-900">
+                  <p className="mt-3 text-[1rem] font-medium text-slate-900">
                     {detailEmployee.lateDates.length}/3 lates
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium uppercase tracking-[0.03em] text-slate-500">
+                  <p className="text-[0.92rem] font-medium uppercase tracking-[0.03em] text-slate-500">
                     Responsibility
                   </p>
-                  <p className="mt-2 text-[1rem] font-medium text-slate-900">
+                  <p className="mt-3 text-[1rem] font-medium text-slate-900">
                     Level {detailEmployee.responsibilityLevel}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium uppercase tracking-[0.03em] text-slate-500">
+                  <p className="text-[0.92rem] font-medium uppercase tracking-[0.03em] text-slate-500">
                     Hired
                   </p>
-                  <p className="mt-2 text-[1rem] font-medium text-slate-900">
+                  <p className="mt-3 text-[1rem] font-medium text-slate-900">
                     {detailEmployee.contract}
                   </p>
                 </div>
@@ -431,16 +506,16 @@ export default function EmployeesBoard() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
+          <div className="overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
             <div className="overflow-x-auto">
               <table className="min-w-full text-left">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80 text-[0.95rem] uppercase tracking-[0.03em] text-slate-500">
-                    <th className="px-6 py-6 font-medium">Benefits</th>
-                    <th className="px-6 py-6 font-medium">Status</th>
-                    <th className="px-6 py-6 font-medium">Reason</th>
-                    <th className="px-6 py-6 font-medium">Contract</th>
-                    <th className="px-6 py-6 font-medium">Action</th>
+                  <tr className="border-b border-slate-200 bg-slate-100 text-[0.95rem] uppercase tracking-[0.03em] text-slate-500">
+                    <th className="px-7 py-6 font-medium">Benefits</th>
+                    <th className="px-7 py-6 font-medium">Status</th>
+                    <th className="px-7 py-6 font-medium">Reason</th>
+                    <th className="px-7 py-6 font-medium">Contract</th>
+                    <th className="px-7 py-6 font-medium">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -449,25 +524,41 @@ export default function EmployeesBoard() {
                       key={`${detailEmployee.email}-${benefit.name}`}
                       className="border-b border-slate-200 last:border-b-0"
                     >
-                      <td className="px-6 py-5 text-[1rem] font-medium text-slate-900">
+                      <td className="px-7 py-5 text-[1rem] font-medium text-slate-900">
                         {benefit.name}
                       </td>
-                      <td className="px-6 py-5">
-                        <div className={cn("inline-flex items-center gap-2 text-[1rem] font-medium", getBenefitStatusClasses(benefit.status))}>
-                          <span className="h-2.5 w-2.5 rounded-full bg-current" />
+                      <td className="px-7 py-5">
+                        <div
+                          className={cn(
+                            "inline-flex items-center rounded-[0.8rem] border px-3.5 py-1.5 text-[0.95rem] font-medium",
+                            getBenefitStatusClasses(benefit.status),
+                          )}
+                        >
                           {benefit.status}
                         </div>
                       </td>
-                      <td className="px-6 py-5 text-[1rem] text-slate-900">
+                      <td className="px-7 py-5 text-[1rem] text-slate-900">
                         {benefit.reason}
                       </td>
-                      <td className="px-6 py-5 text-[1rem] text-slate-900">
-                        {benefit.contractLabel}
+                      <td className="px-7 py-5 text-[1rem] text-slate-900">
+                        {benefit.contractLabel === "-" ? (
+                          "-"
+                        ) : (
+                          <button
+                            type="button"
+                            className="underline underline-offset-4 transition hover:text-slate-600"
+                          >
+                            {benefit.contractLabel}
+                          </button>
+                        )}
                       </td>
-                      <td className="px-6 py-5">
+                      <td className="px-7 py-5">
                         <button
                           type="button"
-                          className="rounded-[10px] border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                          onClick={() =>
+                            openOverrideDialog(detailEmployee.email, benefit)
+                          }
+                          className="rounded-[0.95rem] border border-slate-200 bg-white px-4 py-2 text-[0.95rem] font-medium text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition hover:bg-slate-50"
                         >
                           Override
                         </button>
@@ -497,7 +588,7 @@ export default function EmployeesBoard() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search name..."
-                className="h-14 rounded-[10px] border-slate-200 bg-white pl-14 pr-5 text-[1.05rem] text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] placeholder:text-slate-400"
+                className="h-14 rounded-2xl border-slate-200 bg-white pl-14 pr-5 text-[1.05rem] text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] placeholder:text-slate-400"
               />
             </div>
           </div>
@@ -527,7 +618,7 @@ export default function EmployeesBoard() {
               {filteredEmployees.length} Employees
             </h3>
 
-            <div className="overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
+            <div className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left">
                   <thead>
@@ -580,7 +671,7 @@ export default function EmployeesBoard() {
                                 setPendingLateAction(null);
                               }}
                               className={cn(
-                                "inline-flex min-w-9 items-center justify-center rounded-[10px] px-3 py-1.5 text-[1rem] font-medium transition hover:opacity-85",
+                                "inline-flex min-w-9 items-center justify-center rounded-2xl px-3 py-1.5 text-[1rem] font-medium transition hover:opacity-85",
                                 getLateClasses(lateCount),
                               )}
                             >
@@ -603,7 +694,7 @@ export default function EmployeesBoard() {
                                   );
                                 }}
                                 className={cn(
-                                  "inline-flex min-w-[12.25rem] items-center justify-between gap-3 rounded-[10px] bg-stone-50 px-5 py-3 text-[1rem] font-medium",
+                                  "inline-flex min-w-[12.25rem] items-center justify-between gap-3 rounded-md bg-stone-50 px-5 py-3 text-[1rem] font-medium",
                                   getOkrClasses(employee.okr),
                                 )}
                               >
@@ -620,17 +711,24 @@ export default function EmployeesBoard() {
 
                               {openOkrMenuEmail === employee.email ? (
                                 <div
-                                  className="absolute top-full left-0 z-20 mt-1 min-w-[12.25rem] overflow-hidden rounded-[10px] border border-stone-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.12)]"
+                                  className="absolute top-full left-0 z-20 mt-1 min-w-[12.25rem] overflow-hidden rounded-sm border border-stone-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.12)]"
                                   onClick={(event) => event.stopPropagation()}
                                 >
                                   {(
-                                    ["Success", "Submitted", "Failed"] as OkrStatus[]
+                                    [
+                                      "Success",
+                                      "Submitted",
+                                      "Failed",
+                                    ] as OkrStatus[]
                                   ).map((status) => (
                                     <button
                                       key={status}
                                       type="button"
                                       onClick={() => {
-                                        updateEmployeeOkr(employee.email, status);
+                                        updateEmployeeOkr(
+                                          employee.email,
+                                          status,
+                                        );
                                         setOpenOkrMenuEmail(null);
                                       }}
                                       className={cn(
@@ -679,7 +777,7 @@ export default function EmployeesBoard() {
           onClick={closeLateDialogs}
         >
           <div
-            className="w-full max-w-[22rem] rounded-[12px] border border-gray-200 bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
+            className="w-full max-w-[22rem] rounded-[1.6rem] border border-gray-200 bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
             onClick={(event) => event.stopPropagation()}
           >
             <h3 className="text-[1.05rem] font-semibold text-gray-900">
@@ -703,7 +801,7 @@ export default function EmployeesBoard() {
                           date,
                         })
                       }
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-[10px] text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
                       aria-label={`Delete late attendance for ${formatLateDate(date)}`}
                     >
                       <Minus className="h-4 w-4" />
@@ -725,7 +823,7 @@ export default function EmployeesBoard() {
                   employeeEmail: selectedEmployee.email,
                 })
               }
-              className="mt-6 inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+              className="mt-6 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
               aria-label="Add late attendance"
             >
               <Plus className="h-4 w-4" />
@@ -740,7 +838,7 @@ export default function EmployeesBoard() {
           onClick={closeLateDialogs}
         >
           <div
-            className="w-full max-w-[22rem] rounded-[12px] border border-gray-200 bg-white px-6 py-7 text-center shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
+            className="w-full max-w-[22rem] rounded-[1.6rem] border border-gray-200 bg-white px-6 py-7 text-center shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
             onClick={(event) => event.stopPropagation()}
           >
             <p className="text-[1.05rem] font-medium leading-9 text-gray-900">
@@ -753,14 +851,14 @@ export default function EmployeesBoard() {
               <button
                 type="button"
                 onClick={() => setPendingLateAction(null)}
-                className="inline-flex min-w-20 items-center justify-center rounded-[10px] border border-gray-200 px-5 py-2 text-base font-medium text-gray-700 transition hover:bg-gray-50"
+                className="inline-flex min-w-20 items-center justify-center rounded-xl border border-gray-200 px-5 py-2 text-base font-medium text-gray-700 transition hover:bg-gray-50"
               >
                 No
               </button>
               <button
                 type="button"
                 onClick={confirmLateAction}
-                className="inline-flex min-w-20 items-center justify-center rounded-[10px] bg-blue-600 px-5 py-2 text-base font-medium text-white transition hover:bg-blue-700"
+                className="inline-flex min-w-20 items-center justify-center rounded-xl bg-blue-600 px-5 py-2 text-base font-medium text-white transition hover:bg-blue-700"
               >
                 Yes
               </button>
@@ -769,9 +867,114 @@ export default function EmployeesBoard() {
         </div>
       ) : null}
 
+      {overrideDialog ? (
+        <div
+          className="fixed inset-0 z-[70] bg-slate-950/45 p-4"
+          onClick={closeOverrideDialog}
+        >
+          <div className="flex min-h-full items-center justify-center">
+            <div
+              className="w-full max-w-[32.5rem] rounded-[1.4rem] border border-slate-200 bg-white px-5 py-5 shadow-[0_22px_54px_rgba(15,23,42,0.18)] sm:px-6 sm:py-6"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="max-w-2xl">
+                  <h3 className="text-[1.55rem] font-semibold tracking-[-0.03em] text-slate-900 sm:text-[1.7rem]">
+                    Manual Eligibility Override
+                  </h3>
+                  <p className="mt-3 max-w-[28rem] text-[0.95rem] leading-[1.45] text-slate-500 sm:text-[1rem]">
+                    Force the system to grant or revoke access to{" "}
+                    <span className="text-slate-900">
+                      {overrideDialog.benefitName}
+                    </span>
+                    . This action is permanently logged.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeOverrideDialog}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                  aria-label="Close override dialog"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <div className="mt-6 rounded-[1.25rem] border border-slate-200 bg-slate-50/40 px-4 py-4 sm:px-5 sm:py-5">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h4 className="text-[1.2rem] font-semibold tracking-[-0.03em] text-slate-900 sm:text-[1.35rem]">
+                      Force Eligibility Status
+                    </h4>
+                    <p className="mt-2 text-[0.92rem] text-slate-500 sm:text-[0.98rem]">
+                      Toggle to grant or restrict access.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOverrideEnabled((currentValue) => !currentValue)
+                    }
+                    className={cn(
+                      "relative inline-flex h-8 w-[3.75rem] shrink-0 rounded-full transition",
+                      overrideEnabled ? "bg-blue-600" : "bg-slate-300",
+                    )}
+                    aria-pressed={overrideEnabled}
+                  >
+                    <span
+                      className={cn(
+                        "absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition",
+                        overrideEnabled ? "left-[1.85rem]" : "left-1",
+                      )}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <label
+                  htmlFor="override-justification"
+                  className="text-[1.2rem] font-semibold tracking-[-0.03em] text-slate-900 sm:text-[1.3rem]"
+                >
+                  Justification
+                </label>
+                <input
+                  id="override-justification"
+                  value={overrideJustification}
+                  onChange={(event) =>
+                    setOverrideJustification(event.target.value)
+                  }
+                  placeholder="e.g., Executive exception Granted by CEO..."
+                  className="mt-3 h-12 w-full rounded-[1rem] border border-slate-200 px-4 text-[0.95rem] text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-300"
+                />
+              </div>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeOverrideDialog}
+                  className="inline-flex items-center justify-center rounded-[1rem] border border-slate-200 px-5 py-2.5 text-[0.95rem] font-medium text-slate-700 transition hover:bg-slate-50 sm:min-w-28"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveOverride}
+                  className="inline-flex items-center justify-center rounded-[1rem] bg-blue-300 px-5 py-2.5 text-[0.95rem] font-medium text-white transition hover:bg-blue-400 sm:min-w-40"
+                >
+                  Save Override
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {successMessage ? (
         <div className="pointer-events-none fixed right-6 bottom-6 z-[60]">
-          <div className="flex items-start gap-3 rounded-[12px] border border-emerald-200 bg-white px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.12)]">
+          <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-white px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.12)]">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
               <Check className="h-4 w-4" />
             </div>
