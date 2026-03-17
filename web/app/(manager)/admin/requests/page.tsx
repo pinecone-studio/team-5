@@ -151,7 +151,7 @@ function getStatusClasses(status: RequestStatus) {
     case "approved":
       return "bg-[#DCFCE7] text-[#15803D]"
     case "rejected":
-      return "bg-[#FEE2E2] text-[#DC2626]"
+      return "bg-[#F4F6F8] text-[#5F6B7E]"
     case "cancelled":
       return "bg-[#E5E7EB] text-[#4B5563]"
     default:
@@ -242,13 +242,13 @@ function RejectRequestDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <div className="w-full max-w-5xl rounded-[24px] border border-[#d7deea] bg-white px-9 py-8 shadow-[0_24px_80px_rgba(15,23,42,0.2)]">
-        <div className="flex items-start justify-between gap-6">
-          <div className="space-y-4">
-            <h2 className="text-[3.25rem] font-semibold tracking-[-0.06em] text-[#17243d]">
+      <div className="w-full max-w-3xl rounded-[18px] border border-[#d7deea] bg-white px-8 py-7 shadow-[0_24px_80px_rgba(15,23,42,0.2)]">
+        <div className="flex items-start justify-between gap-5">
+          <div className="space-y-3">
+            <h2 className="text-[2.4rem] font-semibold tracking-[-0.05em] text-[#17243d]">
               Reject Request
             </h2>
-            <p className="max-w-[64rem] text-[1.2rem] leading-[1.6] text-[#6D7B93]">
+            <p className="max-w-[44rem] text-[1.05rem] leading-[1.65] text-[#6D7B93]">
               You are about to reject {request.employee}&apos;s request for{" "}
               {request.benefit}.
             </p>
@@ -259,14 +259,14 @@ function RejectRequestDialog({
             className="rounded-[10px] p-2 text-[#5F6B7E] transition hover:bg-[#f4f7fb] hover:text-[#17243d]"
             aria-label="Close reject request dialog"
           >
-            <X className="h-9 w-9" />
+            <X className="h-7 w-7" />
           </button>
         </div>
 
-        <div className="mt-12 space-y-4">
+        <div className="mt-8 space-y-3">
           <label
             htmlFor="reject-review-notes"
-            className="block text-[1.3rem] font-semibold tracking-[-0.03em] text-[#17243d]"
+            className="block text-[1.1rem] font-semibold tracking-[-0.03em] text-[#17243d]"
           >
             Review Notes (Optional)
           </label>
@@ -275,20 +275,20 @@ function RejectRequestDialog({
             value={reviewNotes}
             onChange={(event) => onReviewNotesChange(event.target.value)}
             placeholder="Add notes for the employee regarding this reject..."
-            className="min-h-56 w-full rounded-[20px] border-[3px] border-[#2F66F6] px-7 py-6 text-[1.2rem] leading-8 text-[#17243d] outline-none placeholder:text-[#7A8798]"
+            className="min-h-40 w-full rounded-[14px] border-2 border-[#2F66F6] px-5 py-4 text-[1rem] leading-7 text-[#17243d] outline-none placeholder:text-[#7A8798]"
           />
           {errorMessage ? (
             <p className="text-sm text-rose-600">{errorMessage}</p>
           ) : null}
         </div>
 
-        <div className="mt-10 flex justify-end gap-4">
+        <div className="mt-8 flex justify-end gap-3">
           <Button
             type="button"
             variant="outline"
             onClick={onClose}
             disabled={submitting}
-            className="h-20 min-w-[15rem] rounded-[18px] border-[#d7deea] px-8 text-[1.15rem] font-medium text-[#17243d] hover:bg-[#f8fafc]"
+            className="h-12 min-w-[10rem] rounded-[12px] border-[#d7deea] px-6 text-[1rem] font-medium text-[#17243d] hover:bg-[#f8fafc]"
           >
             Cancel
           </Button>
@@ -296,11 +296,11 @@ function RejectRequestDialog({
             type="button"
             onClick={onConfirm}
             disabled={submitting}
-            className="h-20 min-w-[19rem] rounded-[18px] bg-[#EF4444] px-8 text-[1.15rem] font-medium text-white hover:bg-[#DC2626]"
+            className="h-12 min-w-[13rem] rounded-[12px] bg-[#EF4444] px-6 text-[1rem] font-medium text-white hover:bg-[#DC2626]"
           >
             {submitting ? (
               <>
-                <LoaderCircle className="h-5 w-5 animate-spin" />
+                <LoaderCircle className="h-4 w-4 animate-spin" />
                 Rejecting
               </>
             ) : (

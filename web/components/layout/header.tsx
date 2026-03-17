@@ -1,4 +1,5 @@
-import { Bell, Menu } from "lucide-react"
+import { Menu } from "lucide-react"
+import NotificationMenu from "@/components/layout/notification-menu"
 import SessionBadge from "@/components/session-badge"
 
 interface HeaderProps {
@@ -39,17 +40,7 @@ export function Header({
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className={
-              isPortalShell
-                ? "relative rounded-[10px] p-2 text-[#7a8798] transition hover:bg-[#f4f7fb] hover:text-[#17243d]"
-                : "relative rounded-[10px] p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
-            }
-            aria-label="Notifications"
-          >
-            <Bell className="h-5 w-5" />
-          </button>
+          <NotificationMenu role={role} />
           <SessionBadge fallbackName={userName} />
         </div>
       </div>

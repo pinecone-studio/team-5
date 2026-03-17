@@ -49,10 +49,17 @@ export function PageShell({
         : undefined);
   const isPortalShell = role === "employee" || role === "admin";
   const sidebarWidthClass = isPortalShell ? "md:ml-[14.625rem]" : "md:ml-60";
+  const isScrollableAdminPage =
+    role === "admin" &&
+    pathname.startsWith("/admin") &&
+    pathname !== "/admin/rules";
 
   return (
     <div
-      className={cn("min-h-screen", isPortalShell ? "bg-white" : "bg-gray-50")}
+      className={cn(
+        isScrollableAdminPage ? "h-screen overflow-hidden" : "min-h-screen",
+        isPortalShell ? "bg-white" : "bg-gray-50",
+      )}
     >
       <div
         className={cn(
@@ -91,7 +98,15 @@ export function PageShell({
         </div>
       </div>
 
-      <main className={cn("min-h-screen bg-[#fbfcfe]", sidebarWidthClass)}>
+      <main
+        className={cn(
+          "bg-[#fbfcfe]",
+          sidebarWidthClass,
+          isScrollableAdminPage
+            ? "flex h-screen flex-col overflow-hidden"
+            : "min-h-screen",
+        )}
+      >
         <Header
           role={role}
           userName={resolvedUserName}
@@ -102,6 +117,7 @@ export function PageShell({
             isPortalShell
               ? "px-4 py-6 sm:px-6 lg:px-10 lg:py-7"
               : "p-4 sm:p-6 lg:p-8",
+            isScrollableAdminPage ? "min-h-0 flex-1 overflow-y-auto" : "",
           )}
         >
           <div
