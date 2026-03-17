@@ -48,7 +48,7 @@ export function PageShell({
         ? "Admin"
         : undefined);
   const isPortalShell = role === "employee" || role === "admin";
-  const sidebarWidthClass = isPortalShell ? "md:ml-[19rem]" : "md:ml-60";
+  const sidebarWidthClass = isPortalShell ? "md:ml-[14.625rem]" : "md:ml-60";
 
   return (
     <div
@@ -65,7 +65,7 @@ export function PageShell({
       <div
         className={cn(
           "fixed inset-y-0 left-0 z-50 transition-transform md:translate-x-0",
-          isPortalShell ? "w-[19rem]" : "w-60",
+          isPortalShell ? "w-[14.625rem]" : "w-60",
           mobileNavOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -91,7 +91,7 @@ export function PageShell({
         </div>
       </div>
 
-      <main className={cn("min-h-screen bg-[#F9FAFB]", sidebarWidthClass)}>
+      <main className={cn("min-h-screen bg-[#fbfcfe]", sidebarWidthClass)}>
         <Header
           role={role}
           userName={resolvedUserName}
@@ -100,7 +100,7 @@ export function PageShell({
         <div
           className={cn(
             isPortalShell
-              ? "px-4 py-6 sm:px-6 lg:px-8 lg:py-7"
+              ? "px-4 py-6 sm:px-6 lg:px-10 lg:py-7"
               : "p-4 sm:p-6 lg:p-8",
           )}
         >

@@ -160,11 +160,11 @@ export function Sidebar({
       className={cn(
         "flex h-full flex-col border-r bg-white",
         isPortalShell
-          ? "w-[19rem] border-[#dfe6f0]"
+          ? "w-[14.625rem] border-[#dfe6f0]"
           : "w-60 border-gray-200",
       )}
     >
-      <div className={cn(isPortalShell ? "px-5 py-6" : "px-6 py-5")}>
+      <div className={cn(isPortalShell ? "px-4 py-6" : "px-6 py-5")}>
         {isPortalShell ? (
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-[#eff4ff] text-[#2f66f6]">
@@ -185,7 +185,7 @@ export function Sidebar({
 
       <nav
         className={cn(
-          "flex-1 px-3",
+          "flex-1 px-2.5",
           isPortalShell ? "space-y-1.5 pt-8" : "space-y-2 pt-4",
         )}
       >
@@ -252,7 +252,7 @@ export function Sidebar({
       <div
         className={cn(
           "border-t px-4 py-4",
-          isPortalShell ? "border-[#dfe6f0] px-5 py-5" : "border-gray-200",
+          isPortalShell ? "mt-auto border-[#dfe6f0] px-4 py-5" : "border-gray-200",
         )}
       >
         {switchHref && switchLabel ? (

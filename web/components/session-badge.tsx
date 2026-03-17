@@ -61,11 +61,11 @@ export default function SessionBadge({
         aria-expanded={open}
         aria-haspopup="menu"
       >
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
           {initial}
         </div>
         <div className="hidden sm:flex sm:flex-col sm:items-start">
-          <span className="text-[0.95rem] font-medium text-gray-700">{displayName}</span>
+          <span className="text-[0.95rem] font-medium text-[#18243d]">{displayName}</span>
         </div>
         <ChevronDown
           className={`hidden h-4 w-4 text-gray-400 transition sm:block ${open ? "rotate-180" : ""}`}

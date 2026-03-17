@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { gql } from "@apollo/client";
+import { useMutation, useQuery } from "@apollo/client/react";
 import {
   ArrowLeft,
   Check,
@@ -13,6 +15,31 @@ import {
 
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+
+const ADMIN_OVERRIDE_LOOKUP_QUERY = gql`
+  query AdminOverrideLookup {
+    employees {
+      id
+      email
+    }
+    benefits {
+      id
+      name
+    }
+  }
+`;
+
+const UPSERT_BENEFIT_ELIGIBILITY_MUTATION = gql`
+  mutation UpsertBenefitEligibility($input: UpdateBenefitEligibilityInput!) {
+    upsertBenefitEligibility(input: $input) {
+      employeeId
+      benefitId
+      status
+      overrideReason
+      overrideExpiresAt
+    }
+  }
+`;
 
 type DepartmentFilter =
   | "all"
@@ -197,6 +224,27 @@ type OverrideDialogState = {
   benefitName: string;
 };
 
+type AdminOverrideLookupResponse = {
+  employees: Array<{
+    id: string;
+    email: string | null;
+  }>;
+  benefits: Array<{
+    id: string;
+    name: string;
+  }>;
+};
+
+type UpsertBenefitEligibilityResponse = {
+  upsertBenefitEligibility: {
+    employeeId: string;
+    benefitId: string;
+    status: string;
+    overrideReason: string | null;
+    overrideExpiresAt: string | null;
+  };
+};
+
 function getOkrClasses(status: OkrStatus) {
   switch (status) {
     case "Success":
@@ -269,6 +317,13 @@ export default function EmployeesBoard() {
   const [pendingLateAction, setPendingLateAction] =
     useState<PendingLateAction | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { data: overrideLookupData } =
+    useQuery<AdminOverrideLookupResponse>(ADMIN_OVERRIDE_LOOKUP_QUERY);
+  const [upsertBenefitEligibility, { loading: savingOverride }] =
+    useMutation<UpsertBenefitEligibilityResponse>(
+      UPSERT_BENEFIT_ELIGIBILITY_MUTATION,
+    );
 
   useEffect(() => {
     if (!successMessage) {
@@ -281,6 +336,18 @@ export default function EmployeesBoard() {
 
     return () => window.clearTimeout(timeoutId);
   }, [successMessage]);
+
+  useEffect(() => {
+    if (!errorMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setErrorMessage(null);
+    }, 3200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [errorMessage]);
 
   useEffect(() => {
     if (!openOkrMenuEmail) {
@@ -337,6 +404,7 @@ export default function EmployeesBoard() {
     setOverrideDialog(null);
     setOverrideJustification("");
     setOverrideEnabled(true);
+    setErrorMessage(null);
   }
 
   function openOverrideDialog(employeeEmail: string, benefit: EmployeeBenefit) {
@@ -352,38 +420,73 @@ export default function EmployeesBoard() {
     setOverrideJustification("");
   }
 
-  function saveOverride() {
+  async function saveOverride() {
     if (!overrideDialog) {
       return;
     }
 
-    setEmployees((currentEmployees) =>
-      currentEmployees.map((employee) => {
-        if (employee.email !== overrideDialog.employeeEmail) {
-          return employee;
-        }
+    const employeeId = overrideLookupData?.employees.find(
+      (employee) => employee.email === overrideDialog.employeeEmail,
+    )?.id;
+    const benefitId = overrideLookupData?.benefits.find(
+      (benefit) => benefit.name === overrideDialog.benefitName,
+    )?.id;
 
-        return {
-          ...employee,
-          benefits: employee.benefits.map((benefit) =>
-            benefit.name !== overrideDialog.benefitName
-              ? benefit
-              : {
-                  ...benefit,
-                  status: overrideEnabled ? "Active" : "Not Yet Available",
-                  reason:
-                    overrideJustification.trim() ||
-                    (overrideEnabled
-                      ? "Manual override granted"
-                      : "Manual override restricted"),
-                },
-          ),
-        };
-      }),
-    );
+    if (!employeeId || !benefitId) {
+      setErrorMessage("Override target could not be mapped to backend data.");
+      return;
+    }
 
-    setSuccessMessage("Eligibility override saved successfully.");
-    closeOverrideDialog();
+    try {
+      await upsertBenefitEligibility({
+        variables: {
+          input: {
+            employeeId,
+            benefitId,
+            status: overrideEnabled ? "active" : "locked",
+            overrideReason:
+              overrideJustification.trim() ||
+              (overrideEnabled
+                ? "Manual override granted"
+                : "Manual override restricted"),
+          },
+        },
+      });
+
+      setEmployees((currentEmployees) =>
+        currentEmployees.map((employee) => {
+          if (employee.email !== overrideDialog.employeeEmail) {
+            return employee;
+          }
+
+          return {
+            ...employee,
+            benefits: employee.benefits.map((benefit) =>
+              benefit.name !== overrideDialog.benefitName
+                ? benefit
+                : {
+                    ...benefit,
+                    status: overrideEnabled ? "Active" : "Not Yet Available",
+                    reason:
+                      overrideJustification.trim() ||
+                      (overrideEnabled
+                        ? "Manual override granted"
+                        : "Manual override restricted"),
+                  },
+            ),
+          };
+        }),
+      );
+
+      setSuccessMessage("Eligibility override saved successfully.");
+      closeOverrideDialog();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Eligibility override could not be saved.",
+      );
+    }
   }
 
   function confirmLateAction() {
@@ -962,9 +1065,10 @@ export default function EmployeesBoard() {
                 <button
                   type="button"
                   onClick={saveOverride}
+                  disabled={savingOverride}
                   className="inline-flex items-center justify-center rounded-[1rem] bg-blue-300 px-5 py-2.5 text-[0.95rem] font-medium text-white transition hover:bg-blue-400 sm:min-w-40"
                 >
-                  Save Override
+                  {savingOverride ? "Saving..." : "Save Override"}
                 </button>
               </div>
             </div>
@@ -981,6 +1085,19 @@ export default function EmployeesBoard() {
             <div>
               <p className="text-sm font-semibold text-emerald-700">Success</p>
               <p className="text-sm text-gray-600">{successMessage}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {errorMessage ? (
+        <div className="pointer-events-none fixed right-6 bottom-6 z-[60]">
+          <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-white px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.12)]">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+              <X className="h-4 w-4" />
+            </div>
+            <div className="max-w-[18rem] text-sm text-slate-700">
+              {errorMessage}
             </div>
           </div>
         </div>
