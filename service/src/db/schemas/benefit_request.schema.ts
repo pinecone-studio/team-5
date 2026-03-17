@@ -26,6 +26,8 @@ export const benefit_requests = sqliteTable("benefit_requests", {
 
 	contract_accepted_at: text("contract_accepted_at"),
 
+	review_notes: text("review_notes"),
+
 	reviewed_by: text("reviewed_by").references(() => employee.id),
 
 	created_at: text("created_at")
@@ -36,4 +38,3 @@ export const benefit_requests = sqliteTable("benefit_requests", {
 		.notNull()
 		.$defaultFn(() => new Date().toISOString()),
 });
-

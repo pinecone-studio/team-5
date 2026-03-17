@@ -370,7 +370,7 @@ export default function EmployeesBoard() {
             Back to employees
           </button>
 
-          <div className="rounded-[1.75rem] border border-slate-200 bg-white px-6 py-6 shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
+          <div className="rounded-[12px] border border-slate-200 bg-white px-6 py-6 shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
             <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
               <div className="flex items-center gap-4 border-b border-slate-200 pb-6 xl:border-r xl:border-b-0 xl:pb-0 xl:pr-6">
                 <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full bg-stone-100 text-[1.6rem] font-medium text-slate-900">
@@ -431,7 +431,7 @@ export default function EmployeesBoard() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
+          <div className="overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
             <div className="overflow-x-auto">
               <table className="min-w-full text-left">
                 <thead>
@@ -467,7 +467,7 @@ export default function EmployeesBoard() {
                       <td className="px-6 py-5">
                         <button
                           type="button"
-                          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                          className="rounded-[10px] border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                         >
                           Override
                         </button>
@@ -497,7 +497,7 @@ export default function EmployeesBoard() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search name..."
-                className="h-14 rounded-2xl border-slate-200 bg-white pl-14 pr-5 text-[1.05rem] text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] placeholder:text-slate-400"
+                className="h-14 rounded-[10px] border-slate-200 bg-white pl-14 pr-5 text-[1.05rem] text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] placeholder:text-slate-400"
               />
             </div>
           </div>
@@ -527,7 +527,7 @@ export default function EmployeesBoard() {
               {filteredEmployees.length} Employees
             </h3>
 
-            <div className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
+            <div className="overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left">
                   <thead>
@@ -580,7 +580,7 @@ export default function EmployeesBoard() {
                                 setPendingLateAction(null);
                               }}
                               className={cn(
-                                "inline-flex min-w-9 items-center justify-center rounded-2xl px-3 py-1.5 text-[1rem] font-medium transition hover:opacity-85",
+                                "inline-flex min-w-9 items-center justify-center rounded-[10px] px-3 py-1.5 text-[1rem] font-medium transition hover:opacity-85",
                                 getLateClasses(lateCount),
                               )}
                             >
@@ -603,7 +603,7 @@ export default function EmployeesBoard() {
                                   );
                                 }}
                                 className={cn(
-                                  "inline-flex min-w-[12.25rem] items-center justify-between gap-3 rounded-md bg-stone-50 px-5 py-3 text-[1rem] font-medium",
+                                  "inline-flex min-w-[12.25rem] items-center justify-between gap-3 rounded-[10px] bg-stone-50 px-5 py-3 text-[1rem] font-medium",
                                   getOkrClasses(employee.okr),
                                 )}
                               >
@@ -620,7 +620,7 @@ export default function EmployeesBoard() {
 
                               {openOkrMenuEmail === employee.email ? (
                                 <div
-                                  className="absolute top-full left-0 z-20 mt-1 min-w-[12.25rem] overflow-hidden rounded-sm border border-stone-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.12)]"
+                                  className="absolute top-full left-0 z-20 mt-1 min-w-[12.25rem] overflow-hidden rounded-[10px] border border-stone-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.12)]"
                                   onClick={(event) => event.stopPropagation()}
                                 >
                                   {(
@@ -679,7 +679,7 @@ export default function EmployeesBoard() {
           onClick={closeLateDialogs}
         >
           <div
-            className="w-full max-w-[22rem] rounded-[1.6rem] border border-gray-200 bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
+            className="w-full max-w-[22rem] rounded-[12px] border border-gray-200 bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
             onClick={(event) => event.stopPropagation()}
           >
             <h3 className="text-[1.05rem] font-semibold text-gray-900">
@@ -703,7 +703,7 @@ export default function EmployeesBoard() {
                           date,
                         })
                       }
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-[10px] text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
                       aria-label={`Delete late attendance for ${formatLateDate(date)}`}
                     >
                       <Minus className="h-4 w-4" />
@@ -725,7 +725,7 @@ export default function EmployeesBoard() {
                   employeeEmail: selectedEmployee.email,
                 })
               }
-              className="mt-6 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+              className="mt-6 inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
               aria-label="Add late attendance"
             >
               <Plus className="h-4 w-4" />
@@ -740,7 +740,7 @@ export default function EmployeesBoard() {
           onClick={closeLateDialogs}
         >
           <div
-            className="w-full max-w-[22rem] rounded-[1.6rem] border border-gray-200 bg-white px-6 py-7 text-center shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
+            className="w-full max-w-[22rem] rounded-[12px] border border-gray-200 bg-white px-6 py-7 text-center shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
             onClick={(event) => event.stopPropagation()}
           >
             <p className="text-[1.05rem] font-medium leading-9 text-gray-900">
@@ -753,14 +753,14 @@ export default function EmployeesBoard() {
               <button
                 type="button"
                 onClick={() => setPendingLateAction(null)}
-                className="inline-flex min-w-20 items-center justify-center rounded-xl border border-gray-200 px-5 py-2 text-base font-medium text-gray-700 transition hover:bg-gray-50"
+                className="inline-flex min-w-20 items-center justify-center rounded-[10px] border border-gray-200 px-5 py-2 text-base font-medium text-gray-700 transition hover:bg-gray-50"
               >
                 No
               </button>
               <button
                 type="button"
                 onClick={confirmLateAction}
-                className="inline-flex min-w-20 items-center justify-center rounded-xl bg-blue-600 px-5 py-2 text-base font-medium text-white transition hover:bg-blue-700"
+                className="inline-flex min-w-20 items-center justify-center rounded-[10px] bg-blue-600 px-5 py-2 text-base font-medium text-white transition hover:bg-blue-700"
               >
                 Yes
               </button>
@@ -771,7 +771,7 @@ export default function EmployeesBoard() {
 
       {successMessage ? (
         <div className="pointer-events-none fixed right-6 bottom-6 z-[60]">
-          <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-white px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.12)]">
+          <div className="flex items-start gap-3 rounded-[12px] border border-emerald-200 bg-white px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.12)]">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
               <Check className="h-4 w-4" />
             </div>

@@ -453,7 +453,7 @@ function BenefitCard({
   const isRequestCard = benefit.status === "available";
 
   return (
-    <article className="flex h-full flex-col rounded-[1.15rem] border border-[#d9e1ef] bg-white p-5">
+    <article className="flex h-full flex-col rounded-[12px] border border-[#d9e1ef] bg-white p-5">
       <div className="flex items-start justify-between gap-4">
         <h3 className="max-w-[14rem] text-[1.1rem] font-medium tracking-[-0.03em] text-[#18243d]">
           {benefit.title}
@@ -482,7 +482,7 @@ function BenefitCard({
             type="button"
             onClick={() => onRequest(benefit)}
             disabled={preparing || !benefit.canRequest}
-            className="h-10 w-full rounded-[0.95rem] bg-[#2f66f6] text-[0.95rem] font-normal text-white hover:bg-[#2456d7]"
+            className="h-10 w-full rounded-[10px] bg-[#2f66f6] text-[0.95rem] font-normal text-white hover:bg-[#2456d7]"
           >
             {preparing ? (
               <>
@@ -515,7 +515,7 @@ function BenefitCard({
 function BenefitsBoardSkeleton() {
   return (
     <section className="space-y-10">
-      <div className="rounded-[1.15rem] border border-[#d9e1ef] bg-white p-6">
+      <div className="rounded-[12px] border border-[#d9e1ef] bg-white p-6">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center">
           <div className="flex items-center gap-5 xl:min-w-[22rem] xl:pr-8">
             <Skeleton className="h-16 w-16 rounded-full" />
@@ -541,7 +541,7 @@ function BenefitsBoardSkeleton() {
           <Skeleton className="h-10 w-28" />
           <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 3 }).map((__, cardIndex) => (
-              <Skeleton key={cardIndex} className="h-80 rounded-[1.8rem]" />
+              <Skeleton key={cardIndex} className="h-80 rounded-[12px]" />
             ))}
           </div>
         </div>
@@ -552,7 +552,7 @@ function BenefitsBoardSkeleton() {
 
 function BenefitsHeader({ employee }: { employee: EmployeeRecord }) {
   return (
-    <section className="rounded-[1.15rem] border border-[#d9e1ef] bg-white px-6 py-6">
+    <section className="rounded-[12px] border border-[#d9e1ef] bg-white px-6 py-6">
       <div className="flex flex-col gap-6 xl:flex-row xl:items-center">
         <div className="flex items-center gap-4 xl:min-w-[22rem] xl:pr-8">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f1f3f7] text-[1.35rem] font-medium tracking-[-0.04em] text-[#18243d]">
@@ -719,7 +719,7 @@ export default function BenefitsBoard() {
 
   if (error) {
     return (
-      <section className="rounded-[1.8rem] border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+      <section className="rounded-[12px] border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
         Employee benefits could not be loaded. {error.message}
       </section>
     );
@@ -767,7 +767,7 @@ export default function BenefitsBoard() {
                   ))}
                 </div>
               ) : (
-                <div className="rounded-[1rem] border border-dashed border-[#d9e1ef] bg-white p-6 text-[0.95rem] text-[#708198]">
+                <div className="rounded-[12px] border border-dashed border-[#d9e1ef] bg-white p-6 text-[0.95rem] text-[#708198]">
                   {section.emptyLabel}
                 </div>
               )}
@@ -788,7 +788,7 @@ export default function BenefitsBoard() {
             <>
               <SheetHeader className="border-b border-[#dfe6f0] bg-white px-6 py-6">
                 <div className="flex items-start gap-4 text-left">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-[0.95rem] bg-[#edf2f9] text-[#18243d]">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-[10px] bg-[#edf2f9] text-[#18243d]">
                     <selectedBenefit.icon className="h-5 w-5" />
                   </div>
                   <div className="space-y-2">
@@ -803,7 +803,7 @@ export default function BenefitsBoard() {
               </SheetHeader>
 
               <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
-                <div className="rounded-[1rem] border border-[#d9e1ef] bg-white p-5">
+                <div className="rounded-[12px] border border-[#d9e1ef] bg-white p-5">
                   <p className="text-xs font-medium tracking-[0.18em] text-[#74839b] uppercase">
                     Status
                   </p>
@@ -827,7 +827,7 @@ export default function BenefitsBoard() {
                   <h3 className="text-[0.9rem] font-medium text-[#18243d]">
                     Benefit details
                   </h3>
-                  <div className="overflow-hidden rounded-[1rem] border border-[#d9e1ef] bg-white">
+                  <div className="overflow-hidden rounded-[12px] border border-[#d9e1ef] bg-white">
                     {selectedBenefit.detailLines.map((line) => (
                       <div
                         key={line}
@@ -856,7 +856,7 @@ export default function BenefitsBoard() {
                 </div>
 
                 {selectedBenefit.failureReasons.length > 0 ? (
-                  <div className="rounded-[1rem] border border-amber-200 bg-amber-50 p-5">
+                  <div className="rounded-[12px] border border-amber-200 bg-amber-50 p-5">
                     <div className="flex items-center gap-2 text-amber-800">
                       <LockKeyhole className="h-4.5 w-4.5" />
                       <h3 className="text-[0.9rem] font-medium">Blocked rules</h3>
@@ -870,7 +870,7 @@ export default function BenefitsBoard() {
                 ) : null}
 
                 {requestIntent?.activeContract ? (
-                  <div className="rounded-[1rem] border border-blue-200 bg-blue-50 p-5">
+                  <div className="rounded-[12px] border border-blue-200 bg-blue-50 p-5">
                     <h3 className="text-[0.9rem] font-medium text-blue-900">
                       Contract confirmation
                     </h3>
@@ -902,7 +902,7 @@ export default function BenefitsBoard() {
                 ) : null}
 
                 {detailError ? (
-                  <div className="rounded-[1rem] border border-rose-200 bg-rose-50 p-4 text-[0.9rem] text-rose-700">
+                  <div className="rounded-[12px] border border-rose-200 bg-rose-50 p-4 text-[0.9rem] text-rose-700">
                     {detailError}
                   </div>
                 ) : null}
@@ -920,7 +920,7 @@ export default function BenefitsBoard() {
                       type="button"
                       onClick={() => handleConfirmRequest(selectedBenefit)}
                       disabled={confirming}
-                      className="h-10 rounded-[0.95rem] bg-[#2f66f6] px-5 text-[0.9rem] font-medium text-white hover:bg-[#2456d7]"
+                      className="h-10 rounded-[10px] bg-[#2f66f6] px-5 text-[0.9rem] font-medium text-white hover:bg-[#2456d7]"
                     >
                       {confirming ? (
                         <>
@@ -953,7 +953,7 @@ export default function BenefitsBoard() {
                       onClick={() => handlePrepareRequest(selectedBenefit)}
                       disabled={!selectedBenefit.canRequest || requesting}
                       className={cn(
-                        "h-10 rounded-[0.95rem] px-5 text-[0.9rem] font-medium",
+                        "h-10 rounded-[10px] px-5 text-[0.9rem] font-medium",
                         selectedBenefit.canRequest
                           ? "bg-[#2f66f6] text-white hover:bg-[#2456d7]"
                           : "",

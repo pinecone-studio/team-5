@@ -113,7 +113,7 @@ export default function AdminRulesPage() {
           <button
             type="button"
             onClick={() => setIsBenefitOpen((open) => !open)}
-            className="flex h-11 w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 text-left text-base font-medium text-gray-800 shadow-sm outline-none transition hover:border-gray-300"
+            className="flex h-11 w-full items-center justify-between rounded-[10px] border border-gray-200 bg-white px-4 text-left text-base font-medium text-gray-800 shadow-sm outline-none transition hover:border-gray-300"
             aria-haspopup="listbox"
             aria-expanded={isBenefitOpen}
           >
@@ -126,7 +126,7 @@ export default function AdminRulesPage() {
           </button>
 
           {isBenefitOpen ? (
-            <div className="absolute top-full right-0 left-0 mt-3 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
+            <div className="absolute top-full right-0 left-0 mt-3 overflow-hidden rounded-[12px] border border-gray-200 bg-white shadow-md">
               <ul
                 role="listbox"
                 aria-label="Benefit options"
@@ -151,7 +151,7 @@ export default function AdminRulesPage() {
           ) : null}
         </div>
 
-        <div className="mt-8 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="mt-8 overflow-hidden rounded-[12px] border border-gray-200 bg-white shadow-sm">
           <table className="w-full border-collapse">
             <thead className="bg-white">
               <tr className="border-b border-gray-200 text-left">
@@ -219,7 +219,7 @@ export default function AdminRulesPage() {
         <Button
           variant="outline"
           onClick={handleAddRule}
-          className="mt-8 h-9 rounded-lg border-gray-200 px-3 text-sm font-medium text-gray-800 shadow-sm"
+          className="mt-8 h-9 rounded-[10px] border-gray-200 px-3 text-sm font-medium text-gray-800 shadow-sm"
         >
           <Plus className="h-3.5 w-3.5" />
           Add rule
@@ -228,7 +228,7 @@ export default function AdminRulesPage() {
 
       {editingRuleId !== null ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4">
-          <div className="w-full max-w-[560px] rounded-3xl bg-[#f5f5f5] p-6 shadow-2xl">
+          <div className="w-full max-w-[560px] rounded-[12px] bg-[#f5f5f5] p-6 shadow-2xl">
             <h2 className="text-xl font-semibold tracking-tight text-gray-900">
               Edit New Rule
             </h2>
@@ -241,7 +241,7 @@ export default function AdminRulesPage() {
                 <Input
                   value={ruleTypeValue}
                   onChange={(event) => setRuleTypeValue(event.target.value)}
-                  className="h-11 rounded-xl border-[3px] border-gray-400 bg-white px-4 text-base text-gray-800 shadow-none focus-visible:border-gray-400 focus-visible:ring-0"
+                  className="h-11 rounded-[10px] border-[3px] border-gray-400 bg-white px-4 text-base text-gray-800 shadow-none focus-visible:border-gray-400 focus-visible:ring-0"
                 />
               </div>
 
@@ -256,7 +256,7 @@ export default function AdminRulesPage() {
                       onChange={(event) =>
                         setConditionField(event.target.value)
                       }
-                      className="h-11 w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
+                      className="h-11 w-full appearance-none rounded-[10px] border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
                     >
                       {conditionFields.map((option) => (
                         <option key={option} value={option}>
@@ -273,7 +273,7 @@ export default function AdminRulesPage() {
                       onChange={(event) =>
                         setConditionOperator(event.target.value)
                       }
-                      className="h-11 w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
+                      className="h-11 w-full appearance-none rounded-[10px] border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
                     >
                       {conditionOperators.map((option) => (
                         <option key={option} value={option}>
@@ -287,7 +287,7 @@ export default function AdminRulesPage() {
                   <Input
                     value={conditionValue}
                     onChange={(event) => setConditionValue(event.target.value)}
-                    className="h-11 rounded-xl border border-gray-300 bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
+                    className="h-11 rounded-[10px] border border-gray-300 bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
                   />
                 </div>
               </div>
@@ -299,7 +299,7 @@ export default function AdminRulesPage() {
                 <Input
                   value={failMessageValue}
                   onChange={(event) => setFailMessageValue(event.target.value)}
-                  className="h-11 rounded-xl border border-gray-300 bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
+                  className="h-11 rounded-[10px] border border-gray-300 bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
                 />
               </div>
             </div>
@@ -309,14 +309,14 @@ export default function AdminRulesPage() {
                 type="button"
                 variant="outline"
                 onClick={closeEditModal}
-                className="h-10 min-w-24 rounded-xl border border-gray-300 bg-white px-4 text-base font-medium text-gray-800 shadow-none hover:bg-gray-50"
+                className="h-10 min-w-24 rounded-[10px] border border-gray-300 bg-white px-4 text-base font-medium text-gray-800 shadow-none hover:bg-gray-50"
               >
                 Cancel
               </Button>
               <Button
                 type="button"
                 onClick={closeEditModal}
-                className="h-10 min-w-24 rounded-xl bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700"
+                className="h-10 min-w-24 rounded-[10px] bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700"
               >
                 Save
               </Button>
@@ -327,7 +327,7 @@ export default function AdminRulesPage() {
 
       {isAddModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4">
-          <div className="w-full max-w-[560px] rounded-3xl bg-[#f5f5f5] p-6 shadow-2xl">
+          <div className="w-full max-w-[560px] rounded-[12px] bg-[#f5f5f5] p-6 shadow-2xl">
             <h2 className="text-xl font-semibold tracking-tight text-gray-900">
               Add New Rule
             </h2>
@@ -341,7 +341,7 @@ export default function AdminRulesPage() {
                   value={ruleTypeValue}
                   onChange={(event) => setRuleTypeValue(event.target.value)}
                   placeholder="I.e.g. Employment Status"
-                  className="h-11 rounded-xl border-[3px] border-gray-400 bg-white px-4 text-base text-gray-800 shadow-none focus-visible:border-gray-400 focus-visible:ring-0"
+                  className="h-11 rounded-[10px] border-[3px] border-gray-400 bg-white px-4 text-base text-gray-800 shadow-none focus-visible:border-gray-400 focus-visible:ring-0"
                 />
               </div>
 
@@ -356,7 +356,7 @@ export default function AdminRulesPage() {
                       onChange={(event) =>
                         setConditionField(event.target.value)
                       }
-                      className="h-11 w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
+                      className="h-11 w-full appearance-none rounded-[10px] border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
                     >
                       {conditionFields.map((option) => (
                         <option key={option} value={option}>
@@ -373,7 +373,7 @@ export default function AdminRulesPage() {
                       onChange={(event) =>
                         setConditionOperator(event.target.value)
                       }
-                      className="h-11 w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
+                      className="h-11 w-full appearance-none rounded-[10px] border border-gray-300 bg-white px-4 pr-10 text-base text-gray-800 outline-none"
                     >
                       {conditionOperators.map((option) => (
                         <option key={option} value={option}>
@@ -388,7 +388,7 @@ export default function AdminRulesPage() {
                     value={conditionValue}
                     onChange={(event) => setConditionValue(event.target.value)}
                     placeholder="Value"
-                    className="h-11 rounded-xl border border-gray-300 bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
+                    className="h-11 rounded-[10px] border border-gray-300 bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
                   />
                 </div>
               </div>
@@ -401,7 +401,7 @@ export default function AdminRulesPage() {
                   value={failMessageValue}
                   onChange={(event) => setFailMessageValue(event.target.value)}
                   placeholder="Message shown when rule fails"
-                  className="h-11 rounded-xl border border-gray-300 bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
+                  className="h-11 rounded-[10px] border border-gray-300 bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
                 />
               </div>
             </div>
@@ -411,14 +411,14 @@ export default function AdminRulesPage() {
                 type="button"
                 variant="outline"
                 onClick={closeAddModal}
-                className="h-10 min-w-24 rounded-xl border border-gray-300 bg-white px-4 text-base font-medium text-gray-800 shadow-none hover:bg-gray-50"
+                className="h-10 min-w-24 rounded-[10px] border border-gray-300 bg-white px-4 text-base font-medium text-gray-800 shadow-none hover:bg-gray-50"
               >
                 Cancel
               </Button>
               <Button
                 type="button"
                 onClick={closeAddModal}
-                className="h-10 min-w-24 rounded-xl bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700"
+                className="h-10 min-w-24 rounded-[10px] bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700"
               >
                 Add
               </Button>
@@ -429,7 +429,7 @@ export default function AdminRulesPage() {
 
       {deletingRuleId !== null ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4">
-          <div className="w-full max-w-[360px] rounded-[24px] bg-[#f5f5f5] px-6 py-6 shadow-2xl">
+          <div className="w-full max-w-[360px] rounded-[12px] bg-[#f5f5f5] px-6 py-6 shadow-2xl">
             <h2 className="text-center text-xl font-medium leading-tight text-gray-900">
               Do you want to delete this rule?
             </h2>
@@ -439,14 +439,14 @@ export default function AdminRulesPage() {
                 type="button"
                 variant="outline"
                 onClick={closeDeleteModal}
-                className="h-9 min-w-20 rounded-xl border border-gray-300 bg-white px-5 text-base font-medium text-gray-800 shadow-none hover:bg-gray-50"
+                className="h-9 min-w-20 rounded-[10px] border border-gray-300 bg-white px-5 text-base font-medium text-gray-800 shadow-none hover:bg-gray-50"
               >
                 No
               </Button>
               <Button
                 type="button"
                 onClick={handleDeleteConfirm}
-                className="h-9 min-w-20 rounded-xl bg-blue-600 px-5 text-base font-medium text-white hover:bg-blue-700"
+                className="h-9 min-w-20 rounded-[10px] bg-blue-600 px-5 text-base font-medium text-white hover:bg-blue-700"
               >
                 Yes
               </Button>
@@ -458,7 +458,7 @@ export default function AdminRulesPage() {
       {isDeleteSuccessOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4">
           <div
-            className="w-full max-w-[360px] rounded-[24px] bg-[#f5f5f5] px-6 py-7 text-center shadow-2xl"
+            className="w-full max-w-[360px] rounded-[12px] bg-[#f5f5f5] px-6 py-7 text-center shadow-2xl"
             onClick={closeDeleteSuccessModal}
           >
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#c9efd8]">

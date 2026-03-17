@@ -1,0 +1,1 @@
+ALTER TABLE `benefit_requests` ADD `review_notes` text;

@@ -33,6 +33,7 @@ type MyRequestsResponse = {
     request: {
       id: string;
       status: "pending" | "approved" | "rejected" | "cancelled";
+      reviewNotes: string | null;
       reviewedBy: string | null;
       createdAt: string;
       updatedAt: string;
@@ -112,7 +113,7 @@ function getRequestItems(data: MyRequestsResponse | undefined): RequestItem[] {
         status: item.request.status,
         details: meta.details,
         requestDescription: meta.requestDescription,
-        rejectionReason: meta.rejectionReason,
+        rejectionReason: item.request.reviewNotes ?? meta.rejectionReason,
       };
     })
     .sort(
