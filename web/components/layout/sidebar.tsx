@@ -167,7 +167,7 @@ export function Sidebar({
       <div className={cn(isPortalShell ? "px-5 py-6" : "px-6 py-5")}>
         {isPortalShell ? (
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-[1rem] bg-[#eff4ff] text-[#2f66f6]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-[#eff4ff] text-[#2f66f6]">
               <PineQuestMark className="h-6 w-6" />
             </div>
             <div className="min-w-0">
@@ -204,7 +204,7 @@ export function Sidebar({
               className={cn(
                 "group relative flex items-center gap-3 overflow-hidden px-4 text-[1rem] font-medium transition-colors",
                 isPortalShell
-                  ? "rounded-[1rem] py-3"
+                  ? "rounded-[12px] py-3"
                   : "rounded-[10px] py-3",
                 isPortalShell
                   ? isActive

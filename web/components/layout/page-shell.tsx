@@ -73,7 +73,7 @@ export function PageShell({
           <button
             type="button"
             onClick={() => setMobileNavOpen(false)}
-            className="absolute right-3 top-3 rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 md:hidden"
+            className="absolute right-3 top-3 rounded-[10px] p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 md:hidden"
             aria-label="Close navigation"
           >
             <X className="h-5 w-5" />

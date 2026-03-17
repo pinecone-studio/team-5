@@ -81,6 +81,7 @@ const mapRequest = (row: BenefitRequestRow) => ({
 	status: row.status,
 	contractVersionAccepted: row.contract_version_accepted,
 	contractAcceptedAt: row.contract_accepted_at,
+	reviewNotes: row.review_notes ?? null,
 	reviewedBy: row.reviewed_by ?? null,
 	createdAt: row.created_at,
 	updatedAt: row.updated_at,

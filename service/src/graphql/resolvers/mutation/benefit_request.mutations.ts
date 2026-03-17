@@ -20,6 +20,7 @@ const mapRequest = (row: typeof benefit_requests.$inferSelect) => ({
   status: row.status,
   contractVersionAccepted: row.contract_version_accepted,
   contractAcceptedAt: row.contract_accepted_at,
+  reviewNotes: row.review_notes ?? null,
   reviewedBy: row.reviewed_by ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
@@ -93,6 +94,7 @@ export const benefitRequestMutation = {
           status: string;
           contractVersionAccepted?: string | null;
           contractAcceptedAt?: string | null;
+          reviewNotes?: string | null;
           reviewedBy?: string | null;
         };
       },
@@ -101,6 +103,10 @@ export const benefitRequestMutation = {
       const reviewer = await requireBenefitRequestReviewerAccess(context);
       const db = getDb(context.env.DB);
       const { input } = args;
+      const normalizedReviewNotes =
+        typeof input.reviewNotes === "string"
+          ? input.reviewNotes.trim() || null
+          : input.reviewNotes ?? undefined;
       const existing = await db
         .select()
         .from(benefit_requests)
@@ -118,6 +124,9 @@ export const benefitRequestMutation = {
             : {}),
           ...(input.contractAcceptedAt !== undefined
             ? { contract_accepted_at: input.contractAcceptedAt }
+            : {}),
+          ...(normalizedReviewNotes !== undefined
+            ? { review_notes: normalizedReviewNotes }
             : {}),
           reviewed_by: reviewer.employee.id,
           updated_at: new Date().toISOString(),
@@ -142,14 +151,15 @@ export const benefitRequestMutation = {
         benefitId: updated.benefit_id,
         action,
         detail: benefitName
-          ? `${benefitName} request status changed from ${existing.status} to ${updated.status}.`
-          : `Benefit request status changed from ${existing.status} to ${updated.status}.`,
+          ? `${benefitName} request status changed from ${existing.status} to ${updated.status}.${normalizedReviewNotes ? ` Note: ${normalizedReviewNotes}` : ""}`
+          : `Benefit request status changed from ${existing.status} to ${updated.status}.${normalizedReviewNotes ? ` Note: ${normalizedReviewNotes}` : ""}`,
         performedByEmployeeId: reviewer.employee.id,
         performedByLabel: reviewer.employee.full_name,
         metadata: {
           requestId: updated.id,
           previousStatus: existing.status,
           status: updated.status,
+          reviewNotes: normalizedReviewNotes ?? null,
           source: "updateBenefitRequestStatus",
         },
       });

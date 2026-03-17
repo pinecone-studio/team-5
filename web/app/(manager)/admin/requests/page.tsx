@@ -1,20 +1,15 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useUser } from "@clerk/react"
 import { gql } from "@apollo/client"
 import { useMutation, useQuery } from "@apollo/client/react"
-import {
-  AlertTriangle,
-  Check,
-  Clock3,
-  FileText,
-  Users,
-} from "lucide-react"
+import { useUser } from "@clerk/react"
+import { CheckCircle2, FileText, LoaderCircle, X, XCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { canAccessAdminRequests, isManager, normalizeRole } from "@/lib/auth"
+import { cn } from "@/lib/utils"
 
 const ADMIN_REQUESTS_QUERY = gql`
   query AdminRequestsPageData {
@@ -32,6 +27,8 @@ const ADMIN_REQUESTS_QUERY = gql`
       employeeId
       benefitId
       status
+      contractAcceptedAt
+      reviewNotes
       reviewedBy
       createdAt
       updatedAt
@@ -50,6 +47,8 @@ const REVIEWER_REQUESTS_QUERY = gql`
       employeeId
       benefitId
       status
+      contractAcceptedAt
+      reviewNotes
       reviewedBy
       createdAt
       updatedAt
@@ -62,6 +61,8 @@ const UPDATE_REQUEST_STATUS_MUTATION = gql`
     updateBenefitRequestStatus(input: $input) {
       id
       status
+      contractAcceptedAt
+      reviewNotes
       reviewedBy
       updatedAt
     }
@@ -69,6 +70,7 @@ const UPDATE_REQUEST_STATUS_MUTATION = gql`
 `
 
 type RequestStatus = "pending" | "approved" | "rejected" | "cancelled"
+type NoticeTone = "approved" | "rejected"
 
 interface EmployeeItem {
   id: string
@@ -86,6 +88,8 @@ interface BenefitRequestItem {
   employeeId: string
   benefitId: string
   status: RequestStatus
+  contractAcceptedAt: string | null
+  reviewNotes: string | null
   reviewedBy: string | null
   createdAt: string
   updatedAt: string
@@ -106,6 +110,8 @@ interface UpdateRequestStatusMutationData {
   updateBenefitRequestStatus: {
     id: string
     status: RequestStatus
+    contractAcceptedAt: string | null
+    reviewNotes: string | null
     reviewedBy: string | null
     updatedAt: string
   }
@@ -115,107 +121,236 @@ interface UpdateRequestStatusMutationVariables {
   input: {
     id: string
     status: RequestStatus
-    reviewedBy?: string
+    reviewNotes?: string | null
   }
 }
 
 interface RequestRow {
   id: string
   employee: string
-  priority: string
+  benefit: string
   status: RequestStatus
   createdAt: string
-  updatedAt: string
-}
-
-const statusLabel: Record<RequestStatus, string> = {
-  pending: "Pending",
-  approved: "Confirmed",
-  rejected: "Declined",
-  cancelled: "Cancelled",
+  contractAcceptedAt: string | null
+  reviewNotes: string | null
 }
 
 function formatDate(isoDate: string) {
   const parsed = new Date(isoDate)
   if (Number.isNaN(parsed.getTime())) return isoDate
 
-  return parsed.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
+  return parsed.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
     year: "numeric",
   })
 }
 
-function StatusBadge({ status }: { status: RequestStatus }) {
-  if (status === "approved") {
-    return (
-      <span className="inline-flex min-w-28 justify-center rounded-full bg-gray-950 px-4 py-1.5 text-sm font-medium text-white">
-        {statusLabel[status]}
-      </span>
-    )
+function getStatusClasses(status: RequestStatus) {
+  switch (status) {
+    case "approved":
+      return "bg-[#DCFCE7] text-[#15803D]"
+    case "rejected":
+      return "bg-[#FEE2E2] text-[#DC2626]"
+    case "cancelled":
+      return "bg-[#E5E7EB] text-[#4B5563]"
+    default:
+      return "bg-[#FEF3C7] text-[#7C5E10]"
   }
+}
 
-  if (status === "rejected" || status === "cancelled") {
-    return (
-      <span className="inline-flex min-w-24 justify-center rounded-full bg-rose-100 px-4 py-1.5 text-sm font-medium text-rose-700">
-        {statusLabel[status]}
-      </span>
-    )
+function getStatusLabel(status: RequestStatus) {
+  switch (status) {
+    case "approved":
+      return "Approved"
+    case "rejected":
+      return "Rejected"
+    case "cancelled":
+      return "Cancelled"
+    default:
+      return "Pending"
   }
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Request could not be updated."
+}
+
+function StatusBadge({ status }: { status: RequestStatus }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-[10px] px-3 py-1 text-[0.95rem] font-medium",
+        getStatusClasses(status),
+      )}
+    >
+      {getStatusLabel(status)}
+    </span>
+  )
+}
+
+function RequestNotice({
+  notice,
+}: {
+  notice: { tone: NoticeTone; title: string } | null
+}) {
+  if (!notice) return null
+
+  const isApproved = notice.tone === "approved"
+  const Icon = isApproved ? CheckCircle2 : XCircle
 
   return (
-    <span className="inline-flex min-w-24 justify-center rounded-full bg-amber-100 px-4 py-1.5 text-sm font-medium text-amber-700">
-      {statusLabel[status]}
-    </span>
+    <div className="pointer-events-none fixed bottom-6 right-6 z-[60]">
+      <div className="flex min-h-[5.25rem] w-[23rem] items-center gap-3 rounded-[14px] border border-[#d9e1ef] bg-white px-5 py-4 shadow-[0_14px_34px_rgba(15,23,42,0.12)]">
+        <Icon
+          className={cn(
+            "h-9 w-9 shrink-0",
+            isApproved ? "text-[#16A34A]" : "text-[#EF4444]",
+          )}
+        />
+        <p
+          className={cn(
+            "text-[1rem] font-semibold tracking-[-0.02em]",
+            isApproved ? "text-[#16A34A]" : "text-[#EF4444]",
+          )}
+        >
+          {notice.title}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function RejectRequestDialog({
+  request,
+  reviewNotes,
+  onReviewNotesChange,
+  onClose,
+  onConfirm,
+  submitting,
+  errorMessage,
+}: {
+  request: RequestRow | null
+  reviewNotes: string
+  onReviewNotesChange: (value: string) => void
+  onClose: () => void
+  onConfirm: () => void
+  submitting: boolean
+  errorMessage: string | null
+}) {
+  if (!request) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+      <div className="w-full max-w-5xl rounded-[24px] border border-[#d7deea] bg-white px-9 py-8 shadow-[0_24px_80px_rgba(15,23,42,0.2)]">
+        <div className="flex items-start justify-between gap-6">
+          <div className="space-y-4">
+            <h2 className="text-[3.25rem] font-semibold tracking-[-0.06em] text-[#17243d]">
+              Reject Request
+            </h2>
+            <p className="max-w-[64rem] text-[1.2rem] leading-[1.6] text-[#6D7B93]">
+              You are about to reject {request.employee}&apos;s request for{" "}
+              {request.benefit}.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-[10px] p-2 text-[#5F6B7E] transition hover:bg-[#f4f7fb] hover:text-[#17243d]"
+            aria-label="Close reject request dialog"
+          >
+            <X className="h-9 w-9" />
+          </button>
+        </div>
+
+        <div className="mt-12 space-y-4">
+          <label
+            htmlFor="reject-review-notes"
+            className="block text-[1.3rem] font-semibold tracking-[-0.03em] text-[#17243d]"
+          >
+            Review Notes (Optional)
+          </label>
+          <textarea
+            id="reject-review-notes"
+            value={reviewNotes}
+            onChange={(event) => onReviewNotesChange(event.target.value)}
+            placeholder="Add notes for the employee regarding this reject..."
+            className="min-h-56 w-full rounded-[20px] border-[3px] border-[#2F66F6] px-7 py-6 text-[1.2rem] leading-8 text-[#17243d] outline-none placeholder:text-[#7A8798]"
+          />
+          {errorMessage ? (
+            <p className="text-sm text-rose-600">{errorMessage}</p>
+          ) : null}
+        </div>
+
+        <div className="mt-10 flex justify-end gap-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={submitting}
+            className="h-20 min-w-[15rem] rounded-[18px] border-[#d7deea] px-8 text-[1.15rem] font-medium text-[#17243d] hover:bg-[#f8fafc]"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={onConfirm}
+            disabled={submitting}
+            className="h-20 min-w-[19rem] rounded-[18px] bg-[#EF4444] px-8 text-[1.15rem] font-medium text-white hover:bg-[#DC2626]"
+          >
+            {submitting ? (
+              <>
+                <LoaderCircle className="h-5 w-5 animate-spin" />
+                Rejecting
+              </>
+            ) : (
+              "Confirm Reject"
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
 
 function AdminRequestsSkeleton() {
   return (
-    <div className="space-y-8 pb-24">
-      <section className="rounded-[28px] border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
-        <Skeleton className="h-9 w-72" />
-        <Skeleton className="mt-3 h-5 w-80" />
+    <div className="space-y-7 pb-24">
+      <div className="space-y-3">
+        <Skeleton className="h-12 w-72" />
+        <Skeleton className="h-6 w-[30rem]" />
+      </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <article
-              key={index}
-              className="flex items-center gap-4 rounded-[24px] border border-gray-200 bg-white px-6 py-7"
-            >
-              <Skeleton className="h-16 w-16 rounded-2xl" />
-              <div className="space-y-2">
-                <Skeleton className="h-10 w-16" />
-                <Skeleton className="h-4 w-24" />
-              </div>
-            </article>
+      <div className="overflow-hidden rounded-[12px] border border-[#d9e1ef] bg-white">
+        <div className="grid grid-cols-[4.5rem_1.4fr_1.2fr_1fr_1fr_1.15fr] gap-4 bg-[#edf2f9] px-6 py-5">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={index} className="h-6 w-full" />
           ))}
         </div>
-
-        <div className="mt-8 rounded-[24px] border border-gray-200 bg-white p-6 sm:p-7">
-          <Skeleton className="h-8 w-56" />
-          <Skeleton className="mt-3 h-5 w-64" />
-
-          <div className="mt-8 space-y-4">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div
-                key={index}
-                className="grid grid-cols-[1.1fr_1fr_0.8fr_0.8fr_1fr] gap-4 rounded-2xl border border-gray-100 p-4"
-              >
-                {Array.from({ length: 5 }).map((__, cellIndex) => (
-                  <Skeleton key={cellIndex} className="h-6 w-full" />
-                ))}
-              </div>
+        {Array.from({ length: 4 }).map((_, rowIndex) => (
+          <div
+            key={rowIndex}
+            className="grid grid-cols-[4.5rem_1.4fr_1.2fr_1fr_1fr_1.15fr] gap-4 border-t border-[#e8edf5] px-6 py-5"
+          >
+            {Array.from({ length: 6 }).map((__, cellIndex) => (
+              <Skeleton key={cellIndex} className="h-8 w-full" />
             ))}
           </div>
-        </div>
-      </section>
+        ))}
+      </div>
     </div>
   )
 }
 
 export default function AdminRequestsPage() {
-  const [notice, setNotice] = useState<"approved" | "declined" | null>(null)
+  const [notice, setNotice] = useState<{ tone: NoticeTone; title: string } | null>(
+    null,
+  )
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
+  const [rejectingRequest, setRejectingRequest] = useState<RequestRow | null>(null)
+  const [rejectReviewNotes, setRejectReviewNotes] = useState("")
+
   const { isLoaded: isRoleLoaded, user } = useUser()
   const role = normalizeRole(user?.publicMetadata?.role)
   const canViewStaffSummary = isManager(role)
@@ -244,6 +379,10 @@ export default function AdminRequestsPage() {
     UpdateRequestStatusMutationVariables
   >(UPDATE_REQUEST_STATUS_MUTATION)
 
+  const loading =
+    !isRoleLoaded || (canViewStaffSummary ? adminLoading : reviewerLoading)
+  const error = canViewStaffSummary ? adminError : reviewerError
+
   const employees = useMemo(() => adminData?.employees ?? [], [adminData?.employees])
   const benefits = useMemo(
     () =>
@@ -263,9 +402,6 @@ export default function AdminRequestsPage() {
       reviewerData?.benefitRequests,
     ],
   )
-  const loading =
-    !isRoleLoaded || (canViewStaffSummary ? adminLoading : reviewerLoading)
-  const error = canViewStaffSummary ? adminError : reviewerError
 
   const employeeMap = useMemo(
     () => new Map(employees.map((employee) => [employee.id, employee])),
@@ -284,10 +420,11 @@ export default function AdminRequestsPage() {
           id: request.id,
           employee:
             employeeMap.get(request.employeeId)?.fullName ?? request.employeeId,
-          priority: benefitMap.get(request.benefitId)?.name ?? request.benefitId,
+          benefit: benefitMap.get(request.benefitId)?.name ?? request.benefitId,
           status: request.status,
           createdAt: request.createdAt,
-          updatedAt: request.updatedAt,
+          contractAcceptedAt: request.contractAcceptedAt,
+          reviewNotes: request.reviewNotes,
         }))
         .sort(
           (left, right) =>
@@ -296,64 +433,6 @@ export default function AdminRequestsPage() {
         ),
     [benefitMap, benefitRequests, employeeMap],
   )
-
-  const pendingCount = requests.filter(
-    (request) => request.status === "pending",
-  ).length
-  const reviewedCount = requests.filter(
-    (request) => request.status !== "pending",
-  ).length
-  const okrNotSubmittedCount = employees.filter(
-    (employee) => !employee.okrSubmitted,
-  ).length
-
-  const summaryCards = canViewStaffSummary
-    ? [
-        {
-          title: "Total Staff",
-          value: employees.length,
-          icon: Users,
-          iconClassName: "text-blue-600",
-        },
-        {
-          title: "Pending",
-          value: pendingCount,
-          icon: Clock3,
-          iconClassName: "text-amber-500",
-        },
-        {
-          title: "OKR not submitted",
-          value: okrNotSubmittedCount,
-          icon: AlertTriangle,
-          iconClassName: "text-red-500",
-        },
-        {
-          title: "Total Requests",
-          value: requests.length,
-          icon: FileText,
-          iconClassName: "text-green-600",
-        },
-      ]
-    : [
-        {
-          title: "Pending",
-          value: pendingCount,
-          icon: Clock3,
-          iconClassName: "text-amber-500",
-        },
-        {
-          title: "Reviewed",
-          value: reviewedCount,
-          icon: Check,
-          iconClassName: "text-blue-600",
-        },
-        {
-          title: "Total Requests",
-          value: requests.length,
-          icon: FileText,
-          iconClassName: "text-green-600",
-        },
-      ]
 
   useEffect(() => {
     if (!notice) return
@@ -365,22 +444,77 @@ export default function AdminRequestsPage() {
     return () => window.clearTimeout(timeoutId)
   }, [notice])
 
-  async function handleUpdateRequest(requestId: string, status: RequestStatus) {
-    await updateRequestStatus({
-      variables: {
-        input: {
-          id: requestId,
-          status,
-        },
-      },
-    })
+  function closeRejectDialog() {
+    if (updateLoading) return
 
+    setRejectingRequest(null)
+    setRejectReviewNotes("")
+    setActionError(null)
+  }
+
+  function openRejectDialog(request: RequestRow) {
+    setRejectingRequest(request)
+    setRejectReviewNotes(request.reviewNotes ?? "")
+    setActionError(null)
+  }
+
+  async function refetchRequests() {
     if (canViewStaffSummary) {
       await refetchAdminData()
     } else {
       await refetchReviewerData()
     }
-    setNotice(status === "approved" ? "approved" : "declined")
+  }
+
+  async function handleUpdateRequest(
+    requestId: string,
+    status: RequestStatus,
+    reviewNotes?: string | null,
+  ) {
+    try {
+      setActionError(null)
+      setProcessingRequestId(requestId)
+
+      await updateRequestStatus({
+        variables: {
+          input: {
+            id: requestId,
+            status,
+            ...(reviewNotes !== undefined ? { reviewNotes } : {}),
+          },
+        },
+      })
+
+      await refetchRequests()
+      setNotice({
+        tone: status === "approved" ? "approved" : "rejected",
+        title: status === "approved" ? "Request Approved" : "Request Rejected",
+      })
+    } catch (mutationError) {
+      setActionError(getErrorMessage(mutationError))
+      throw mutationError
+    } finally {
+      setProcessingRequestId(null)
+    }
+  }
+
+  async function handleApprove(request: RequestRow) {
+    await handleUpdateRequest(request.id, "approved")
+  }
+
+  async function handleConfirmReject() {
+    if (!rejectingRequest) return
+
+    try {
+      await handleUpdateRequest(
+        rejectingRequest.id,
+        "rejected",
+        rejectReviewNotes.trim() || null,
+      )
+      closeRejectDialog()
+    } catch {
+      return
+    }
   }
 
   if (loading) {
@@ -389,7 +523,7 @@ export default function AdminRequestsPage() {
 
   if (!canReviewRequests) {
     return (
-      <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+      <section className="rounded-[12px] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
         You do not have permission to review employee requests.
       </section>
     )
@@ -397,120 +531,119 @@ export default function AdminRequestsPage() {
 
   if (error) {
     return (
-      <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+      <section className="rounded-[12px] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
         Requests dashboard could not be loaded. {error.message}
       </section>
     )
   }
 
+  const title = canViewStaffSummary
+    ? "HR Admin Dashboard"
+    : "Finance Review Dashboard"
+  const description = canViewStaffSummary
+    ? "Employee Access Privilege Management and Control"
+    : "Review and confirm benefit requests that need financial approval"
+
   return (
-    <div className="space-y-8 pb-24">
-      <section className="rounded-[28px] border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
-        <div>
-          <h2 className="text-3xl font-semibold tracking-tight text-gray-950">
-            {canViewStaffSummary ? "HR Admin Dashboard" : "Finance Review Dashboard"}
-          </h2>
-          <p className="mt-2 text-base text-gray-500">
-            {canViewStaffSummary
-              ? "Employee Access Privilege Management and Control"
-              : "Review and confirm benefit requests that need financial approval"}
-          </p>
-        </div>
+    <>
+      <div className="space-y-7 pb-24">
+        <section className="space-y-2 pt-2">
+          <h1 className="text-[2.35rem] font-semibold tracking-[-0.05em] text-[#17243d]">
+            {title}
+          </h1>
+          <p className="text-[1.15rem] text-[#708198]">{description}</p>
+        </section>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {summaryCards.map((card) => {
-            const Icon = card.icon
+        {actionError && !rejectingRequest ? (
+          <section className="rounded-[12px] border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
+            {actionError}
+          </section>
+        ) : null}
 
-            return (
-              <article
-                key={card.title}
-                className="flex items-center gap-4 rounded-[24px] border border-gray-200 bg-white px-6 py-7"
-              >
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-50">
-                  <Icon className={`h-9 w-9 ${card.iconClassName}`} />
-                </div>
-                <div>
-                  <p className="text-4xl font-semibold leading-none text-gray-950">
-                    {card.value}
-                  </p>
-                  <p className="mt-2 text-sm text-gray-600">{card.title}</p>
-                </div>
-              </article>
-            )
-          })}
-        </div>
-
-        <div className="mt-8 rounded-[24px] border border-gray-200 bg-white p-6 sm:p-7">
-          <div>
-            <h3 className="text-2xl font-semibold tracking-tight text-gray-950">
-              {canViewStaffSummary ? "Preferential Requests" : "Review Queue"}
-            </h3>
-            <p className="mt-2 text-base text-gray-500">
-              {canViewStaffSummary
-                ? "Monitor requests sent by employees"
-                : "Monitor and review incoming requests"}
-            </p>
-          </div>
-
-          <div className="mt-8 overflow-x-auto">
+        <section className="overflow-hidden rounded-[12px] border border-[#d9e1ef] bg-white">
+          <div className="overflow-x-auto">
             <table className="min-w-full text-left">
-              <thead>
-                <tr className="border-b border-gray-200 text-base font-semibold text-gray-950">
-                  <th className="px-3 py-4 first:pl-0">Employee</th>
-                  <th className="px-3 py-4">Priority</th>
-                  <th className="px-3 py-4">Status</th>
-                  <th className="px-3 py-4">Date</th>
-                  <th className="px-3 py-4 text-right">Үйлдэл</th>
+              <thead className="bg-[#edf2f9]">
+                <tr className="text-[0.95rem] uppercase tracking-[0.03em] text-[#6D7B93]">
+                  <th className="w-16 px-6 py-5 font-medium">#</th>
+                  <th className="px-6 py-5 font-medium">Employee</th>
+                  <th className="px-6 py-5 font-medium">Benefit</th>
+                  <th className="px-6 py-5 font-medium">Date</th>
+                  <th className="px-6 py-5 font-medium">Status</th>
+                  <th className="px-6 py-5 text-right font-medium">Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {requests.length > 0 ? (
-                  requests.map((request) => {
+                  requests.map((request, index) => {
                     const isPending = request.status === "pending"
+                    const isProcessing =
+                      updateLoading && processingRequestId === request.id
 
                     return (
                       <tr
                         key={request.id}
-                        className="border-b border-gray-100 last:border-b-0"
+                        className="border-t border-[#e8edf5] text-[#17243d]"
                       >
-                        <td className="px-3 py-8 first:pl-0 text-lg font-medium text-gray-950">
+                        <td className="px-6 py-5 text-[1rem]">{index + 1}</td>
+                        <td className="px-6 py-5 text-[1.15rem] font-semibold tracking-[-0.02em]">
                           {request.employee}
                         </td>
-                        <td className="px-3 py-8 text-lg text-gray-950">
-                          {request.priority}
+                        <td className="px-6 py-5">
+                          <div className="space-y-1">
+                            <p className="text-[1.15rem] tracking-[-0.02em] text-[#17243d]">
+                              {request.benefit}
+                            </p>
+                            {request.contractAcceptedAt ? (
+                              <p className="text-[0.95rem] text-[#16A34A]">
+                                Contract Accepted
+                              </p>
+                            ) : null}
+                            {request.status === "rejected" && request.reviewNotes ? (
+                              <p className="max-w-xl text-[0.9rem] text-[#708198]">
+                                {request.reviewNotes}
+                              </p>
+                            ) : null}
+                          </div>
                         </td>
-                        <td className="px-3 py-8">
-                          <StatusBadge status={request.status} />
-                        </td>
-                        <td className="px-3 py-8 text-lg text-gray-400">
+                        <td className="px-6 py-5 text-[1.1rem] text-[#5F6B7E]">
                           {formatDate(request.createdAt)}
                         </td>
-                        <td className="px-3 py-8">
+                        <td className="px-6 py-5">
+                          <StatusBadge status={request.status} />
+                        </td>
+                        <td className="px-6 py-5">
                           <div className="flex justify-end gap-3">
                             {isPending ? (
                               <>
                                 <Button
-                                  className="h-10 rounded-xl bg-blue-600 px-5 text-white hover:bg-blue-700"
-                                  onClick={() =>
-                                    handleUpdateRequest(request.id, "approved")
-                                  }
-                                  disabled={updateLoading}
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => openRejectDialog(request)}
+                                  disabled={isProcessing}
+                                  className="h-10 rounded-[10px] border-[#d9e1ef] px-5 text-[0.95rem] font-medium text-[#17243d] hover:bg-[#f8fafc]"
                                 >
-                                  Confirm
+                                  Reject
                                 </Button>
                                 <Button
-                                  variant="outline"
-                                  className="h-10 rounded-xl px-5"
-                                  onClick={() =>
-                                    handleUpdateRequest(request.id, "rejected")
-                                  }
-                                  disabled={updateLoading}
+                                  type="button"
+                                  onClick={() => handleApprove(request)}
+                                  disabled={isProcessing}
+                                  className="h-10 rounded-[10px] bg-[#2F66F6] px-5 text-[0.95rem] font-medium text-white hover:bg-[#2456d7]"
                                 >
-                                  Decline
+                                  {isProcessing ? (
+                                    <>
+                                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                                      Saving
+                                    </>
+                                  ) : (
+                                    "Confirm"
+                                  )}
                                 </Button>
                               </>
                             ) : (
-                              <span className="text-sm text-gray-400">-</span>
+                              <span className="text-sm text-[#94A3B8]">-</span>
                             )}
                           </div>
                         </td>
@@ -519,32 +652,38 @@ export default function AdminRequestsPage() {
                   })
                 ) : (
                   <tr>
-                    <td
-                      colSpan={5}
-                      className="px-0 py-10 text-center text-base text-gray-500"
-                    >
-                      No requests found.
+                    <td colSpan={6} className="px-6 py-14">
+                      <div className="flex flex-col items-center justify-center gap-3 text-center">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-[#f4f7fb] text-[#708198]">
+                          <FileText className="h-6 w-6" />
+                        </div>
+                        <p className="text-[1.05rem] font-medium text-[#17243d]">
+                          No requests found
+                        </p>
+                        <p className="text-[0.95rem] text-[#708198]">
+                          New employee requests will appear here once submitted.
+                        </p>
+                      </div>
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
-      {notice ? (
-        <div className="pointer-events-none fixed bottom-6 right-6 z-50">
-          <div className="flex min-w-[280px] items-center gap-3 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-lg">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-black text-white">
-              <Check className="h-4 w-4" />
-            </div>
-            <p className="text-base font-semibold text-gray-950">
-              {notice === "approved" ? "Request Approved" : "Request Declined"}
-            </p>
-          </div>
-        </div>
-      ) : null}
-    </div>
+      <RejectRequestDialog
+        request={rejectingRequest}
+        reviewNotes={rejectReviewNotes}
+        onReviewNotesChange={setRejectReviewNotes}
+        onClose={closeRejectDialog}
+        onConfirm={handleConfirmReject}
+        submitting={updateLoading && processingRequestId === rejectingRequest?.id}
+        errorMessage={actionError}
+      />
+
+      <RequestNotice notice={notice} />
+    </>
   )
 }

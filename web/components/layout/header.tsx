@@ -29,8 +29,8 @@ export function Header({
             onClick={onMenuClick}
             className={
               isPortalShell
-                ? "rounded-[0.9rem] p-2 text-[#516074] transition hover:bg-[#f4f7fb] hover:text-[#17243d] md:hidden"
-                : "rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 md:hidden"
+                ? "rounded-[10px] p-2 text-[#516074] transition hover:bg-[#f4f7fb] hover:text-[#17243d] md:hidden"
+                : "rounded-[10px] p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 md:hidden"
             }
             aria-label="Open navigation"
           >
@@ -43,8 +43,8 @@ export function Header({
             type="button"
             className={
               isPortalShell
-                ? "relative rounded-[0.9rem] p-2 text-[#7a8798] transition hover:bg-[#f4f7fb] hover:text-[#17243d]"
-                : "relative rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+                ? "relative rounded-[10px] p-2 text-[#7a8798] transition hover:bg-[#f4f7fb] hover:text-[#17243d]"
+                : "relative rounded-[10px] p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
             }
             aria-label="Notifications"
           >

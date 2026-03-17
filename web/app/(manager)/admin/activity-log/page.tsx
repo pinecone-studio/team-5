@@ -107,12 +107,12 @@ function AdminActivityLogSkeleton() {
         </div>
 
         <div className="flex w-full max-w-xl gap-4">
-          <Skeleton className="h-14 flex-1 rounded-2xl" />
-          <Skeleton className="h-14 w-56 rounded-2xl" />
+          <Skeleton className="h-14 flex-1 rounded-[10px]" />
+          <Skeleton className="h-14 w-56 rounded-[10px]" />
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-[12px] border border-gray-200 bg-white shadow-sm">
         <div className="space-y-0">
           {Array.from({ length: 5 }).map((_, index) => (
             <div
@@ -159,9 +159,8 @@ export default function AdminActivityLogPage() {
     };
   }, []);
 
-  const logs = data?.auditLog ?? [];
-
   const filteredLogs = useMemo(() => {
+    const logs = data?.auditLog ?? [];
     const normalizedSearch = search.trim().toLowerCase();
 
     return logs.filter((log) => {
@@ -182,7 +181,7 @@ export default function AdminActivityLogPage() {
 
       return matchesSearch && matchesFilter;
     });
-  }, [logs, search, selectedFilter]);
+  }, [data?.auditLog, search, selectedFilter]);
 
   if (loading) {
     return <AdminActivityLogSkeleton />;
@@ -242,7 +241,7 @@ export default function AdminActivityLogPage() {
             </button>
 
             {dropdownOpen && (
-              <div className="absolute right-0 top-11 z-50 w-48.75 overflow-hidden rounded-[8px] border border-[#E2E8F0] bg-white py-1 shadow-lg">
+              <div className="absolute right-0 top-11 z-50 w-48.75 overflow-hidden rounded-[10px] border border-[#E2E8F0] bg-white py-1 shadow-lg">
                 {ACTION_FILTERS.map((filter) => (
                   <button
                     key={filter}

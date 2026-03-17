@@ -13,6 +13,7 @@ export const benefitRequestTypeDefs = `
     status: BenefitRequestStatus!
     contractVersionAccepted: String
     contractAcceptedAt: String
+    reviewNotes: String
     reviewedBy: ID
     createdAt: String!
     updatedAt: String!
@@ -28,6 +29,7 @@ export const benefitRequestTypeDefs = `
     status: BenefitRequestStatus!
     contractVersionAccepted: String
     contractAcceptedAt: String
+    reviewNotes: String
     reviewedBy: ID
   }
 
@@ -41,4 +43,3 @@ export const benefitRequestTypeDefs = `
     cancelBenefitRequest(id: ID!): BenefitRequest!
   }
 `;
-

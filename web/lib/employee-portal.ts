@@ -45,6 +45,7 @@ export const EMPLOYEE_DASHBOARD_QUERY = gql`
         status
         contractVersionAccepted
         contractAcceptedAt
+        reviewNotes
         reviewedBy
         createdAt
         updatedAt
@@ -92,6 +93,7 @@ export const MY_BENEFITS_QUERY = gql`
         status
         contractVersionAccepted
         contractAcceptedAt
+        reviewNotes
         reviewedBy
         createdAt
         updatedAt
@@ -120,6 +122,7 @@ export const MY_REQUESTS_QUERY = gql`
         id
         benefitId
         status
+        reviewNotes
         reviewedBy
         createdAt
         updatedAt
@@ -165,6 +168,7 @@ export const REQUEST_BENEFIT_MUTATION = gql`
         status
         contractVersionAccepted
         contractAcceptedAt
+        reviewNotes
         reviewedBy
         createdAt
         updatedAt
@@ -181,6 +185,7 @@ export const CONFIRM_BENEFIT_REQUEST_MUTATION = gql`
       status
       contractVersionAccepted
       contractAcceptedAt
+      reviewNotes
       reviewedBy
       createdAt
       updatedAt
