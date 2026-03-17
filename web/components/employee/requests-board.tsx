@@ -1,12 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@apollo/client/react";
 
 import { MY_REQUESTS_QUERY } from "@/lib/employee-portal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { Check } from "lucide-react";
 
 interface RequestItem {
   id: string;
@@ -147,6 +146,7 @@ function getStepState(request: RequestItem, stepIndex: number): StepState {
 
   return "upcoming";
 }
+
 function getCircleClasses(state: StepState) {
   if (state === "done") {
     return "border-[#57C970] bg-[#57C970]";
@@ -199,38 +199,6 @@ function getStepDate(request: RequestItem, stepIndex: number) {
   return "";
 }
 
-function StepIcon({ state }: { state: StepState }) {
-  if (state === "done") {
-    return (
-      <div className="flex h-4 w-4 items-center justify-center rounded-[9999px] bg-[#22C55E] text-white">
-        <Check width={13} height={13} />
-      </div>
-    );
-  }
-
-  if (state === "current") {
-    return (
-      <div className="flex h-4 w-4 items-center justify-center rounded-[9999px] bg-[#DCFCE7] text-[#22C55E]">
-        <Check width={13} height={13} />
-      </div>
-    );
-  }
-
-  if (state === "rejected") {
-    return (
-      <div className="flex h-4 w-4 items-center justify-center rounded-[9999px] bg-[#FCA5A5] text-white">
-        <Check width={13} height={13} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-4 w-4 items-center justify-center rounded-[9999px] bg-[#F1F5F9] text-[#D8DAE5]">
-      <Check width={13} height={13} />
-    </div>
-  );
-}
-
 function StepTimeline({ request }: { request: RequestItem }) {
   return (
     <div className="mt-5 space-y-0">
@@ -241,7 +209,7 @@ function StepTimeline({ request }: { request: RequestItem }) {
 
         return (
           <div key={step} className="flex items-start gap-4">
-            <div className="flex w-4 pt-1 flex-col items-center">
+            <div className="flex w-4 flex-col items-center pt-1">
               <div
                 className={cn(
                   "rounded-full",
@@ -269,113 +237,34 @@ function StepTimeline({ request }: { request: RequestItem }) {
   );
 }
 
-function RequestDetailSteps({ request }: { request: RequestItem }) {
+function RequestHeader() {
   return (
-    <div className="mt-6 space-y-3">
-      {steps.map((step, index) => {
-        const state = getStepState(request, index);
-
-        return (
-          <div key={step} className="flex items-center gap-3">
-            <StepIcon state={state} />
-            <p
-              className={cn(
-                "text-[18px] font-medium",
-                state === "upcoming" ? "text-[#475569]" : "text-[#0F172A]",
-              )}
-            >
-              {step}
-            </p>
-          </div>
-        );
-      })}
-    </div>
+    <section className="w-full">
+      <h1 className="text-4xl font-semibold text-[#0F172A]">Requests</h1>
+      <p className="mt-3 text-lg text-[#64748B]">
+        Track the status of your benefit requests.
+      </p>
+    </section>
   );
 }
 
-function RequestDetailModal({
-  request,
-  onClose,
-}: {
-  request: RequestItem;
-  onClose: () => void;
-}) {
-  const isRejectedCard = isRejectedStatus(request.status);
-
+function RejectionReasonCard({ reason }: { reason: string }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4">
-      <div className="relative w-full max-w-130 rounded-[20px] border border-[#D7DEE7] bg-white p-6 shadow-2xl">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-5 top-5 text-[28px] leading-none text-[#64748B] hover:text-[#0F172A] cursor-pointer"
-        >
-          ×
-        </button>
-
-        <h2 className="pr-10 text-[22px] font-semibold text-[#0F172A]">
-          {request.title}
-        </h2>
-        <p className="mt-2 text-[16px] text-[#64748B]">
-          Submitted {formatDate(request.submittedAtRaw)}
+    <div className=" rounded-[16px] border border-[#F87171] bg-[#FEF2F2] p-4">
+      <div className="flex items-center gap-3">
+        <p className="text-font/size/base font-semibold text-[#DC2626]">
+          Rejection Reason
         </p>
-
-        <RequestDetailSteps request={request} />
-
-        {isRejectedCard ? (
-          <div className="mt-6 rounded-[16px] border border-[#F87171] bg-[#FEF2F2] p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full border border-[#EF4444] text-[14px] font-bold text-[#EF4444]">
-                !
-              </div>
-              <p className="text-[18px] font-semibold text-[#DC2626]">
-                Rejection Reason
-              </p>
-            </div>
-            <p className="mt-4 text-[16px] leading-7 text-[#EF4444]">
-              {request.rejectionReason || "No rejection reason provided."}
-            </p>
-          </div>
-        ) : null}
-
-        <div className="mt-8">
-          <h3 className="text-[18px] font-semibold text-[#0F172A]">Details</h3>
-          <p className="mt-2 text-[16px] leading-7 text-[#475569]">
-            {request.details}
-          </p>
-        </div>
-
-        <div className="mt-8">
-          <h3 className="text-[18px] font-semibold text-[#0F172A]">
-            Request Description
-          </h3>
-          <p className="mt-2 text-[16px] leading-7 text-[#475569]">
-            {request.requestDescription}
-          </p>
-        </div>
-
-        {request.status === "approved" ? (
-          <div className="mt-8 border-t border-[#E2E8F0] pt-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="text-[16px] text-[#475569]">Approved</span>
-              <span className="text-[16px] font-semibold text-[#0F172A]">
-                {request.approvedBy} • {formatDate(request.reviewedAtRaw)}
-              </span>
-            </div>
-          </div>
-        ) : null}
       </div>
+
+      <p className="mt-2 text-font/size/sm leading-7 text-[#342929]">
+        {reason || "No rejection reason provided."}
+      </p>
     </div>
   );
 }
 
-function RequestCard({
-  request,
-  onViewDetails,
-}: {
-  request: RequestItem;
-  onViewDetails: (request: RequestItem) => void;
-}) {
+function RequestCard({ request }: { request: RequestItem }) {
   const isRejectedCard = isRejectedStatus(request.status);
 
   return (
@@ -391,21 +280,11 @@ function RequestCard({
 
       <StepTimeline request={request} />
 
-      <div
-        className={cn(
-          "border-t border-[#E2E8F0]",
-          isRejectedCard ? "mt-2 pt-2" : "",
-        )}
-      >
-        <button
-          type="button"
-          onClick={() => onViewDetails(request)}
-          className="mt-2 flex items-center gap-2 text-font/size/sm font-medium text-[#334155] transition hover:text-[#0F172A] cursor-pointer"
-        >
-          View details
-          <span className="text-font/size/lg cursor-pointer">›</span>
-        </button>
-      </div>
+      {isRejectedCard ? (
+        <RejectionReasonCard
+          reason={request.rejectionReason || "No rejection reason provided."}
+        />
+      ) : null}
     </article>
   );
 }
@@ -413,11 +292,9 @@ function RequestCard({
 function RequestsSection({
   title,
   requests,
-  onViewDetails,
 }: {
   title: string;
   requests: RequestItem[];
-  onViewDetails: (request: RequestItem) => void;
 }) {
   if (requests.length === 0) return null;
 
@@ -425,13 +302,11 @@ function RequestsSection({
     <section className="mt-10">
       <h3 className="text-[24px] font-semibold text-[#0F172A]">{title}</h3>
 
+      <div className="mt-4 h-px w-full bg-[#D9E1EE]" />
+
       <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {requests.map((request) => (
-          <RequestCard
-            key={request.id}
-            request={request}
-            onViewDetails={onViewDetails}
-          />
+          <RequestCard key={request.id} request={request} />
         ))}
       </div>
     </section>
@@ -440,7 +315,12 @@ function RequestsSection({
 
 function RequestsBoardSkeleton() {
   return (
-    <section className="w-full">
+    <section className="w-full px-2 sm:px-4">
+      <div className="mb-8">
+        <Skeleton className="h-10 w-52" />
+        <Skeleton className="mt-3 h-6 w-80 max-w-full" />
+      </div>
+
       <Skeleton className="h-8 w-40" />
 
       <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -451,7 +331,6 @@ function RequestsBoardSkeleton() {
           >
             <Skeleton className="h-7 w-40" />
             <Skeleton className="mt-8 h-44 w-full" />
-            <Skeleton className="mt-6 h-6 w-28" />
           </div>
         ))}
       </div>
@@ -463,21 +342,16 @@ export default function RequestsBoard() {
   const { data, loading, error } =
     useQuery<MyRequestsResponse>(MY_REQUESTS_QUERY);
 
-  const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(
-    null,
-  );
-
   const requests = useMemo(() => getRequestItems(data), [data]);
 
   const approvedRequests = requests.filter(
     (request) => request.status === "approved",
   );
-  const inProgressRequests = requests.filter(
+  const pendingRequests = requests.filter(
     (request) => request.status === "pending",
   );
-  const rejectedRequests = requests.filter(
-    (request) =>
-      request.status === "rejected" || request.status === "cancelled",
+  const rejectedRequests = requests.filter((request) =>
+    isRejectedStatus(request.status),
   );
 
   if (loading) {
@@ -493,37 +367,18 @@ export default function RequestsBoard() {
   }
 
   return (
-    <>
-      <section className="w-full px-2 sm:px-4">
-        <RequestsSection
-          title="Approved"
-          requests={approvedRequests}
-          onViewDetails={setSelectedRequest}
-        />
-        <RequestsSection
-          title="In Progress"
-          requests={inProgressRequests}
-          onViewDetails={setSelectedRequest}
-        />
-        <RequestsSection
-          title="Rejected"
-          requests={rejectedRequests}
-          onViewDetails={setSelectedRequest}
-        />
+    <section className="w-full px-2 sm:px-4">
+      <RequestHeader />
 
-        {requests.length === 0 ? (
-          <div className="mt-10 rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-500">
-            No benefit requests yet.
-          </div>
-        ) : null}
-      </section>
+      <RequestsSection title="Pending" requests={pendingRequests} />
+      <RequestsSection title="Rejected" requests={rejectedRequests} />
+      <RequestsSection title="Approved" requests={approvedRequests} />
 
-      {selectedRequest ? (
-        <RequestDetailModal
-          request={selectedRequest}
-          onClose={() => setSelectedRequest(null)}
-        />
+      {requests.length === 0 ? (
+        <div className="mt-10 rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-500">
+          No benefit requests yet.
+        </div>
       ) : null}
-    </>
+    </section>
   );
 }
