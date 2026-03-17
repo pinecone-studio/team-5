@@ -7,6 +7,7 @@ import {
 	canReviewBenefitRequests,
 } from "../shared/access-control";
 import { requireAuthenticatedEmployee } from "../shared/authenticated-employee";
+import { ensureBenefitRequestSchema } from "../shared/benefit-request-schema";
 
 const mapRequest = (row: typeof benefit_requests.$inferSelect) => ({
   id: row.id,
@@ -29,6 +30,7 @@ export const benefitRequestQuery = {
       context: { env: Env },
     ) => {
       const auth = await requireAuthenticatedEmployee(context);
+      await ensureBenefitRequestSchema(context.env.DB);
       const db = getDb(context.env.DB);
       const canReviewAllRequests = canReviewBenefitRequests(auth.clerkRole);
       const requestedEmployeeId = args.employeeId ?? auth.employee.id;

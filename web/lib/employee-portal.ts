@@ -55,6 +55,7 @@ export const EMPLOYEE_DASHBOARD_QUERY = gql`
         benefitId
         vendorName
         version
+        r2ObjectKey
         effectiveDate
         expiryDate
         isActive
@@ -103,6 +104,7 @@ export const MY_BENEFITS_QUERY = gql`
         benefitId
         vendorName
         version
+        r2ObjectKey
         effectiveDate
         expiryDate
         isActive
@@ -158,6 +160,7 @@ export const REQUEST_BENEFIT_MUTATION = gql`
         benefitId
         vendorName
         version
+        r2ObjectKey
         effectiveDate
         expiryDate
         isActive

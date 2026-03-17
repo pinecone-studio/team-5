@@ -8,6 +8,7 @@ import {
   requireAuthenticatedEmployee,
   requireBenefitRequestReviewerAccess,
 } from "../shared/authenticated-employee";
+import { ensureBenefitRequestSchema } from "../shared/benefit-request-schema";
 import {
   getBenefitName,
   writeAuditLog,
@@ -34,6 +35,7 @@ export const benefitRequestMutation = {
       context: { env: Env },
     ) => {
       const auth = await requireAuthenticatedEmployee(context);
+      await ensureBenefitRequestSchema(context.env.DB);
       if (args.input.employeeId !== auth.employee.id) {
         throw new Error("Forbidden: you can only create requests for yourself.");
       }
@@ -101,6 +103,7 @@ export const benefitRequestMutation = {
       context: { env: Env },
     ) => {
       const reviewer = await requireBenefitRequestReviewerAccess(context);
+      await ensureBenefitRequestSchema(context.env.DB);
       const db = getDb(context.env.DB);
       const { input } = args;
       const normalizedReviewNotes =
@@ -173,6 +176,7 @@ export const benefitRequestMutation = {
       context: { env: Env },
     ) => {
       const auth = await requireAuthenticatedEmployee(context);
+      await ensureBenefitRequestSchema(context.env.DB);
       const db = getDb(context.env.DB);
       const existing = await db
         .select()

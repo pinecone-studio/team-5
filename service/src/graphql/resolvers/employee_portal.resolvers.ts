@@ -9,6 +9,7 @@ import { employee } from '../../db/schemas/employee.schema';
 import { recomputeBenefitEligibility } from './shared/benefit-eligibility-engine';
 import { requireAuthenticatedEmployee } from './shared/authenticated-employee';
 import { writeAuditLog } from './shared/audit-log';
+import { ensureBenefitRequestSchema } from './shared/benefit-request-schema';
 import { findActiveContractForBenefit } from './shared/contract-lifecycle';
 import { ensureLocalBenefitsSeeded } from './shared/local-dev-bootstrap';
 
@@ -134,6 +135,7 @@ async function findLatestRequest(
 	benefitId: string,
 ): Promise<BenefitRequestRow | null> {
 	const db = getDb(context.env.DB);
+	await ensureBenefitRequestSchema(context.env.DB);
 
 	return db
 		.select()
@@ -252,6 +254,7 @@ export const employeePortalResolvers = {
 		myRequests: async (_parent: unknown, _args: unknown, context: ResolverContext) => {
 			const auth = await requireAuthenticatedEmployee(context);
 			const db = getDb(context.env.DB);
+			await ensureBenefitRequestSchema(context.env.DB);
 			const [requestRows, benefitRows] = await Promise.all([
 				db
 					.select()
@@ -338,6 +341,7 @@ export const employeePortalResolvers = {
 			const { auth, benefitRow, eligibility, activeContract, latestRequest } =
 				await getRequestContext(context, args.input.benefitId);
 			const db = getDb(context.env.DB);
+			await ensureBenefitRequestSchema(context.env.DB);
 
 			if (latestRequest?.status === 'pending') {
 				throw new Error('There is already a pending request for this benefit.');

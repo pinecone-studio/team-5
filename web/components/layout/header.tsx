@@ -23,7 +23,7 @@ export function Header({
       }
     >
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex min-h-10 items-center gap-3">
           <button
             type="button"
             onClick={onMenuClick}
@@ -38,7 +38,7 @@ export function Header({
           </button>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             className={

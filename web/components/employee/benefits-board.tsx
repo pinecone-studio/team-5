@@ -5,13 +5,17 @@ import { useMutation, useQuery } from "@apollo/client/react";
 import {
   BadgeCheck,
   Brain,
+  CheckCircle2,
+  Circle,
   ChevronRight,
   Dumbbell,
+  FileText,
   HeartPulse,
   LoaderCircle,
   LockKeyhole,
   Umbrella,
   Wifi,
+  X,
 } from "lucide-react";
 
 import {
@@ -21,13 +25,6 @@ import {
 } from "@/lib/employee-portal";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type BenefitCategory =
@@ -76,6 +73,7 @@ type BenefitRecord = {
     benefitId: string;
     vendorName: string;
     version: string;
+    r2ObjectKey: string;
     effectiveDate: string | null;
     expiryDate: string | null;
     isActive: boolean | null;
@@ -109,6 +107,7 @@ type RequestBenefitResponse = {
     activeContract: {
       version: string;
       vendorName: string;
+      r2ObjectKey: string;
       effectiveDate: string | null;
       expiryDate: string | null;
     } | null;
@@ -137,6 +136,14 @@ interface BenefitItem {
   activeSince?: string;
   latestRequestLabel?: string;
   activeContractVersion?: string | null;
+  contractVendorName?: string | null;
+  contractDownloadUrl?: string | null;
+  contractEffectiveDate?: string | null;
+  contractExpiryDate?: string | null;
+  requirements: Array<{
+    label: string;
+    passed: boolean;
+  }>;
 }
 
 const sections: Array<{
@@ -144,21 +151,21 @@ const sections: Array<{
   title: string;
   emptyLabel: string;
 }> = [
-  { key: "active", title: "Active", emptyLabel: "No active benefits yet." },
-  {
-    key: "available",
-    title: "Available",
-    emptyLabel: "No benefits are available to request right now.",
-  },
   {
     key: "pending",
     title: "Pending",
     emptyLabel: "No requests are waiting for review.",
   },
   {
+    key: "available",
+    title: "Available",
+    emptyLabel: "No benefits are available to request right now.",
+  },
+  { key: "active", title: "Active", emptyLabel: "No active benefits yet." },
+  {
     key: "locked",
-    title: "Locked",
-    emptyLabel: "No blocked benefits at the moment.",
+    title: "Not Yet Available",
+    emptyLabel: "No upcoming benefits right now.",
   },
 ];
 
@@ -243,6 +250,51 @@ function parseRuleSummary(ruleEvaluationJson: string) {
   }
 }
 
+function toRequirementLabel(type: string) {
+  switch (type) {
+    case "employment_status":
+      return "Employment status";
+    case "okr_submitted":
+      return "OKR submitted";
+    case "attendance":
+      return "Attendance";
+    case "responsibility_level":
+      return "Responsibility level";
+    case "tenure_days":
+      return "Tenure";
+    case "department":
+      return "Department";
+    case "role":
+      return "Role";
+    default:
+      return type
+        .split("_")
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+  }
+}
+
+function parseRequirements(ruleEvaluationJson: string) {
+  try {
+    const parsed = JSON.parse(ruleEvaluationJson) as Array<{
+      type?: string;
+      passed?: boolean;
+    }>;
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.map((item) => ({
+      label: toRequirementLabel(item?.type ?? "Requirement"),
+      passed: item?.passed !== false,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 function buildBenefitDescription(benefit: BenefitRecord["benefit"]) {
   const subsidyPrefix =
     benefit.subsidyPercent > 0
@@ -298,6 +350,7 @@ function mapBenefitItem(record: BenefitRecord): BenefitItem {
     requiresContract: Boolean(record.benefit.requiresContract),
     failureReasons: record.failureReasons,
     icon: getBenefitIcon(record.benefit),
+    requirements: parseRequirements(record.eligibility.ruleEvaluationJson),
     activeSince:
       record.status === "active"
         ? formatDateLabel(
@@ -310,6 +363,10 @@ function mapBenefitItem(record: BenefitRecord): BenefitItem {
         ? formatDateLabel("Last request", record.latestRequest.updatedAt)
         : undefined,
     activeContractVersion: record.activeContract?.version ?? null,
+    contractVendorName: record.activeContract?.vendorName ?? null,
+    contractDownloadUrl: record.activeContract?.r2ObjectKey ?? null,
+    contractEffectiveDate: record.activeContract?.effectiveDate ?? null,
+    contractExpiryDate: record.activeContract?.expiryDate ?? null,
   };
 }
 
@@ -325,11 +382,11 @@ function getEmployeeInitials(name: string) {
 }
 
 function getOkrValue(employee: EmployeeRecord) {
-  if (
-    employee.okrSubmitted ||
-    employee.okrStatus === "submitted" ||
-    employee.okrStatus === "success"
-  ) {
+  if (employee.okrStatus === "success") {
+    return "Success";
+  }
+
+  if (employee.okrSubmitted || employee.okrStatus === "submitted") {
     return "Submitted";
   }
 
@@ -357,7 +414,9 @@ function getOkrClasses(employee: EmployeeRecord) {
 }
 
 function getEmployeeSubtitle(employee: EmployeeRecord) {
-  return employee.role ?? employee.department ?? "Employee";
+  const value = employee.role ?? employee.department ?? "Employee";
+
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function getAttendanceValue(employee: EmployeeRecord) {
@@ -365,26 +424,10 @@ function getAttendanceValue(employee: EmployeeRecord) {
 }
 
 function getPrimaryButtonLabel(benefit: BenefitItem) {
-  if (benefit.status === "pending") return "Pending Review";
-  if (benefit.status === "active") return "Already Active";
+  if (benefit.status === "pending") return "View details";
+  if (benefit.status === "active") return "View details";
   if (benefit.status === "locked") return "View Requirements";
-  return benefit.requiresContract ? "Preview Contract" : "Preview Request";
-}
-
-function getCardMetaLine(benefit: BenefitItem) {
-  if (benefit.status === "active") {
-    return benefit.activeSince ?? "Currently active";
-  }
-
-  if (benefit.status === "available") {
-    return benefit.latestRequestLabel ?? "Ready for a new request";
-  }
-
-  if (benefit.status === "pending") {
-    return benefit.latestRequestLabel ?? "Waiting for review";
-  }
-
-  return benefit.failureReasons[0] ?? benefit.criteriaDetail;
+  return benefit.requiresContract ? "Preview contract" : "Submit request";
 }
 
 function getCriteriaBadgeClasses(status: BenefitStatus) {
@@ -451,16 +494,37 @@ function BenefitCard({
   onRequest: (benefit: BenefitItem) => void;
 }) {
   const isRequestCard = benefit.status === "available";
+  const isLockedCard = benefit.status === "locked";
+  const actionLabel =
+    benefit.status === "pending"
+      ? "View details"
+      : benefit.status === "locked"
+        ? "View requirements"
+        : isRequestCard
+          ? "Submit request"
+          : "View details";
 
   return (
-    <article className="flex h-full flex-col rounded-[12px] border border-[#d9e1ef] bg-white p-5">
+    <article
+      className={cn(
+        "flex h-full min-h-[164px] flex-col rounded-[14px] border px-5 py-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_1px_3px_rgba(16,24,40,0.08)]",
+        isLockedCard
+          ? "border-[#e7ebf3] bg-[#fdfefe]"
+          : "border-[#d9e1ef] bg-white",
+      )}
+    >
       <div className="flex items-start justify-between gap-4">
-        <h3 className="max-w-[14rem] text-[1.1rem] font-medium tracking-[-0.03em] text-[#18243d]">
+        <h3
+          className={cn(
+            "max-w-[14rem] text-[1.05rem] font-semibold tracking-[-0.03em]",
+            isLockedCard ? "text-[#7f8897]" : "text-[#18243d]",
+          )}
+        >
           {benefit.title}
         </h3>
         <span
           className={cn(
-            "inline-flex min-w-14 items-center justify-center rounded-full border px-3 py-1 text-[0.95rem] font-medium",
+            "inline-flex min-w-11 items-center justify-center rounded-[10px] border px-3 py-1 text-[0.95rem] font-medium",
             getCriteriaBadgeClasses(benefit.status),
           )}
         >
@@ -468,21 +532,22 @@ function BenefitCard({
         </span>
       </div>
 
-      <p className="mt-4 min-h-20 text-[0.95rem] leading-7 text-[#708198]">
+      <p
+        className={cn(
+          "mt-4 min-h-[72px] max-w-[26rem] text-[0.95rem] leading-8",
+          isLockedCard ? "text-[#a4afbf]" : "text-[#708198]",
+        )}
+      >
         {benefit.description}
       </p>
 
-      <p className="mt-4 text-[0.95rem] text-[#607089]">
-        {getCardMetaLine(benefit)}
-      </p>
-
-      <div className="mt-auto pt-6">
+      <div className="mt-auto pt-2">
         {isRequestCard ? (
-          <Button
+          <button
             type="button"
             onClick={() => onRequest(benefit)}
             disabled={preparing || !benefit.canRequest}
-            className="h-10 w-full rounded-[10px] bg-[#2f66f6] text-[0.95rem] font-normal text-white hover:bg-[#2456d7]"
+            className="inline-flex items-center gap-1.5 text-[0.95rem] font-medium text-[#253247] transition hover:text-[#2f66f6] disabled:pointer-events-none disabled:text-[#94a3b8]"
           >
             {preparing ? (
               <>
@@ -490,20 +555,22 @@ function BenefitCard({
                 Loading
               </>
             ) : (
-              "Submit Request"
+              actionLabel
             )}
-          </Button>
+            <ChevronRight className="h-4.5 w-4.5" />
+          </button>
         ) : (
           <button
             type="button"
             onClick={() => onOpen(benefit.id)}
-            className="inline-flex items-center gap-1.5 text-[0.95rem] font-normal text-[#18243d] transition hover:text-[#2f66f6]"
+            className={cn(
+              "inline-flex items-center gap-1.5 text-[0.95rem] font-medium transition",
+              isLockedCard
+                ? "text-[#7f8897] hover:text-[#4f5d73]"
+                : "text-[#253247] hover:text-[#2f66f6]",
+            )}
           >
-            {benefit.status === "pending"
-              ? "Track request"
-              : benefit.status === "locked"
-                ? "View rules"
-                : "View details"}
+            {actionLabel}
             <ChevronRight className="h-4.5 w-4.5" />
           </button>
         )}
@@ -515,7 +582,7 @@ function BenefitCard({
 function BenefitsBoardSkeleton() {
   return (
     <section className="space-y-10">
-      <div className="rounded-[12px] border border-[#d9e1ef] bg-white p-6">
+      <div className="rounded-[16px] border border-[#d9e1ef] bg-white p-6 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center">
           <div className="flex items-center gap-5 xl:min-w-[22rem] xl:pr-8">
             <Skeleton className="h-16 w-16 rounded-full" />
@@ -541,7 +608,7 @@ function BenefitsBoardSkeleton() {
           <Skeleton className="h-10 w-28" />
           <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 3 }).map((__, cardIndex) => (
-              <Skeleton key={cardIndex} className="h-80 rounded-[12px]" />
+              <Skeleton key={cardIndex} className="h-44 rounded-[14px]" />
             ))}
           </div>
         </div>
@@ -552,7 +619,7 @@ function BenefitsBoardSkeleton() {
 
 function BenefitsHeader({ employee }: { employee: EmployeeRecord }) {
   return (
-    <section className="rounded-[12px] border border-[#d9e1ef] bg-white px-6 py-6">
+    <section className="rounded-[16px] border border-[#d9e1ef] bg-white px-5 py-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:px-6">
       <div className="flex flex-col gap-6 xl:flex-row xl:items-center">
         <div className="flex items-center gap-4 xl:min-w-[22rem] xl:pr-8">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f1f3f7] text-[1.35rem] font-medium tracking-[-0.04em] text-[#18243d]">
@@ -560,7 +627,7 @@ function BenefitsHeader({ employee }: { employee: EmployeeRecord }) {
           </div>
 
           <div className="space-y-1.5">
-            <h1 className="text-[1.85rem] font-medium tracking-[-0.05em] text-[#18243d]">
+            <h1 className="text-[1.7rem] font-semibold tracking-[-0.05em] text-[#18243d]">
               {employee.fullName}
             </h1>
             <p className="text-[0.95rem] font-normal text-[#607089]">
@@ -603,15 +670,18 @@ export default function BenefitsBoard() {
   const [selectedBenefitId, setSelectedBenefitId] = useState<string | null>(
     null,
   );
+  const [requestBenefitId, setRequestBenefitId] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [preparingBenefitId, setPreparingBenefitId] = useState<string | null>(
     null,
   );
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [requestIntent, setRequestIntent] = useState<{
     requiresContractAcceptance: boolean;
     activeContract: {
       version: string;
       vendorName: string;
+      r2ObjectKey: string;
       effectiveDate: string | null;
       expiryDate: string | null;
     } | null;
@@ -634,6 +704,8 @@ export default function BenefitsBoard() {
   );
   const selectedBenefit =
     benefits.find((benefit) => benefit.id === selectedBenefitId) ?? null;
+  const requestModalBenefit =
+    benefits.find((benefit) => benefit.id === requestBenefitId) ?? null;
 
   function openBenefit(benefitId: string) {
     setSelectedBenefitId(benefitId);
@@ -643,7 +715,8 @@ export default function BenefitsBoard() {
 
   async function handlePrepareRequest(benefit: BenefitItem) {
     try {
-      setSelectedBenefitId(benefit.id);
+      setRequestBenefitId(benefit.id);
+      setAcceptedTerms(false);
       setPreparingBenefitId(benefit.id);
       setRequestIntent(null);
       setDetailError(null);
@@ -667,6 +740,7 @@ export default function BenefitsBoard() {
           ? {
               version: intent.activeContract.version,
               vendorName: intent.activeContract.vendorName,
+              r2ObjectKey: intent.activeContract.r2ObjectKey,
               effectiveDate: intent.activeContract.effectiveDate,
               expiryDate: intent.activeContract.expiryDate,
             }
@@ -698,7 +772,7 @@ export default function BenefitsBoard() {
       });
 
       await refetch();
-      setRequestIntent(null);
+      closeRequestModal();
     } catch (mutationError) {
       setDetailError(
         getErrorMessage(mutationError, "Benefit request confirmation failed."),
@@ -708,9 +782,15 @@ export default function BenefitsBoard() {
 
   function closeSheet() {
     setSelectedBenefitId(null);
+    setDetailError(null);
+  }
+
+  function closeRequestModal() {
+    setRequestBenefitId(null);
     setRequestIntent(null);
     setDetailError(null);
     setPreparingBenefitId(null);
+    setAcceptedTerms(false);
   }
 
   if (loading) {
@@ -728,7 +808,7 @@ export default function BenefitsBoard() {
   return (
     <section className="space-y-11">
       {employee ? (
-        <section className="pt-2">
+        <section className="pt-1">
           <BenefitsHeader employee={employee} />
         </section>
       ) : null}
@@ -739,23 +819,20 @@ export default function BenefitsBoard() {
             (benefit) => benefit.status === section.key,
           );
 
-          if (
-            sectionBenefits.length === 0 &&
-            (section.key === "pending" || section.key === "locked")
-          ) {
+          if (sectionBenefits.length === 0 && section.key === "pending") {
             return null;
           }
 
           return (
             <section key={section.key} className="space-y-5">
               <div className="border-b border-[#dfe6f0] pb-4">
-                <h2 className="text-[1.15rem] font-medium tracking-[-0.03em] text-[#18243d]">
+                <h2 className="text-[1.15rem] font-semibold tracking-[-0.03em] text-[#18243d]">
                   {section.title}
                 </h2>
               </div>
 
               {sectionBenefits.length > 0 ? (
-                <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
                   {sectionBenefits.map((benefit) => (
                     <BenefitCard
                       key={benefit.id}
@@ -776,84 +853,184 @@ export default function BenefitsBoard() {
         })}
       </div>
 
-      <Sheet
-        open={selectedBenefit != null}
-        onOpenChange={(open) => (!open ? closeSheet() : null)}
-      >
-        <SheetContent
-          side="right"
-          className="w-full max-w-2xl border-l border-[#dfe6f0] bg-[#f8fafc] p-0"
-        >
-          {selectedBenefit ? (
+      {selectedBenefit ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f172a]/12 px-4 py-6 backdrop-blur-[2px]">
+          <div className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[18px] border border-[#dfe6f0] bg-[#f8fafc] shadow-[0_20px_40px_rgba(15,23,42,0.18)]">
+            <button
+              type="button"
+              onClick={closeSheet}
+              className="absolute right-5 top-5 z-10 rounded-[10px] p-1.5 text-[#66758b] transition hover:bg-[#eef3fa] hover:text-[#18243d]"
+              aria-label="Close benefit details"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
             <>
-              <SheetHeader className="border-b border-[#dfe6f0] bg-white px-6 py-6">
-                <div className="flex items-start gap-4 text-left">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-[10px] bg-[#edf2f9] text-[#18243d]">
-                    <selectedBenefit.icon className="h-5 w-5" />
-                  </div>
+              <div className="bg-white px-6 py-6">
+                <div className="flex items-start gap-4 pr-10 text-left">
                   <div className="space-y-2">
-                    <SheetTitle className="text-[1.25rem] font-medium tracking-[-0.03em] text-[#18243d]">
+                    <h2 className="text-[1.75rem] font-semibold tracking-[-0.04em] text-[#18243d]">
                       {selectedBenefit.title}
-                    </SheetTitle>
-                    <SheetDescription className="text-[0.95rem] leading-7 text-[#607089]">
-                      {selectedBenefit.description}
-                    </SheetDescription>
+                    </h2>
+                    {selectedBenefit.status !== "active" ? (
+                      <p className="text-[0.95rem] leading-7 text-[#607089]">
+                        {selectedBenefit.description}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
-              </SheetHeader>
+              </div>
 
-              <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
-                <div className="rounded-[12px] border border-[#d9e1ef] bg-white p-5">
-                  <p className="text-xs font-medium tracking-[0.18em] text-[#74839b] uppercase">
-                    Status
-                  </p>
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                    <span className="text-[1rem] font-medium text-[#18243d]">
-                      {selectedBenefit.status.charAt(0).toUpperCase() +
-                        selectedBenefit.status.slice(1)}
-                    </span>
-                    <span
-                      className={cn(
-                        "inline-flex rounded-full border px-3 py-1 text-[0.85rem] font-medium",
-                        getCriteriaBadgeClasses(selectedBenefit.status),
+              <div className="flex-1 space-y-6 overflow-y-auto px-6 pb-6">
+                {selectedBenefit.status === "active" ? (
+                  <>
+                    <section className="rounded-[16px] border border-[#e4ebf5] bg-white p-5">
+                      <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
+                        Benefit Details
+                      </h3>
+                      <p className="mt-4 text-[0.95rem] leading-8 text-[#6c7d96]">
+                        {selectedBenefit.description}
+                      </p>
+                    </section>
+
+                    <section className="rounded-[16px] border border-[#e4ebf5] bg-white p-5">
+                      <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
+                        Requirements
+                      </h3>
+                      <div className="mt-4 space-y-4">
+                        {selectedBenefit.requirements.map((requirement) => (
+                          <div
+                            key={requirement.label}
+                            className="flex items-center gap-3 text-[0.95rem] text-[#18243d]"
+                          >
+                            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                            <span>{requirement.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="rounded-[16px] border border-[#e4ebf5] bg-white p-5">
+                      <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
+                        Contract
+                      </h3>
+                      {selectedBenefit.contractDownloadUrl ? (
+                        <a
+                          href={selectedBenefit.contractDownloadUrl}
+                          download
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-4 flex items-center gap-3 rounded-[14px] border border-[#e4ebf5] bg-[#fbfcfe] px-4 py-3 text-[0.95rem] text-[#3b4960] transition hover:border-[#cdd8ea] hover:bg-white"
+                        >
+                          <FileText className="h-5 w-5 text-[#2f66f6]" />
+                          <span>View {selectedBenefit.title} PDF</span>
+                        </a>
+                      ) : (
+                        <div className="mt-4 flex items-center gap-3 rounded-[14px] border border-[#e4ebf5] bg-[#fbfcfe] px-4 py-3 text-[0.95rem] text-[#94a3b8]">
+                          <FileText className="h-5 w-5 text-[#94a3b8]" />
+                          <span>PDF unavailable</span>
+                        </div>
                       )}
-                    >
-                      {selectedBenefit.criteriaDetail}
-                    </span>
-                  </div>
-                </div>
 
-                <div className="space-y-3">
-                  <h3 className="text-[0.9rem] font-medium text-[#18243d]">
-                    Benefit details
-                  </h3>
-                  <div className="overflow-hidden rounded-[12px] border border-[#d9e1ef] bg-white">
-                    {selectedBenefit.detailLines.map((line) => (
-                      <div
-                        key={line}
-                        className="border-b border-[#edf2f7] px-5 py-4 text-[0.9rem] text-[#607089] last:border-b-0"
-                      >
-                        {line}
+                      <div className="mt-6 space-y-4 text-[0.95rem]">
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="font-medium text-[#18243d]">Signed by</span>
+                          <span className="text-[#6c7d96]">
+                            {employee?.fullName ?? "Employee"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="font-medium text-[#18243d]">Status</span>
+                          <span className="text-[#6c7d96]">Active</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="font-medium text-[#18243d]">Effective date:</span>
+                          <span className="text-[#6c7d96]">
+                            {formatDateValue(selectedBenefit.contractEffectiveDate) ??
+                              "Not set"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="font-medium text-[#18243d]">Expiry date:</span>
+                          <span className="text-[#6c7d96]">
+                            {formatDateValue(selectedBenefit.contractExpiryDate) ??
+                              "Not set"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="font-medium text-[#18243d]">
+                            Contract version
+                          </span>
+                          <span className="text-[#6c7d96]">
+                            {selectedBenefit.activeContractVersion
+                              ? `v${selectedBenefit.activeContractVersion}`
+                              : "Not set"}
+                          </span>
+                        </div>
                       </div>
-                    ))}
+                    </section>
+
                     {selectedBenefit.activeSince ? (
-                      <div className="border-t border-[#edf2f7] px-5 py-4 text-[0.9rem] text-[#607089]">
+                      <p className="px-0.5 text-[0.95rem] text-[#6c7d96]">
                         {selectedBenefit.activeSince}
-                      </div>
+                      </p>
                     ) : null}
-                    {selectedBenefit.latestRequestLabel ? (
-                      <div className="border-t border-[#edf2f7] px-5 py-4 text-[0.9rem] text-[#607089]">
-                        {selectedBenefit.latestRequestLabel}
+                  </>
+                ) : (
+                  <>
+                    <div className="rounded-[12px] border border-[#d9e1ef] bg-white p-5">
+                      <p className="text-xs font-medium tracking-[0.18em] text-[#74839b] uppercase">
+                        Status
+                      </p>
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                        <span className="text-[1rem] font-medium text-[#18243d]">
+                          {selectedBenefit.status.charAt(0).toUpperCase() +
+                            selectedBenefit.status.slice(1)}
+                        </span>
+                        <span
+                          className={cn(
+                            "inline-flex rounded-full border px-3 py-1 text-[0.85rem] font-medium",
+                            getCriteriaBadgeClasses(selectedBenefit.status),
+                          )}
+                        >
+                          {selectedBenefit.criteriaDetail}
+                        </span>
                       </div>
-                    ) : null}
-                    {selectedBenefit.activeContractVersion ? (
-                      <div className="border-t border-[#edf2f7] px-5 py-4 text-[0.9rem] text-[#607089]">
-                        Active contract version{" "}
-                        {selectedBenefit.activeContractVersion}
+                    </div>
+
+                    <div className="space-y-3">
+                      <h3 className="text-[0.9rem] font-medium text-[#18243d]">
+                        Benefit details
+                      </h3>
+                      <div className="overflow-hidden rounded-[12px] border border-[#d9e1ef] bg-white">
+                        {selectedBenefit.detailLines.map((line) => (
+                          <div
+                            key={line}
+                            className="border-b border-[#edf2f7] px-5 py-4 text-[0.9rem] text-[#607089] last:border-b-0"
+                          >
+                            {line}
+                          </div>
+                        ))}
+                        {selectedBenefit.activeSince ? (
+                          <div className="border-t border-[#edf2f7] px-5 py-4 text-[0.9rem] text-[#607089]">
+                            {selectedBenefit.activeSince}
+                          </div>
+                        ) : null}
+                        {selectedBenefit.latestRequestLabel ? (
+                          <div className="border-t border-[#edf2f7] px-5 py-4 text-[0.9rem] text-[#607089]">
+                            {selectedBenefit.latestRequestLabel}
+                          </div>
+                        ) : null}
+                        {selectedBenefit.activeContractVersion ? (
+                          <div className="border-t border-[#edf2f7] px-5 py-4 text-[0.9rem] text-[#607089]">
+                            Active contract version{" "}
+                            {selectedBenefit.activeContractVersion}
+                          </div>
+                        ) : null}
                       </div>
-                    ) : null}
-                  </div>
-                </div>
+                    </div>
+                  </>
+                )}
 
                 {selectedBenefit.failureReasons.length > 0 ? (
                   <div className="rounded-[12px] border border-amber-200 bg-amber-50 p-5">
@@ -909,7 +1086,17 @@ export default function BenefitsBoard() {
               </div>
 
               <div className="border-t border-[#dfe6f0] bg-white px-6 py-5">
-                {requestIntent ? (
+                {selectedBenefit.status === "active" ? (
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={closeSheet}
+                      className="h-10 rounded-[10px] border border-[#d9e1ef] bg-white px-5 text-[0.9rem] font-medium text-[#3c4a60] transition hover:bg-[#f8fafc]"
+                    >
+                      Close
+                    </button>
+                  </div>
+                ) : requestIntent ? (
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="max-w-md text-[0.9rem] text-[#607089]">
                       {requestIntent.requiresContractAcceptance
@@ -973,9 +1160,147 @@ export default function BenefitsBoard() {
                 )}
               </div>
             </>
-          ) : null}
-        </SheetContent>
-      </Sheet>
+          </div>
+        </div>
+      ) : null}
+
+      {requestModalBenefit ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f172a]/12 px-4 py-6 backdrop-blur-[2px]">
+          <div className="relative flex max-h-[90vh] w-full max-w-[32rem] flex-col overflow-hidden rounded-[18px] border border-[#dfe6f0] bg-white shadow-[0_20px_40px_rgba(15,23,42,0.18)]">
+            <button
+              type="button"
+              onClick={closeRequestModal}
+              className="absolute right-5 top-5 rounded-[10px] p-1.5 text-[#66758b] transition hover:bg-[#f3f6fb] hover:text-[#18243d]"
+              aria-label="Close request modal"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="space-y-2 px-6 pt-6">
+              <h2 className="pr-10 text-[1.05rem] font-semibold tracking-[-0.03em] text-[#18243d] sm:text-[1.2rem]">
+                Request {requestModalBenefit.title}
+              </h2>
+              <p className="text-[0.95rem] text-[#4c5d75]">
+                Submit a formal request to activate this benefit.
+              </p>
+            </div>
+
+            <div className="space-y-5 overflow-y-auto px-6 py-6">
+              <section className="rounded-[16px] border border-[#e4ebf5] bg-[#fbfcfe] p-5">
+                <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
+                  Benefit Details
+                </h3>
+                <p className="mt-4 text-[0.95rem] leading-8 text-[#6c7d96]">
+                  {requestModalBenefit.description}
+                </p>
+              </section>
+
+              <section className="rounded-[16px] border border-[#e4ebf5] bg-[#fbfcfe] p-5">
+                <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
+                  Requirements
+                </h3>
+                <div className="mt-4 space-y-3">
+                  {requestModalBenefit.requirements.map((requirement) => (
+                    <div
+                      key={requirement.label}
+                      className="flex items-center gap-3 text-[0.95rem] text-[#18243d]"
+                    >
+                      <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                      <span>{requirement.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {requestIntent?.activeContract ? (
+                <section className="rounded-[16px] border border-[#d9e1ef] bg-white p-5">
+                  <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
+                    Contract
+                  </h3>
+                  {requestIntent.activeContract.r2ObjectKey ? (
+                    <a
+                      href={requestIntent.activeContract.r2ObjectKey}
+                      download
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-4 flex items-center gap-3 rounded-[14px] border border-[#e4ebf5] bg-[#fbfcfe] px-4 py-3 text-[0.95rem] text-[#3b4960] transition hover:border-[#cdd8ea] hover:bg-white"
+                    >
+                      <FileText className="h-5 w-5 text-[#2f66f6]" />
+                      <span>{requestModalBenefit.title} PDF</span>
+                    </a>
+                  ) : (
+                    <div className="mt-4 flex items-center gap-3 rounded-[14px] border border-[#e4ebf5] bg-[#fbfcfe] px-4 py-3 text-[0.95rem] text-[#94a3b8]">
+                      <FileText className="h-5 w-5 text-[#94a3b8]" />
+                      <span>PDF unavailable</span>
+                    </div>
+                  )}
+
+                  <label className="mt-4 flex cursor-pointer items-center gap-3 text-[0.95rem] text-[#18243d]">
+                    <input
+                      type="checkbox"
+                      checked={acceptedTerms}
+                      onChange={(event) => setAcceptedTerms(event.target.checked)}
+                      className="sr-only"
+                    />
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#2f66f6] bg-white">
+                      {acceptedTerms ? (
+                        <CheckCircle2 className="h-5 w-5 text-[#2f66f6]" />
+                      ) : (
+                        <Circle className="h-4 w-4 text-transparent" />
+                      )}
+                    </span>
+                    <span>
+                      I accept the terms and conditions for{" "}
+                      {requestIntent.activeContract.vendorName}
+                    </span>
+                  </label>
+                </section>
+              ) : null}
+
+              {detailError ? (
+                <div className="rounded-[12px] border border-rose-200 bg-rose-50 p-4 text-[0.9rem] text-rose-700">
+                  {detailError}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-[#e4ebf5] px-6 py-5">
+              <button
+                type="button"
+                onClick={closeRequestModal}
+                className="h-11 rounded-[14px] border border-[#d9e1ef] bg-white px-5 text-[0.95rem] font-medium text-[#3c4a60] transition hover:bg-[#f8fafc]"
+              >
+                Cancel
+              </button>
+              <Button
+                type="button"
+                onClick={() => handleConfirmRequest(requestModalBenefit)}
+                disabled={
+                  confirming ||
+                  preparingBenefitId === requestModalBenefit.id ||
+                  requestIntent == null ||
+                  (requestIntent?.requiresContractAcceptance && !acceptedTerms)
+                }
+                className="h-11 rounded-[14px] bg-[#9dbffd] px-5 text-[0.95rem] font-medium text-white hover:bg-[#88aff8] disabled:opacity-60"
+              >
+                {preparingBenefitId === requestModalBenefit.id ? (
+                  <>
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    Loading
+                  </>
+                ) : confirming ? (
+                  <>
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    Submitting
+                  </>
+                ) : (
+                  "Submit Request"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
