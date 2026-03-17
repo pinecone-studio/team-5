@@ -6,7 +6,7 @@ import { Check, ChevronDown, Pencil, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { gql } from "@apollo/client";
-import { useQuery } from "@apollo/client/react";
+import { useMutation, useQuery } from "@apollo/client/react";
 
 const GET_BENEFITS = gql`
 query{
@@ -74,7 +74,18 @@ const conditionOperators = [
   "Not equals",
   "Greater than",
   "Less than",
+  "In",
+  "Not In"
 ];
+
+const CREATE_RULE = gql`
+mutation($input: CreateEligibilityRuleInput!){
+  createEligibilityRule(input: $input){
+    id
+  }
+}
+`
+
 
 export default function AdminRulesPage() {
   const [isBenefitOpen, setIsBenefitOpen] = useState(false);
@@ -98,9 +109,7 @@ export default function AdminRulesPage() {
 
   const { data: rulesData } = useQuery<RuleData>(GET_RULES)
 
-  useEffect(() => {
-    console.log(rulesData)
-  }, [rulesData])
+  const [createRule] = useMutation(CREATE_RULE)
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -115,11 +124,9 @@ export default function AdminRulesPage() {
 
   const handleEditRule = (ruleId: string) => {
     setEditingRuleId(ruleId);
-    setRuleTypeValue("Responsibility level");
     setConditionField(conditionFields[0]);
     setConditionOperator(conditionOperators[0]);
     setConditionValue("2");
-    setFailMessageValue("Level must be 2");
   };
 
   const handleAddRule = () => {
@@ -141,53 +148,102 @@ export default function AdminRulesPage() {
     setIsDeleteSuccessOpen(true);
   };
 
+  const handleCreateNewRule = async () => {
+    createRule({
+      variables: {
+        benefitId: selectedBenefitId,
+        value: conditionValue,
+        type: ruleTypeValue,
+        operator: 'eq',
+        errorMessage: failMessageValue
+      }
+    })
+  }
+
   return (
     <>
       <section className="mx-auto w-full max-w-6xl px-2 py-2 sm:px-4 lg:px-6">
-        <div ref={dropdownRef} className="relative z-20 max-w-[535px]">
-          <label className="mb-3 block text-sm font-medium text-gray-700">
-            Select benefit
-          </label>
-          <button
-            type="button"
-            onClick={() => setIsBenefitOpen((open) => !open)}
-            className="flex h-11 w-full items-center justify-between rounded-[10px] border border-gray-200 bg-white px-4 text-left text-base font-medium text-gray-800 shadow-sm outline-none transition hover:border-gray-300"
-            aria-haspopup="listbox"
-            aria-expanded={isBenefitOpen}
-          >
-            <span>{selectedBenefit}</span>
-            <ChevronDown
-              className={`h-5 w-5 text-gray-800 transition-transform ${isBenefitOpen ? "rotate-180" : ""
-                }`}
-            />
-          </button>
+        <div className="flex w-full justify-between items-center">
 
-          {isBenefitOpen ? (
-            <div className="absolute top-full right-0 left-0 mt-3 overflow-hidden rounded-[12px] border border-gray-200 bg-white shadow-md">
-              <ul
-                role="listbox"
-                aria-label="Benefit options"
-                className="max-h-[560px] overflow-y-auto py-2"
-              >
-                {benefitData?.benefits.map((benefit) => (
-                  <li key={benefit.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedBenefit(benefit.name);
-                        setSelectedBenefitId(benefit.id)
-                        setIsBenefitOpen(false);
-                      }}
-                      className="w-full px-4 py-3 text-left text-base text-gray-800 transition hover:bg-gray-50"
-                    >
-                      {benefit.name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+          <div ref={dropdownRef} className="relative z-20 w-full">
+            <label className="mb-3 block text-sm font-medium text-gray-700">
+              Select benefit
+            </label>
+            <button
+              type="button"
+              onClick={() => setIsBenefitOpen((open) => !open)}
+              className="flex h-11 w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 text-left text-base font-medium text-gray-800 shadow-sm outline-none transition hover:border-gray-300"
+              aria-haspopup="listbox"
+              aria-expanded={isBenefitOpen}
+            >
+              <span>{selectedBenefit}</span>
+              <ChevronDown
+                className={`h-5 w-5 text-gray-800 transition-transform ${isBenefitOpen ? "rotate-180" : ""
+                  }`}
+              />
+            </button>
+
+            {isBenefitOpen ? (
+              <div className="absolute top-full right-0 left-0 mt-3 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
+                <ul
+                  role="listbox"
+                  aria-label="Benefit options"
+                  className="max-h-[560px] overflow-y-auto py-2"
+                >
+                  {benefitData?.benefits.map((benefit) => (
+                    <li key={benefit.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedBenefit(benefit.name);
+                          setSelectedBenefitId(benefit.id)
+                          setIsBenefitOpen(false);
+                        }}
+                        className="w-full px-4 py-3 text-left text-base text-gray-800 transition hover:bg-gray-50"
+                      >
+                        {benefit.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex gap-4 w-full max-w-[700px]">
+
+            {/* Details */}
+            <div className="w-full">
+              <label className="mb-3 block text-sm font-medium text-gray-700">
+                Details
+              </label>
+              <div className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 flex items-center text-sm text-gray-700">
+                {
+                  benefitData?.benefits.find(b => b.id === selectedBenefitId)?.subsidyPercent
+                }% subsidy • {
+                  benefitData?.benefits.find(b => b.id === selectedBenefitId)?.vendorName
+                }
+              </div>
             </div>
-          ) : null}
+
+            {/* Contract */}
+            <div className="w-full">
+              <label className="mb-3 block text-sm font-medium text-gray-700">
+                Contract
+              </label>
+              <div className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 flex items-center text-sm text-gray-700">
+                {
+                  benefitData?.benefits.find(b => b.id === selectedBenefitId)?.activeContractId
+                    ? "Contract attached"
+                    : "No contract"
+                }
+              </div>
+            </div>
+
+          </div>
+
         </div>
+
 
         <div className="mt-8 overflow-hidden rounded-[12px] border border-gray-200 bg-white shadow-sm">
           <table className="w-full border-collapse">
@@ -211,13 +267,13 @@ export default function AdminRulesPage() {
               </tr>
             </thead>
             <tbody>
-              {rulesData?.eligibilityRules.map((rule, index) => (rule.benefitId === selectedBenefitId &&
+              {rulesData?.eligibilityRules.filter(rule => rule.benefitId === selectedBenefitId).map((rule, index) => (
                 <tr
                   key={rule.id}
                   className="border-b border-gray-200 last:border-b-0"
                 >
                   <td className="px-4 py-5 text-base text-gray-700">
-                    {index}
+                    {index + 1}
                   </td>
                   <td className="px-4 py-5 text-[15px] font-medium text-gray-900">
                     {rule.type}
@@ -228,8 +284,8 @@ export default function AdminRulesPage() {
                     <span>{rule.operator === 'neq' && '!='}</span>
                     <span>{rule.operator === 'lt' && '<'}</span>
                     <span>{rule.operator === 'lte' && '=<'}</span>
-                    <span>{rule.operator === 'ht' && '>'}</span>
-                    <span>{rule.operator === 'hte' && '>='}</span>
+                    <span>{rule.operator === 'gt' && '>'}</span>
+                    <span>{rule.operator === 'gte' && '>='}</span>
                     <span>{rule.operator === 'in' && '='}</span>
                     <span>{rule.operator === 'not_in' && '!='}</span>
                     {rule.value}
@@ -285,11 +341,18 @@ export default function AdminRulesPage() {
                 <label className="mb-2 block text-base font-medium text-slate-500">
                   Rule Type
                 </label>
-                <Input
+                <select name="rule-type" className="border w-full p-2 bg-white rounded-xl"
                   value={ruleTypeValue}
-                  onChange={(event) => setRuleTypeValue(event.target.value)}
-                  className="h-11 rounded-[10px] border-[3px] border-gray-400 bg-white px-4 text-base text-gray-800 shadow-none focus-visible:border-gray-400 focus-visible:ring-0"
-                />
+                  defaultValue={ruleTypeValue}
+                  onChange={(e) => setRuleTypeValue(e.target.value)}
+                >
+                  <option>employment_status</option>
+                  <option>okr_submitted</option>
+                  <option>attendance</option>
+                  <option>responsibility_level</option>
+                  <option>role</option>
+                  <option>tenure_days</option>
+                </select>
               </div>
 
               <div>
@@ -384,12 +447,18 @@ export default function AdminRulesPage() {
                 <label className="mb-2 block text-base font-medium text-slate-500">
                   Rule Type
                 </label>
-                <Input
+                <select name="rule-type" className="border w-full p-2 bg-white rounded-xl"
                   value={ruleTypeValue}
-                  onChange={(event) => setRuleTypeValue(event.target.value)}
-                  placeholder="I.e.g. Employment Status"
-                  className="h-11 rounded-[10px] border-[3px] border-gray-400 bg-white px-4 text-base text-gray-800 shadow-none focus-visible:border-gray-400 focus-visible:ring-0"
-                />
+                  defaultValue={ruleTypeValue}
+                  onChange={(e) => setRuleTypeValue(e.target.value)}
+                >
+                  <option>employment_status</option>
+                  <option>okr_submitted</option>
+                  <option>attendance</option>
+                  <option>responsibility_level</option>
+                  <option>role</option>
+                  <option>tenure_days</option>
+                </select>
               </div>
 
               <div>
@@ -464,8 +533,8 @@ export default function AdminRulesPage() {
               </Button>
               <Button
                 type="button"
-                onClick={closeAddModal}
-                className="h-10 min-w-24 rounded-[10px] bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700"
+                onClick={handleCreateNewRule}
+                className="h-10 min-w-24 rounded-xl bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700"
               >
                 Add
               </Button>
