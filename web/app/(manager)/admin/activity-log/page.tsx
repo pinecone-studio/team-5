@@ -71,18 +71,16 @@ function getActionTone(action: string) {
   const normalized = action.toLowerCase();
 
   if (normalized.includes("approved")) {
-    return "bg-green-100 text-green-700";
+    return " text-[#008B3A]";
+  }
+  if (normalized.includes("locked")) {
+    return " text-[#6A6A6A]";
+  }
+  if (normalized.includes("rejected") || normalized.includes("cancelled")) {
+    return " text-[#D62727]";
   }
 
-  if (
-    normalized.includes("locked") ||
-    normalized.includes("rejected") ||
-    normalized.includes("cancelled")
-  ) {
-    return "bg-amber-100 text-amber-700";
-  }
-
-  return "bg-sky-100 text-sky-700";
+  return " text-[#0062DB]";
 }
 
 function ActionBadge({ action }: { action: string }) {
@@ -206,15 +204,15 @@ export default function AdminActivityLogPage() {
     <section className="space-y-8">
       <div className="flex items-start justify-between gap-6">
         <div className="flex h-15 w-94.5 flex-col gap-1">
-          <h2 className="text-[20px] font-semibold leading-7 tracking-[-0.02em] text-[#111827]">
+          <h2 className="text-[2.15rem] font-semibold tracking-[-0.03em] text-slate-900 ">
             Activity Log
           </h2>
-          <p className="text-[14px] leading-5 text-[#64748B]">
+          <p className="mt-3 text-[1.05rem] text-slate-500">
             Track all system changes and actions
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center pt-12 gap-3">
           <div className="relative w-[288px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
@@ -235,8 +233,9 @@ export default function AdminActivityLogPage() {
               {selectedFilter}
 
               <ChevronDown
-                className={`h-4 w-4 text-slate-400 transition ${dropdownOpen ? "rotate-180" : ""
-                  }`}
+                className={`h-4 w-4 text-slate-400 transition ${
+                  dropdownOpen ? "rotate-180" : ""
+                }`}
               />
             </button>
 
@@ -250,10 +249,11 @@ export default function AdminActivityLogPage() {
                       setSelectedFilter(filter);
                       setDropdownOpen(false);
                     }}
-                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-[14px] ${selectedFilter === filter
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-[14px] ${
+                      selectedFilter === filter
                         ? "bg-slate-50 font-medium text-slate-900"
                         : "text-slate-600 hover:bg-slate-50"
-                      }`}
+                    }`}
                   >
                     <span>{filter}</span>
                     {selectedFilter === filter && (
@@ -266,32 +266,32 @@ export default function AdminActivityLogPage() {
           </div>
         </div>
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto pt-3">
         <div className="overflow-hidden rounded-[12px] border border-[#E2E8F0] bg-white">
           <table className="w-full max-w-[294.5] table-fixed">
             <thead className="bg-[#E1E7F0]">
               <tr className="h-14.5 border-b border-[#E2E8F0]">
-                <th className="w-17.5 px-5 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                <th className="w-15 px-6 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
                   TIMESTAMP
                 </th>
 
-                <th className="w-45 px-5 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                <th className="w-25 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
                   EMPLOYEE
                 </th>
 
-                <th className="w-30 px-5 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                <th className="w-20 px-3 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
                   BENEFITS
                 </th>
 
-                <th className="w-25 px-5 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                <th className="w-15 px-3 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
                   ACTION
                 </th>
 
-                <th className="w-50.5 px-5 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                <th className="w-50.5 px-1 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
                   DETAIL
                 </th>
 
-                <th className="w-33 px-5 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                <th className="w-25 px-5 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
                   PERFORMED BY
                 </th>
               </tr>
@@ -311,28 +311,29 @@ export default function AdminActivityLogPage() {
                 filteredLogs.map((log, idx) => (
                   <tr
                     key={log.id}
-                    className={`h-13.5 align-middle ${idx !== filteredLogs.length - 1
+                    className={`h-13.5 align-middle ${
+                      idx !== filteredLogs.length - 1
                         ? "border-b border-[#E2E8F0]"
                         : ""
-                      }`}
+                    }`}
                   >
-                    <td className="px-5 py-0 text-[14px] font-normal whitespace-nowrap align-middle text-[#667085]">
+                    <td className="px-6 py-0 text-[14px] font-normal whitespace-nowrap align-middle text-[#667085]">
                       {formatTimestamp(log.createdAt)}
                     </td>
 
-                    <td className="px-5 py-0 text-[14px] font-semibold whitespace-nowrap align-middle text-[#0F172A]">
+                    <td className=" py-0 text-[14px] font-semibold whitespace-nowrap align-middle text-[#0F172A]">
                       {log.employeeName ?? "System"}
                     </td>
 
-                    <td className="px-5 py-0 text-[14px] whitespace-nowrap align-middle text-[#334155]">
+                    <td className="px-3 py-0 text-[14px] whitespace-nowrap align-middle text-[#334155]">
                       {log.benefitName ?? "-"}
                     </td>
 
-                    <td className="px-5 py-0 whitespace-nowrap align-middle">
+                    <td className="px-3 py-0 whitespace-nowrap align-middle">
                       <ActionBadge action={log.action} />
                     </td>
 
-                    <td className="px-5 py-0 text-[14px] align-middle text-[#334155]">
+                    <td className="px-1 py-0 text-[14px] align-middle text-[#334155]">
                       {log.detail}
                     </td>
 

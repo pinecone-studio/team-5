@@ -694,7 +694,7 @@ export default function EmployeesBoard() {
                                   );
                                 }}
                                 className={cn(
-                                  "inline-flex min-w-[12.25rem] items-center justify-between gap-3 rounded-md bg-stone-50 px-5 py-3 text-[1rem] font-medium",
+                                  "inline-flex min-w-[12.25rem] items-center justify-between gap-3 rounded-md px-5 py-3 text-[1rem] font-medium",
                                   getOkrClasses(employee.okr),
                                 )}
                               >
