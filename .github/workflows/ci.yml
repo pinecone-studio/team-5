@@ -1,79 +1,17 @@
-name: CI/CD
+name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
-  workflow_dispatch:
-
-permissions:
-  contents: read
+  push:
+    branches:
+      - main
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  CI: true
-  NEXT_TELEMETRY_DISABLED: 1
-
 jobs:
-  changes:
-    name: Detect changes
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      service: ${{ steps.filter.outputs.service }}
-      web: ${{ steps.filter.outputs.web }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Filter paths
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            service:
-              - 'service/**'
-            web:
-              - 'web/**'
-
-  service:
-    name: Service (Worker)
-    needs: changes
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.service == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: |
-            service/package-lock.json
-
-      - name: Install dependencies
-        working-directory: service
-        run: npm ci
-
-      - name: Typecheck
-        working-directory: service
-        run: npx tsc -p tsconfig.json
-
-      - name: Test
-        working-directory: service
-        run: npm test
-
-  web:
-    name: Web (Next.js)
-    needs: changes
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true' }}
+  ci:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -87,94 +25,24 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: |
+            package-lock.json
+            service/package-lock.json
             web/package-lock.json
 
-      - name: Install dependencies
-        working-directory: web
+      - name: Install (root)
         run: npm ci
 
+      - name: Install (service)
+        run: npm ci --prefix service
+
+      - name: Install (web)
+        run: npm ci --prefix web
+
       - name: Lint
-        working-directory: web
         run: npm run lint
 
       - name: Test
-        working-directory: web
         run: npm test
 
       - name: Build
-        working-directory: web
         run: npm run build
-
-  deploy-service:
-    name: Deploy Service
-    needs: [changes, service]
-    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.service == 'true') && needs.service.result == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: |
-            service/package-lock.json
-
-      - name: Install dependencies
-        working-directory: service
-        run: npm ci
-
-      - name: Sync Clerk secret
-        working-directory: service
-        run: printf '%s' "$CLERK_SECRET_KEY" | npx wrangler secret put CLERK_SECRET_KEY
-
-      - name: Apply remote D1 migrations
-        working-directory: service
-        run: npm run db:migrate:remote
-
-      - name: Deploy worker
-        working-directory: service
-        run: npm run deploy
-
-  deploy-web:
-    name: Deploy Web
-    needs: [changes, web]
-    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true') && needs.web.result == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: |
-            web/package-lock.json
-
-      - name: Install dependencies
-        working-directory: web
-        run: npm ci
-
-      - name: Sync Clerk secret
-        working-directory: web
-        run: printf '%s' "$CLERK_SECRET_KEY" | npx wrangler secret put CLERK_SECRET_KEY
-
-      - name: Deploy worker
-        working-directory: web
-        run: npm run deploy
