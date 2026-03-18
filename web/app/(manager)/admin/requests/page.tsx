@@ -21,6 +21,7 @@ const ADMIN_REQUESTS_QUERY = gql`
     benefits {
       id
       name
+      requiresContract
     }
     benefitRequests {
       id
@@ -41,6 +42,7 @@ const REVIEWER_REQUESTS_QUERY = gql`
     benefits {
       id
       name
+      requiresContract
     }
     benefitRequests {
       id
@@ -81,6 +83,7 @@ interface EmployeeItem {
 interface BenefitItem {
   id: string
   name: string
+  requiresContract: boolean | null
 }
 
 interface BenefitRequestItem {
@@ -129,6 +132,7 @@ interface RequestRow {
   id: string
   employee: string
   benefit: string
+  requiresContract: boolean
   status: RequestStatus
   createdAt: string
   contractAcceptedAt: string | null
@@ -149,13 +153,13 @@ function formatDate(isoDate: string) {
 function getStatusClasses(status: RequestStatus) {
   switch (status) {
     case "approved":
-      return "bg-[#DCFCE7] text-[#15803D]"
+      return "text-[#16A34A]"
     case "rejected":
-      return "bg-[#F4F6F8] text-[#5F6B7E]"
+      return "text-[#EF4444]"
     case "cancelled":
-      return "bg-[#E5E7EB] text-[#4B5563]"
+      return "text-[#64748B]"
     default:
-      return "bg-[#FEF3C7] text-[#7C5E10]"
+      return "text-[#2563EB]"
   }
 }
 
@@ -168,7 +172,7 @@ function getStatusLabel(status: RequestStatus) {
     case "cancelled":
       return "Cancelled"
     default:
-      return "Pending"
+      return "Requested"
   }
 }
 
@@ -176,11 +180,21 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Request could not be updated."
 }
 
+function shouldShowContractAccepted(request: Pick<RequestRow, "benefit" | "requiresContract" | "contractAcceptedAt">) {
+  const normalizedBenefitName = request.benefit.trim().toLowerCase()
+
+  return (
+    request.requiresContract &&
+    Boolean(request.contractAcceptedAt) &&
+    !normalizedBenefitName.includes("okr")
+  )
+}
+
 function StatusBadge({ status }: { status: RequestStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-[10px] px-3 py-1 text-[0.95rem] font-medium",
+        "inline-flex items-center text-[1.05rem] font-medium tracking-[-0.02em]",
         getStatusClasses(status),
       )}
     >
@@ -210,7 +224,7 @@ function RequestNotice({
         />
         <p
           className={cn(
-            "text-[1rem] font-semibold tracking-[-0.02em]",
+            "text-[1rem] font-medium tracking-[-0.02em]",
             isApproved ? "text-[#16A34A]" : "text-[#EF4444]",
           )}
         >
@@ -245,7 +259,7 @@ function RejectRequestDialog({
       <div className="w-full max-w-3xl rounded-[18px] border border-[#d7deea] bg-white px-8 py-7 shadow-[0_24px_80px_rgba(15,23,42,0.2)]">
         <div className="flex items-start justify-between gap-5">
           <div className="space-y-3">
-            <h2 className="text-[2.4rem] font-semibold tracking-[-0.05em] text-[#17243d]">
+            <h2 className="text-[2.4rem] font-medium tracking-[-0.05em] text-[#17243d]">
               Reject Request
             </h2>
             <p className="max-w-[44rem] text-[1.05rem] leading-[1.65] text-[#6D7B93]">
@@ -266,7 +280,7 @@ function RejectRequestDialog({
         <div className="mt-8 space-y-3">
           <label
             htmlFor="reject-review-notes"
-            className="block text-[1.1rem] font-semibold tracking-[-0.03em] text-[#17243d]"
+            className="block text-[1.1rem] font-medium tracking-[-0.03em] text-[#17243d]"
           >
             Review Notes (Optional)
           </label>
@@ -321,7 +335,7 @@ function AdminRequestsSkeleton() {
         <Skeleton className="h-6 w-[30rem]" />
       </div>
 
-      <div className="overflow-hidden rounded-[12px] border border-[#d9e1ef] bg-white">
+      <div className="admin-table-card">
         <div className="grid grid-cols-[4.5rem_1.4fr_1.2fr_1fr_1fr_1.15fr] gap-4 bg-[#edf2f9] px-6 py-5">
           {Array.from({ length: 6 }).map((_, index) => (
             <Skeleton key={index} className="h-6 w-full" />
@@ -421,6 +435,9 @@ export default function AdminRequestsPage() {
           employee:
             employeeMap.get(request.employeeId)?.fullName ?? request.employeeId,
           benefit: benefitMap.get(request.benefitId)?.name ?? request.benefitId,
+          requiresContract: Boolean(
+            benefitMap.get(request.benefitId)?.requiresContract,
+          ),
           status: request.status,
           createdAt: request.createdAt,
           contractAcceptedAt: request.contractAcceptedAt,
@@ -548,7 +565,7 @@ export default function AdminRequestsPage() {
     <>
       <div className="space-y-7 pb-24">
         <section className="space-y-2 pt-2">
-          <h1 className="text-[2.35rem] font-semibold tracking-[-0.05em] text-[#17243d]">
+          <h1 className="text-[2.35rem] font-medium tracking-[-0.05em] text-[#17243d]">
             {title}
           </h1>
           <p className="text-[1.15rem] text-[#708198]">{description}</p>
@@ -560,17 +577,17 @@ export default function AdminRequestsPage() {
           </section>
         ) : null}
 
-        <section className="overflow-hidden rounded-[12px] border border-[#d9e1ef] bg-white">
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left">
-              <thead className="bg-[#edf2f9]">
-                <tr className="text-[0.95rem] uppercase tracking-[0.03em] text-[#6D7B93]">
-                  <th className="w-16 px-6 py-5 font-medium">#</th>
-                  <th className="px-6 py-5 font-medium">Employee</th>
-                  <th className="px-6 py-5 font-medium">Benefit</th>
-                  <th className="px-6 py-5 font-medium">Date</th>
-                  <th className="px-6 py-5 font-medium">Status</th>
-                  <th className="px-6 py-5 text-right font-medium">Actions</th>
+        <section className="admin-table-card">
+          <div className="admin-table-scroll">
+            <table className="admin-table">
+              <thead className="admin-table-head">
+                <tr className="admin-table-header-row">
+                  <th className="admin-table-th w-16">#</th>
+                  <th className="admin-table-th">Employee</th>
+                  <th className="admin-table-th">Benefit</th>
+                  <th className="admin-table-th">Date</th>
+                  <th className="admin-table-th">Status</th>
+                  <th className="admin-table-th text-right">Actions</th>
                 </tr>
               </thead>
 
@@ -584,36 +601,31 @@ export default function AdminRequestsPage() {
                     return (
                       <tr
                         key={request.id}
-                        className="border-t border-[#e8edf5] text-[#17243d]"
+                        className="text-[#17243d]"
                       >
-                        <td className="px-6 py-5 text-[1rem]">{index + 1}</td>
-                        <td className="px-6 py-5 text-[1.15rem] font-semibold tracking-[-0.02em]">
+                        <td className="admin-table-cell text-[1rem]">{index + 1}</td>
+                        <td className="admin-table-cell text-[1.15rem] font-medium tracking-[-0.02em]">
                           {request.employee}
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="admin-table-cell">
                           <div className="space-y-1">
                             <p className="text-[1.15rem] tracking-[-0.02em] text-[#17243d]">
                               {request.benefit}
                             </p>
-                            {request.contractAcceptedAt ? (
+                            {shouldShowContractAccepted(request) ? (
                               <p className="text-[0.95rem] text-[#16A34A]">
                                 Contract Accepted
                               </p>
                             ) : null}
-                            {request.status === "rejected" && request.reviewNotes ? (
-                              <p className="max-w-xl text-[0.9rem] text-[#708198]">
-                                {request.reviewNotes}
-                              </p>
-                            ) : null}
                           </div>
                         </td>
-                        <td className="px-6 py-5 text-[1.1rem] text-[#5F6B7E]">
+                        <td className="admin-table-cell text-[1.1rem] text-[#5F6B7E]">
                           {formatDate(request.createdAt)}
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="admin-table-cell">
                           <StatusBadge status={request.status} />
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="admin-table-cell">
                           <div className="flex justify-end gap-3">
                             {isPending ? (
                               <>
@@ -652,7 +664,7 @@ export default function AdminRequestsPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-14">
+                    <td colSpan={6} className="admin-table-cell px-6 py-14">
                       <div className="flex flex-col items-center justify-center gap-3 text-center">
                         <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-[#f4f7fb] text-[#708198]">
                           <FileText className="h-6 w-6" />
