@@ -214,7 +214,7 @@ export default function AdminRulesPage() {
   const [benefitCategoryValue, setBenefitCategoryValue] = useState("");
   const [benefitVendorValue, setBenefitVendorValue] = useState("");
   const [benefitSubsidyValue, setBenefitSubsidyValue] = useState("50");
-  const [benefitContractValue, setBenefitContractValue] = useState("");
+  const [benefitContractValue, setBenefitContractValue] = useState<File | null>(null);
 
   const {
     data: benefitData,
@@ -313,7 +313,7 @@ export default function AdminRulesPage() {
     setBenefitCategoryValue("");
     setBenefitVendorValue("");
     setBenefitSubsidyValue("50");
-    setBenefitContractValue("");
+    setBenefitContractValue(null);
     setBenefitActionError(null);
   };
 
@@ -351,7 +351,7 @@ export default function AdminRulesPage() {
     setBenefitCategoryValue(selectedBenefit.category ?? "");
     setBenefitVendorValue(selectedBenefit.vendorName ?? "");
     setBenefitSubsidyValue(String(selectedBenefit.subsidyPercent));
-    setBenefitContractValue(selectedBenefit.activeContractId ?? "");
+    // setBenefitContractValue(selectedBenefit.activeContractId ?? "");
     setBenefitActionError(null);
     setIsEditBenefitModalOpen(true);
   };
@@ -408,8 +408,8 @@ export default function AdminRulesPage() {
     try {
       await updateRule({
         variables: {
-            input: {
-              id: editingRuleId,
+          input: {
+            id: editingRuleId,
             value: conditionValue.trim(),
             type: ruleTypeValue,
             operator: conditionOperator,
@@ -446,7 +446,7 @@ export default function AdminRulesPage() {
 
   const handleCreateBenefit = async () => {
     const subsidyPercent = Number(benefitSubsidyValue);
-    if (!benefitNameValue.trim() || Number.isNaN(subsidyPercent)) {
+    if (!benefitNameValue.trim() || Number.isNaN(subsidyPercent || !benefitContractValue)) {
       setBenefitActionError("Benefit name and subsidy percent are required.");
       return;
     }
@@ -459,7 +459,7 @@ export default function AdminRulesPage() {
             category: benefitCategoryValue.trim() || null,
             subsidyPercent,
             vendorName: benefitVendorValue.trim() || null,
-            activeContractId: benefitContractValue.trim() || null,
+            // activeContractId: benefitContractValue.trim() || null,
           },
         },
       });
@@ -494,7 +494,7 @@ export default function AdminRulesPage() {
             category: benefitCategoryValue.trim() || null,
             subsidyPercent,
             vendorName: benefitVendorValue.trim() || null,
-            activeContractId: benefitContractValue.trim() || null,
+            // activeContractId: benefitContractValue.trim() || null,
           },
         },
       });
@@ -604,17 +604,78 @@ export default function AdminRulesPage() {
 
       <div>
         <label className="mb-2 block text-base font-medium text-slate-500">
-          Contract
+          Upload Contract
         </label>
-        <div className="relative">
-          <FileText className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#3164e0]" />
-          <Input
-            value={benefitContractValue}
-            onChange={(event) => setBenefitContractValue(event.target.value)}
-            placeholder="+ Add files"
-            className="h-11 rounded-xl border border-[#d9e2ef] bg-white pr-4 pl-10 text-sm text-gray-800 focus-visible:ring-0"
-          />
-        </div>
+
+        {!benefitContractValue ? (
+          // 🟦 EMPTY STATE (drag & drop)
+          <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center transition hover:border-gray-400">
+
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) setBenefitContractValue(file);
+              }}
+              className="absolute inset-0 cursor-pointer opacity-0"
+            />
+
+            <div className="mb-4">
+              <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12.8999 0.899902V16.8999M12.8999 0.899902L19.5666 7.56657M12.8999 0.899902L6.23324 7.56657M24.8999 16.8999V22.2332C24.8999 22.9405 24.619 23.6188 24.1189 24.1189C23.6188 24.619 22.9405 24.8999 22.2332 24.8999H3.56657C2.85933 24.8999 2.18105 24.619 1.68095 24.1189C1.18085 23.6188 0.899902 22.9405 0.899902 22.2332V16.8999" stroke="#0E1629" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+
+            </div>
+
+            <p className="text-lg font-medium text-gray-800">
+              Drag and drop your PDF here
+            </p>
+            <p className="mt-1 text-sm text-gray-500">
+              Upload a contract PDF to add signature fields
+            </p>
+          </div>
+        ) : (
+          // 🟩 FILE SELECTED STATE
+          <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-gray-100 px-4 py-3">
+
+            <div className="flex items-center gap-3">
+              {/* File icon */}
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+                <svg
+                  className="h-5 w-5 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+                  <path d="M14 3v5h5" />
+                </svg>
+
+              </div>
+
+              {/* File info */}
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  {benefitContractValue.name}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {(benefitContractValue.size / 1024).toFixed(1)} KB
+                </p>
+              </div>
+            </div>
+
+            {/* Remove button */}
+            <button
+              type="button"
+              onClick={() => setBenefitContractValue(null)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
       {benefitActionError ? (
@@ -662,9 +723,8 @@ export default function AdminRulesPage() {
                 {selectedBenefit?.name ?? (loadingBenefits ? "Loading..." : "No benefits")}
               </span>
               <ChevronDown
-                className={`h-5 w-5 shrink-0 text-[#7a8798] transition-transform ${
-                  isBenefitOpen ? "rotate-180" : ""
-                }`}
+                className={`h-5 w-5 shrink-0 text-[#7a8798] transition-transform ${isBenefitOpen ? "rotate-180" : ""
+                  }`}
               />
             </button>
 
@@ -703,9 +763,8 @@ export default function AdminRulesPage() {
             >
               <span className="truncate">
                 {selectedBenefit
-                  ? `${selectedBenefit.subsidyPercent}% subsidy on ${
-                      selectedBenefit.vendorName ?? selectedBenefit.name
-                    }`
+                  ? `${selectedBenefit.subsidyPercent}% subsidy on ${selectedBenefit.vendorName ?? selectedBenefit.name
+                  }`
                   : "Select a benefit to view details"}
               </span>
             </button>
@@ -722,14 +781,12 @@ export default function AdminRulesPage() {
               className="flex h-16 w-full items-center gap-3 rounded-[16px] border border-[#d9e1ef] bg-white px-5 text-left text-[1.02rem] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#c7d5e6] disabled:cursor-not-allowed disabled:opacity-70"
             >
               <FileText
-                className={`h-5 w-5 shrink-0 ${
-                  selectedBenefit?.activeContractId ? "text-[#2563EB]" : "text-[#94A3B8]"
-                }`}
+                className={`h-5 w-5 shrink-0 ${selectedBenefit?.activeContractId ? "text-[#2563EB]" : "text-[#94A3B8]"
+                  }`}
               />
               <span
-                className={`truncate ${
-                  selectedBenefit?.activeContractId ? "text-[#253247]" : "text-[#708198]"
-                }`}
+                className={`truncate ${selectedBenefit?.activeContractId ? "text-[#253247]" : "text-[#708198]"
+                  }`}
               >
                 {selectedBenefit?.activeContractId
                   ? selectedBenefit.activeContractId

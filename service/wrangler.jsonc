@@ -10,7 +10,9 @@
 	"observability": {
 		"enabled": true,
 	},
-	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
 	"d1_databases": [
 		{
 			"binding": "DB",
@@ -18,6 +20,12 @@
 			"database_id": "c2fa4f72-0c7d-4402-b6e6-f4135abf4dec",
 			"migrations_dir": "drizzle/migrations",
 		},
+	],
+	"r2_buckets": [
+		{
+			"binding": "BUCKET",
+			"bucket_name": "contracts"
+		}
 	],
 	"vars": {
 		"CLERK_PUBLISHABLE_KEY": "pk_test_Ymxlc3NlZC1wcmltYXRlLTc0LmNsZXJrLmFjY291bnRzLmRldiQ",
