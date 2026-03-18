@@ -140,6 +140,8 @@ interface BenefitItem {
   contractDownloadUrl?: string | null;
   contractEffectiveDate?: string | null;
   contractExpiryDate?: string | null;
+  isOverrideActive: boolean;
+  overrideReason?: string | null;
   requirements: Array<{
     label: string;
     passed: boolean;
@@ -367,6 +369,9 @@ function mapBenefitItem(record: BenefitRecord): BenefitItem {
     contractDownloadUrl: record.activeContract?.r2ObjectKey ?? null,
     contractEffectiveDate: record.activeContract?.effectiveDate ?? null,
     contractExpiryDate: record.activeContract?.expiryDate ?? null,
+    isOverrideActive:
+      record.status === "active" && Boolean(record.eligibility.overrideReason),
+    overrideReason: record.eligibility.overrideReason,
   };
 }
 
@@ -443,6 +448,10 @@ function getCriteriaBadgeClasses(status: BenefitStatus) {
   }
 }
 
+function getOverrideBadgeClasses() {
+  return "border-[#cbb2ff] bg-[#f7f1ff] text-[#7a4ef0]";
+}
+
 function getEmploymentValue(status: EmploymentStatus) {
   switch (status) {
     case "leave":
@@ -495,6 +504,7 @@ function BenefitCard({
 }) {
   const isRequestCard = benefit.status === "available";
   const isLockedCard = benefit.status === "locked";
+  const showOverrideBadge = benefit.status === "active" && benefit.isOverrideActive;
   const actionLabel =
     benefit.status === "pending"
       ? "View details"
@@ -525,10 +535,12 @@ function BenefitCard({
         <span
           className={cn(
             "inline-flex min-w-11 items-center justify-center rounded-[10px] border px-3 py-1 text-[0.95rem] font-medium",
-            getCriteriaBadgeClasses(benefit.status),
+            showOverrideBadge
+              ? getOverrideBadgeClasses()
+              : getCriteriaBadgeClasses(benefit.status),
           )}
         >
-          {benefit.criteria}
+          {showOverrideBadge ? "Override" : benefit.criteria}
         </span>
       </div>
 
