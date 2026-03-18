@@ -6,6 +6,8 @@ import { useMutation, useQuery } from "@apollo/client/react";
 import {
   ArrowLeft,
   Check,
+  ChevronLeft,
+  ChevronRight,
   ChevronUp,
   LoaderCircle,
   Minus,
@@ -125,6 +127,7 @@ interface EmployeeItem {
 type PendingLateAction =
   | { type: "add"; employeeId: string }
   | { type: "delete"; employeeId: string; date: string };
+
 type OverrideDialogState = {
   employeeId: string;
   benefitId: string;
@@ -217,8 +220,9 @@ function parseFailureReason(ruleEvaluationJson: string) {
     }
 
     return (
-      parsed.find((item) => item?.passed === false && typeof item.reason === "string")
-        ?.reason ?? null
+      parsed.find(
+        (item) => item?.passed === false && typeof item.reason === "string",
+      )?.reason ?? null
     );
   } catch {
     return null;
@@ -242,7 +246,9 @@ function deriveLateDates(count: number, updatedAt: string | null) {
   }).sort();
 }
 
-function mapOkrStatus(status: EmployeeRecord["employees"][number]["okrStatus"]): OkrStatus {
+function mapOkrStatus(
+  status: EmployeeRecord["employees"][number]["okrStatus"],
+): OkrStatus {
   switch (status) {
     case "success":
       return "Success";
@@ -291,7 +297,9 @@ function buildBenefitReason(params: {
   }
 
   if (params.status === "Available") {
-    return params.eligibilityOverrideReason?.trim() || "All eligibility rules met";
+    return (
+      params.eligibilityOverrideReason?.trim() || "All eligibility rules met"
+    );
   }
 
   return (
@@ -346,28 +354,83 @@ function formatLateDate(date: string) {
   });
 }
 
+function formatSelectedDate(date: Date | null) {
+  if (!date) return "";
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function getCalendarDays(date: Date) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+
+  const firstDay = new Date(year, month, 1);
+  const jsDay = firstDay.getDay();
+  const mondayBasedOffset = (jsDay + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const days: Array<number | null> = [];
+
+  for (let i = 0; i < mondayBasedOffset; i += 1) {
+    days.push(null);
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    days.push(day);
+  }
+
+  while (days.length % 7 !== 0) {
+    days.push(null);
+  }
+
+  return days;
+}
+
+function isSameDay(left: Date | null, right: Date | null) {
+  if (!left || !right) return false;
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
 export default function EmployeesBoard() {
   const [search, setSearch] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [detailEmployeeId, setDetailEmployeeId] = useState<string | null>(null);
   const [openOkrMenuId, setOpenOkrMenuId] = useState<string | null>(null);
-  const [lateDialogEmployeeId, setLateDialogEmployeeId] = useState<string | null>(
-    null,
-  );
+  const [lateDialogEmployeeId, setLateDialogEmployeeId] = useState<
+    string | null
+  >(null);
   const [overrideDialog, setOverrideDialog] =
     useState<OverrideDialogState | null>(null);
   const [overrideEnabled, setOverrideEnabled] = useState(true);
   const [overrideJustification, setOverrideJustification] = useState("");
+  const [overridePermanent, setOverridePermanent] = useState(false);
+  const [overrideSelectedDate, setOverrideSelectedDate] = useState<Date | null>(
+    null,
+  );
+  const [overrideMonth, setOverrideMonth] = useState(() => new Date());
   const [pendingLateAction, setPendingLateAction] =
     useState<PendingLateAction | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { data, loading, error, refetch } =
-    useQuery<EmployeeRecord>(ADMIN_EMPLOYEES_QUERY, {
+
+  const { data, loading, error, refetch } = useQuery<EmployeeRecord>(
+    ADMIN_EMPLOYEES_QUERY,
+    {
       notifyOnNetworkStatusChange: true,
-    });
-  const [updateEmployee] =
-    useMutation<UpdateEmployeeMutationResponse>(UPDATE_EMPLOYEE_MUTATION);
+    },
+  );
+
+  const [updateEmployee] = useMutation<UpdateEmployeeMutationResponse>(
+    UPDATE_EMPLOYEE_MUTATION,
+  );
+
   const [upsertBenefitEligibility, { loading: savingOverride }] =
     useMutation<UpsertBenefitEligibilityResponse>(
       UPSERT_BENEFIT_ELIGIBILITY_MUTATION,
@@ -532,8 +595,14 @@ export default function EmployeesBoard() {
     : null;
 
   const selectedEmployee = lateDialogEmployeeId
-    ? (employees.find((employee) => employee.id === lateDialogEmployeeId) ?? null)
+    ? (employees.find((employee) => employee.id === lateDialogEmployeeId) ??
+      null)
     : null;
+
+  const calendarDays = useMemo(
+    () => getCalendarDays(overrideMonth),
+    [overrideMonth],
+  );
 
   function closeLateDialogs() {
     setLateDialogEmployeeId(null);
@@ -542,7 +611,11 @@ export default function EmployeesBoard() {
 
   async function updateEmployeeOkr(employeeId: string, okr: OkrStatus) {
     const okrStatus =
-      okr === "Success" ? "success" : okr === "Submitted" ? "submitted" : "fail";
+      okr === "Success"
+        ? "success"
+        : okr === "Submitted"
+          ? "submitted"
+          : "fail";
 
     try {
       await updateEmployee({
@@ -567,10 +640,18 @@ export default function EmployeesBoard() {
     setOverrideDialog(null);
     setOverrideJustification("");
     setOverrideEnabled(true);
+    setOverridePermanent(false);
+    setOverrideSelectedDate(null);
+    setOverrideMonth(new Date());
     setErrorMessage(null);
   }
 
-  function openOverrideDialog(employee: EmployeeItem, benefit: EmployeeBenefit) {
+  function openOverrideDialog(
+    employee: EmployeeItem,
+    benefit: EmployeeBenefit,
+  ) {
+    const today = new Date();
+
     setOverrideDialog({
       employeeId: employee.id,
       benefitId: benefit.id,
@@ -582,10 +663,20 @@ export default function EmployeesBoard() {
         benefit.status === "Pending",
     );
     setOverrideJustification("");
+    setOverridePermanent(false);
+    setOverrideSelectedDate(today);
+    setOverrideMonth(today);
   }
 
   async function saveOverride() {
     if (!overrideDialog) {
+      return;
+    }
+
+    if (!overridePermanent && !overrideSelectedDate) {
+      setErrorMessage(
+        "Please select an expiry date or choose permanent override.",
+      );
       return;
     }
 
@@ -601,6 +692,9 @@ export default function EmployeesBoard() {
               (overrideEnabled
                 ? "Manual override granted"
                 : "Manual override restricted"),
+            overrideExpiresAt: overridePermanent
+              ? null
+              : (overrideSelectedDate?.toISOString() ?? null),
           },
         },
       });
@@ -667,7 +761,7 @@ export default function EmployeesBoard() {
           <button
             type="button"
             onClick={() => setDetailEmployeeId(null)}
-            className="inline-flex items-center gap-3 text-[1.05rem] font-medium text-slate-600 transition hover:text-slate-900"
+            className="inline-flex cursor-pointer items-center gap-3 text-[1.05rem] font-medium text-slate-600 transition hover:text-slate-900"
           >
             <ArrowLeft className="h-5 w-5" />
             Back to employees
@@ -676,7 +770,7 @@ export default function EmployeesBoard() {
           <div className="rounded-[1.35rem] border border-slate-200 bg-white px-7 py-7 shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
             <div className="grid gap-7 xl:grid-cols-[1.15fr_1.85fr] xl:items-center">
               <div className="flex items-center gap-5 border-b border-slate-200 pb-7 xl:border-r xl:border-b-0 xl:pb-0 xl:pr-9">
-                <div className="flex h-[5.5rem] w-[5.5rem] items-center justify-center rounded-full bg-stone-100 text-[1.9rem] font-medium text-slate-900">
+                <div className="flex h-22 w-22 items-center justify-center rounded-full bg-stone-100 text-[1.9rem] font-medium text-slate-900">
                   {getInitials(detailEmployee.name)}
                 </div>
                 <div>
@@ -753,7 +847,10 @@ export default function EmployeesBoard() {
                 </thead>
                 <tbody>
                   {detailEmployee.benefits.map((benefit) => (
-                    <tr key={`${detailEmployee.id}-${benefit.id}`} className="text-slate-900">
+                    <tr
+                      key={`${detailEmployee.id}-${benefit.id}`}
+                      className="text-slate-900"
+                    >
                       <td className="admin-table-cell px-7 text-[1rem] font-medium text-slate-900">
                         {benefit.name}
                       </td>
@@ -776,7 +873,7 @@ export default function EmployeesBoard() {
                         ) : (
                           <button
                             type="button"
-                            className="underline underline-offset-4 transition hover:text-slate-600"
+                            className="cursor-pointer underline underline-offset-4 transition hover:text-slate-600"
                           >
                             {benefit.contractLabel}
                           </button>
@@ -788,7 +885,7 @@ export default function EmployeesBoard() {
                           onClick={() =>
                             openOverrideDialog(detailEmployee, benefit)
                           }
-                          className="rounded-[0.95rem] border border-slate-200 bg-white px-4 py-2 text-[0.95rem] font-medium text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition hover:bg-slate-50"
+                          className="cursor-pointer rounded-[0.95rem] border border-slate-200 bg-white px-4 py-2 text-[0.95rem] font-medium text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition hover:bg-slate-50"
                         >
                           Override
                         </button>
@@ -812,7 +909,7 @@ export default function EmployeesBoard() {
               </p>
             </div>
 
-            <div className="relative w-full xl:max-w-[27rem]">
+            <div className="relative w-full xl:max-w-108">
               <Search className="pointer-events-none absolute top-1/2 left-5 h-5 w-5 -translate-y-1/2 text-slate-400" />
               <Input
                 value={search}
@@ -831,7 +928,7 @@ export default function EmployeesBoard() {
                   type="button"
                   onClick={() => setSelectedDepartment(filter.value)}
                   className={cn(
-                    "relative -mb-px border-b-2 px-4 pb-4 text-[1.05rem] font-medium transition",
+                    "relative -mb-px cursor-pointer border-b-2 px-4 pb-4 text-[1.05rem] font-medium transition",
                     selectedDepartment === filter.value
                       ? "border-blue-600 text-blue-600"
                       : "border-transparent text-slate-900 hover:text-blue-600",
@@ -885,116 +982,120 @@ export default function EmployeesBoard() {
                       </tr>
                     ) : (
                       filteredEmployees.map((employee) => {
-                      const lateCount = employee.lateDates.length;
+                        const lateCount = employee.lateDates.length;
 
-                      return (
-                        <tr
-                          key={employee.id}
-                          onClick={() => setDetailEmployeeId(employee.id)}
-                          className="cursor-pointer transition hover:bg-slate-50/70"
-                        >
-                          <td className="admin-table-cell px-7 py-4">
-                            <div className="flex items-center gap-4">
-                              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-stone-100 text-[1.15rem] font-medium text-slate-900">
-                                {getInitials(employee.name)}
+                        return (
+                          <tr
+                            key={employee.id}
+                            onClick={() => setDetailEmployeeId(employee.id)}
+                            className="cursor-pointer transition hover:bg-slate-50/70"
+                          >
+                            <td className="admin-table-cell px-7 py-4">
+                              <div className="flex items-center gap-4">
+                                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-stone-100 text-[1.15rem] font-medium text-slate-900">
+                                  {getInitials(employee.name)}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate text-[1rem] font-semibold text-slate-900">
+                                    {employee.name}
+                                  </p>
+                                  <p className="truncate text-[0.95rem] text-slate-500">
+                                    {employee.email}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <p className="truncate text-[1rem] font-semibold text-slate-900">
-                                  {employee.name}
-                                </p>
-                                <p className="truncate text-[0.95rem] text-slate-500">
-                                  {employee.email}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="admin-table-cell px-6 py-4 text-[1rem] text-slate-900">
-                            {employee.status}
-                          </td>
-                          <td className="admin-table-cell px-6 py-4 text-[1rem] text-slate-900">
-                            {employee.roleLabel}
-                          </td>
-                          <td className="admin-table-cell px-6 py-4">
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setLateDialogEmployeeId(employee.id);
-                                setPendingLateAction(null);
-                              }}
-                              className={cn(
-                                "inline-flex min-w-9 items-center justify-center rounded-2xl px-3 py-1.5 text-[1rem] font-medium transition hover:opacity-85",
-                                getLateClasses(lateCount),
-                              )}
-                            >
-                              {lateCount}
-                            </button>
-                          </td>
-                          <td className="admin-table-cell px-6 py-4 text-[1rem] text-slate-900">
-                            {employee.contract}
-                          </td>
-                          <td className="admin-table-cell px-6 py-4">
-                            <div className="relative inline-flex">
+                            </td>
+                            <td className="admin-table-cell px-6 py-4 text-[1rem] text-slate-900">
+                              {employee.status}
+                            </td>
+                            <td className="admin-table-cell px-6 py-4 text-[1rem] text-slate-900">
+                              {employee.roleLabel}
+                            </td>
+                            <td className="admin-table-cell px-6 py-4">
                               <button
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  setOpenOkrMenuId((currentValue) =>
-                                    currentValue === employee.id
-                                      ? null
-                                      : employee.id,
-                                  );
+                                  setLateDialogEmployeeId(employee.id);
+                                  setPendingLateAction(null);
                                 }}
                                 className={cn(
-                                  "inline-flex min-w-[12.25rem] items-center justify-between gap-3 rounded-md px-5 py-3 text-[1rem] font-medium",
-                                  getOkrClasses(employee.okr),
+                                  "inline-flex min-w-9 cursor-pointer items-center justify-center rounded-2xl px-3 py-1.5 text-[1rem] font-medium transition hover:opacity-85",
+                                  getLateClasses(lateCount),
                                 )}
                               >
-                                <span>{employee.okr}</span>
-                                <ChevronUp
-                                  className={cn(
-                                    "h-5 w-5 text-slate-900 transition-transform",
-                                    openOkrMenuId === employee.id
-                                      ? "rotate-0"
-                                      : "rotate-180",
-                                  )}
-                                />
+                                {lateCount}
                               </button>
-
-                              {openOkrMenuId === employee.id ? (
-                                <div
-                                  className="absolute top-full left-0 z-20 mt-1 min-w-[12.25rem] overflow-hidden rounded-sm border border-stone-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.12)]"
-                                  onClick={(event) => event.stopPropagation()}
+                            </td>
+                            <td className="admin-table-cell px-6 py-4 text-[1rem] text-slate-900">
+                              {employee.contract}
+                            </td>
+                            <td className="admin-table-cell px-6 py-4">
+                              <div className="relative inline-flex">
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setOpenOkrMenuId((currentValue) =>
+                                      currentValue === employee.id
+                                        ? null
+                                        : employee.id,
+                                    );
+                                  }}
+                                  className={cn(
+                                    "inline-flex min-w-49 cursor-pointer items-center justify-between gap-3 rounded-md px-5 py-3 text-[1rem] font-medium",
+                                    getOkrClasses(employee.okr),
+                                  )}
                                 >
-                                  {(
-                                    [
-                                      "Success",
-                                      "Submitted",
-                                      "Failed",
-                                    ] as OkrStatus[]
-                                  ).map((status) => (
-                                    <button
-                                      key={status}
-                                      type="button"
-                                      onClick={async () => {
-                                        await updateEmployeeOkr(employee.id, status);
-                                        setOpenOkrMenuId(null);
-                                      }}
-                                      className={cn(
-                                        "flex w-full items-center bg-white px-5 py-3 text-left text-[1rem] font-medium transition hover:bg-stone-50",
-                                        getOkrClasses(status),
-                                      )}
-                                    >
-                                      {status}
-                                    </button>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    }))}
+                                  <span>{employee.okr}</span>
+                                  <ChevronUp
+                                    className={cn(
+                                      "h-5 w-5 text-slate-900 transition-transform",
+                                      openOkrMenuId === employee.id
+                                        ? "rotate-0"
+                                        : "rotate-180",
+                                    )}
+                                  />
+                                </button>
+
+                                {openOkrMenuId === employee.id ? (
+                                  <div
+                                    className="absolute top-full left-0 z-20 mt-1 min-w-49 overflow-hidden rounded-sm border border-stone-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.12)]"
+                                    onClick={(event) => event.stopPropagation()}
+                                  >
+                                    {(
+                                      [
+                                        "Success",
+                                        "Submitted",
+                                        "Failed",
+                                      ] as OkrStatus[]
+                                    ).map((status) => (
+                                      <button
+                                        key={status}
+                                        type="button"
+                                        onClick={async () => {
+                                          await updateEmployeeOkr(
+                                            employee.id,
+                                            status,
+                                          );
+                                          setOpenOkrMenuId(null);
+                                        }}
+                                        className={cn(
+                                          "flex w-full cursor-pointer items-center bg-white px-5 py-3 text-left text-[1rem] font-medium transition hover:bg-stone-50",
+                                          getOkrClasses(status),
+                                        )}
+                                      >
+                                        {status}
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                     {!loading && !error && filteredEmployees.length === 0 ? (
                       <tr>
                         <td
@@ -1026,7 +1127,7 @@ export default function EmployeesBoard() {
           onClick={closeLateDialogs}
         >
           <div
-            className="w-full max-w-[22rem] rounded-[1.6rem] border border-gray-200 bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
+            className="w-full max-w-88 rounded-[1.6rem] border border-gray-200 bg-white p-5 shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
             onClick={(event) => event.stopPropagation()}
           >
             <h3 className="text-[1.05rem] font-semibold text-gray-900">
@@ -1050,7 +1151,7 @@ export default function EmployeesBoard() {
                           date,
                         })
                       }
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                      className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
                       aria-label={`Delete late attendance for ${formatLateDate(date)}`}
                     >
                       <Minus className="h-4 w-4" />
@@ -1072,7 +1173,7 @@ export default function EmployeesBoard() {
                   employeeId: selectedEmployee.id,
                 })
               }
-              className="mt-6 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+              className="mt-6 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
               aria-label="Add late attendance"
             >
               <Plus className="h-4 w-4" />
@@ -1087,7 +1188,7 @@ export default function EmployeesBoard() {
           onClick={closeLateDialogs}
         >
           <div
-            className="w-full max-w-[22rem] rounded-[1.6rem] border border-gray-200 bg-white px-6 py-7 text-center shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
+            className="w-full max-w-88 rounded-[1.6rem] border border-gray-200 bg-white px-6 py-7 text-center shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
             onClick={(event) => event.stopPropagation()}
           >
             <p className="text-[1.05rem] font-medium leading-9 text-gray-900">
@@ -1100,14 +1201,14 @@ export default function EmployeesBoard() {
               <button
                 type="button"
                 onClick={() => setPendingLateAction(null)}
-                className="inline-flex min-w-20 items-center justify-center rounded-xl border border-gray-200 px-5 py-2 text-base font-medium text-gray-700 transition hover:bg-gray-50"
+                className="inline-flex min-w-20 cursor-pointer items-center justify-center rounded-xl border border-gray-200 px-5 py-2 text-base font-medium text-gray-700 transition hover:bg-gray-50"
               >
                 No
               </button>
               <button
                 type="button"
                 onClick={confirmLateAction}
-                className="inline-flex min-w-20 items-center justify-center rounded-xl bg-blue-600 px-5 py-2 text-base font-medium text-white transition hover:bg-blue-700"
+                className="inline-flex min-w-20 cursor-pointer items-center justify-center rounded-xl bg-blue-600 px-5 py-2 text-base font-medium text-white transition hover:bg-blue-700"
               >
                 Yes
               </button>
@@ -1118,20 +1219,21 @@ export default function EmployeesBoard() {
 
       {overrideDialog ? (
         <div
-          className="fixed inset-0 z-[70] bg-slate-950/45 p-4"
+          className="fixed inset-0 z-70 bg-slate-950/45 p-4"
           onClick={closeOverrideDialog}
         >
           <div className="flex min-h-full items-center justify-center">
             <div
-              className="w-full max-w-[32.5rem] rounded-[1.4rem] border border-slate-200 bg-white px-5 py-5 shadow-[0_22px_54px_rgba(15,23,42,0.18)] sm:px-6 sm:py-6"
+              className="h-201 w-110.5 overflow-y-auto rounded-[1.7rem] border border-slate-200 bg-white px-6 py-6 shadow-[0_22px_54px_rgba(15,23,42,0.18)]"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4">
-                <div className="max-w-2xl">
-                  <h3 className="text-[1.55rem] font-semibold tracking-[-0.03em] text-slate-900 sm:text-[1.7rem]">
+                <div className="w-100.5">
+                  <h3 className="text-[20px] font-semibold  text-slate-900">
                     Manual Eligibility Override
                   </h3>
-                  <p className="mt-3 max-w-[28rem] text-[0.95rem] leading-[1.45] text-slate-500 sm:text-[1rem]">
+
+                  <p className=" text-[15px] text-slate-500">
                     Force the system to grant or revoke access to{" "}
                     <span className="text-slate-900">
                       {overrideDialog.benefitName}
@@ -1143,76 +1245,170 @@ export default function EmployeesBoard() {
                 <button
                   type="button"
                   onClick={closeOverrideDialog}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                  className="inline-flex h-4.5 w-4.5 cursor-pointer items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                   aria-label="Close override dialog"
                 >
-                  <X className="h-6 w-6" />
+                  <X className="h-7 w-7" />
                 </button>
               </div>
 
-              <div className="mt-6 rounded-[1.25rem] border border-slate-200 bg-slate-50/40 px-4 py-4 sm:px-5 sm:py-5">
-                <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h4 className="text-[1.2rem] font-semibold tracking-[-0.03em] text-slate-900 sm:text-[1.35rem]">
-                      Force Eligibility Status
-                    </h4>
-                    <p className="mt-2 text-[0.92rem] text-slate-500 sm:text-[0.98rem]">
-                      Toggle to grant or restrict access.
-                    </p>
-                  </div>
+              <div className="mt-5 w-100.5">
+                <label className="mb-2 block text-font/size/sm font-medium text-slate-900">
+                  Expiry date
+                </label>
+
+                <div className="h-12 w-full rounded-[0.9rem] border border-slate-200 px-4 flex items-center text-[0.95rem] font-medium text-slate-900">
+                  {formatSelectedDate(overrideSelectedDate) || "Select date"}
+                </div>
+              </div>
+
+              <div className="mt-5 w-100.5 border-t border-slate-200 pt-6">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOverrideMonth(
+                        new Date(
+                          overrideMonth.getFullYear(),
+                          overrideMonth.getMonth() - 1,
+                          1,
+                        ),
+                      )
+                    }
+                    className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+
+                  <p className="text-[1.15rem] font-semibold text-slate-900">
+                    {overrideMonth.toLocaleDateString("en-US", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </p>
 
                   <button
                     type="button"
                     onClick={() =>
-                      setOverrideEnabled((currentValue) => !currentValue)
+                      setOverrideMonth(
+                        new Date(
+                          overrideMonth.getFullYear(),
+                          overrideMonth.getMonth() + 1,
+                          1,
+                        ),
+                      )
                     }
-                    className={cn(
-                      "relative inline-flex h-8 w-[3.75rem] shrink-0 rounded-full transition",
-                      overrideEnabled ? "bg-blue-600" : "bg-slate-300",
-                    )}
-                    aria-pressed={overrideEnabled}
+                    className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                   >
-                    <span
-                      className={cn(
-                        "absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition",
-                        overrideEnabled ? "left-[1.85rem]" : "left-1",
-                      )}
-                    />
+                    <ChevronRight className="h-6 w-6" />
                   </button>
                 </div>
-              </div>
 
-              <div className="mt-6">
+                <div className="mt-5 grid grid-cols-7 border-t border-slate-200 pt-5 text-center text-[13px] font-semibold text-slate-500">
+                  {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((day) => (
+                    <div
+                      key={day}
+                      className="flex h-8 items-center justify-center"
+                    >
+                      {day}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 grid grid-cols-7 gap-y-4 text-center text-[13px]">
+                  {calendarDays.map((day, index) => {
+                    const cellDate =
+                      day === null
+                        ? null
+                        : new Date(
+                            overrideMonth.getFullYear(),
+                            overrideMonth.getMonth(),
+                            day,
+                          );
+
+                    const selected = isSameDay(cellDate, overrideSelectedDate);
+
+                    return (
+                      <div
+                        key={`${day}-${index}`}
+                        className="flex justify-center"
+                      >
+                        {day === null ? (
+                          <div className="h-12 w-12" />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setOverrideSelectedDate(cellDate)}
+                            disabled={overridePermanent}
+                            className={cn(
+                              "flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-[1rem] font-medium transition",
+                              selected
+                                ? "bg-blue-600 text-white"
+                                : "text-slate-700 hover:bg-slate-100",
+                              overridePermanent &&
+                                "cursor-not-allowed opacity-40 hover:bg-transparent",
+                            )}
+                          >
+                            {day}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="mt-5 w-100.5 space-y-3">
+                <p className="text-font/size/sm font-semibold text-slate-900">
+                  No expiry (permanent override)
+                </p>
+
+                <label className="flex cursor-pointer items-start gap-3 text-font/size/sm text-slate-900">
+                  <input
+                    type="checkbox"
+                    checked={overridePermanent}
+                    onChange={(event) =>
+                      setOverridePermanent(event.target.checked)
+                    }
+                    className="mt-1 h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                  />
+                  <span className="leading-snug">
+                    This override will not expire automatically.
+                  </span>
+                </label>
+              </div>
+              <div className="mt-5 w-100.5 space-y-3">
                 <label
                   htmlFor="override-justification"
-                  className="text-[1.2rem] font-semibold tracking-[-0.03em] text-slate-900 sm:text-[1.3rem]"
+                  className="block text-font/size/sm font-semibold text-slate-900"
                 >
                   Justification
                 </label>
-                <input
+
+                <textarea
                   id="override-justification"
                   value={overrideJustification}
                   onChange={(event) =>
                     setOverrideJustification(event.target.value)
                   }
-                  placeholder="e.g., Executive exception Granted by CEO..."
-                  className="mt-3 h-12 w-full rounded-[1rem] border border-slate-200 px-4 text-[0.95rem] text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-300"
+                  placeholder="Due to current team priorities, access to UX Engineer tools has been approved. You may proceed with using the tools as needed."
+                  rows={4}
+                  className=" w-full h-20 rounded-[1.1rem] border border-blue-500 px-2 py-2 text-font/size/sm leading-8 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-600"
                 />
               </div>
-
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <div className="mt-5 w-100.5 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={closeOverrideDialog}
-                  className="inline-flex items-center justify-center rounded-[1rem] border border-slate-200 px-5 py-2.5 text-[0.95rem] font-medium text-slate-700 transition hover:bg-slate-50 sm:min-w-28"
+                  className="inline-flex h-9 cursor-pointer items-center justify-center rounded-[0.9rem] border border-slate-200 px-5 text-[0.95rem] font-medium text-slate-700 transition hover:bg-slate-50"
                 >
                   Cancel
                 </button>
+
                 <button
                   type="button"
                   onClick={saveOverride}
                   disabled={savingOverride}
-                  className="inline-flex items-center justify-center rounded-[1rem] bg-blue-300 px-5 py-2.5 text-[0.95rem] font-medium text-white transition hover:bg-blue-400 sm:min-w-40"
+                  className="inline-flex h-9 cursor-pointer items-center justify-center rounded-[0.9rem] bg-blue-600 px-5 text-[0.95rem] font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {savingOverride ? "Saving..." : "Save Override"}
                 </button>
@@ -1223,7 +1419,7 @@ export default function EmployeesBoard() {
       ) : null}
 
       {successMessage ? (
-        <div className="pointer-events-none fixed right-6 bottom-6 z-[60]">
+        <div className="pointer-events-none fixed right-6 bottom-6 z-60">
           <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-white px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.12)]">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
               <Check className="h-4 w-4" />
@@ -1237,7 +1433,7 @@ export default function EmployeesBoard() {
       ) : null}
 
       {errorMessage ? (
-        <div className="pointer-events-none fixed right-6 bottom-6 z-[60]">
+        <div className="pointer-events-none fixed right-6 bottom-6 z-60">
           <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-white px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.12)]">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-600">
               <X className="h-4 w-4" />

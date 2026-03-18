@@ -71,26 +71,37 @@ function getActionTone(action: string) {
   const normalized = action.toLowerCase();
 
   if (normalized.includes("approved")) {
-    return " text-[#008B3A]";
-  }
-  if (normalized.includes("locked")) {
-    return " text-[#6A6A6A]";
-  }
-  if (normalized.includes("rejected") || normalized.includes("cancelled")) {
-    return " text-[#D62727]";
+    return "text-[#008B3A]";
   }
 
-  return " text-[#0062DB]";
+  if (normalized.includes("overridden")) {
+    return "text-[#7C3AED]";
+  }
+
+  if (normalized.includes("locked")) {
+    return "text-[#6A6A6A]";
+  }
+
+  if (normalized.includes("rejected") || normalized.includes("cancelled")) {
+    return "text-[#D62727]";
+  }
+
+  return "text-[#0062DB]";
 }
 
 function ActionBadge({ action }: { action: string }) {
+  const normalized = action.toLowerCase();
+  const label = normalized.includes("eligibility overridden")
+    ? "Overridden"
+    : action;
+
   return (
     <span
       className={`inline-flex h-8 items-center rounded-[10px] px-3 text-[14px] font-medium ${getActionTone(
         action,
       )}`}
     >
-      {action}
+      {label}
     </span>
   );
 }
@@ -309,10 +320,7 @@ export default function AdminActivityLogPage() {
                 </tr>
               ) : (
                 filteredLogs.map((log) => (
-                  <tr
-                    key={log.id}
-                    className="h-13.5 align-middle"
-                  >
+                  <tr key={log.id} className="h-13.5 align-middle">
                     <td className="admin-table-cell px-6 py-0 text-[14px] font-normal whitespace-nowrap align-middle text-[#667085]">
                       {formatTimestamp(log.createdAt)}
                     </td>
