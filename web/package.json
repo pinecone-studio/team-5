@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
+    "deploy": "vinext deploy",
     "start": "vinext start",
     "lint": "eslint",
     "test": "jest --coverage"
