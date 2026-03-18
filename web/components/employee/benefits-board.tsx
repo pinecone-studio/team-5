@@ -435,6 +435,143 @@ function getPrimaryButtonLabel(benefit: BenefitItem) {
   return benefit.requiresContract ? "Preview contract" : "Submit request";
 }
 
+function ContractEmptyState({ benefitTitle }: { benefitTitle: string }) {
+  return (
+    <section className="rounded-[16px] border border-[#d9e1ef] bg-white p-5">
+      <h3 className="text-[0.95rem] font-semibold text-[#18243d]">Contract</h3>
+      <div className="mt-4 rounded-[14px] border border-dashed border-[#d9e1ef] bg-[#fbfcfe] px-4 py-4">
+        <p className="text-[0.95rem] font-medium text-[#18243d]">
+          No contract has been attached for {benefitTitle} yet.
+        </p>
+        <p className="mt-2 text-[0.92rem] leading-7 text-[#6c7d96]">
+          Once a contract is uploaded, you’ll be able to review it here and accept
+          the terms before submitting your request.
+        </p>
+      </div>
+
+      <div className="mt-5 space-y-3 text-[0.92rem] text-[#3b4960]">
+        <p className="text-[0.8rem] font-medium tracking-[0.18em] text-[#74839b] uppercase">
+          Why this helps
+        </p>
+        <ul className="space-y-2">
+          <li className="flex items-start gap-3">
+            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[#2f66f6]" />
+            <span>Clear terms for coverage, dates, and vendor conditions.</span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[#2f66f6]" />
+            <span>Faster approvals with a consistent review workflow.</span>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[#2f66f6]" />
+            <span>Audit trail for who accepted which contract version.</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function ContractSigningView({
+  benefitTitle,
+  contract,
+  acceptedTerms,
+  onAcceptedTermsChange,
+}: {
+  benefitTitle: string;
+  contract: {
+    version: string;
+    vendorName: string;
+    r2ObjectKey: string;
+    effectiveDate: string | null;
+    expiryDate: string | null;
+  };
+  acceptedTerms: boolean;
+  onAcceptedTermsChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+      <section className="overflow-hidden rounded-[16px] border border-[#e4ebf5] bg-white">
+        <div className="flex items-center justify-between gap-4 border-b border-[#eef3fa] px-5 py-4">
+          <div className="min-w-0">
+            <p className="truncate text-[0.95rem] font-semibold text-[#18243d]">
+              {benefitTitle} contract
+            </p>
+            <p className="mt-1 text-[0.9rem] text-[#6c7d96]">
+              Version {contract.version}
+              {contract.vendorName ? ` • ${contract.vendorName}` : ""}
+            </p>
+          </div>
+          <a
+            href={contract.r2ObjectKey}
+            target="_blank"
+            rel="noreferrer"
+            className="shrink-0 rounded-[12px] border border-[#d9e1ef] bg-white px-4 py-2 text-[0.9rem] font-medium text-[#253247] transition hover:bg-[#f8fafc]"
+          >
+            Open PDF
+          </a>
+        </div>
+        <div className="bg-[#fbfcfe] p-3">
+          <div className="h-[52vh] min-h-[420px] overflow-hidden rounded-[14px] border border-[#e4ebf5] bg-white">
+            <iframe
+              title={`${benefitTitle} contract preview`}
+              src={contract.r2ObjectKey}
+              className="h-full w-full"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[16px] border border-[#e4ebf5] bg-white p-5">
+        <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
+          Review & accept
+        </h3>
+        <div className="mt-4 space-y-3 text-[0.92rem] text-[#3b4960]">
+          <div className="flex items-center justify-between gap-4">
+            <span className="font-medium text-[#18243d]">Vendor</span>
+            <span className="text-[#6c7d96]">{contract.vendorName || "—"}</span>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <span className="font-medium text-[#18243d]">Effective</span>
+            <span className="text-[#6c7d96]">
+              {formatDateValue(contract.effectiveDate) ?? "Not set"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <span className="font-medium text-[#18243d]">Expires</span>
+            <span className="text-[#6c7d96]">
+              {formatDateValue(contract.expiryDate) ?? "Not set"}
+            </span>
+          </div>
+        </div>
+
+        <label className="mt-6 flex cursor-pointer items-start gap-3 text-[0.95rem] text-[#18243d]">
+          <input
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(event) => onAcceptedTermsChange(event.target.checked)}
+            className="sr-only"
+          />
+          <span className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-[#2f66f6] bg-white">
+            {acceptedTerms ? (
+              <CheckCircle2 className="h-5 w-5 text-[#2f66f6]" />
+            ) : (
+              <Circle className="h-4 w-4 text-transparent" />
+            )}
+          </span>
+          <span className="leading-7">
+            I have read and accept the terms and conditions for{" "}
+            <span className="font-medium">
+              {contract.vendorName || benefitTitle}
+            </span>
+            .
+          </span>
+        </label>
+      </section>
+    </div>
+  );
+}
+
 function getCriteriaBadgeClasses(status: BenefitStatus) {
   switch (status) {
     case "active":
@@ -1178,7 +1315,14 @@ export default function BenefitsBoard() {
 
       {requestModalBenefit ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f172a]/12 px-4 py-6 backdrop-blur-[2px]">
-          <div className="relative flex max-h-[90vh] w-full max-w-[32rem] flex-col overflow-hidden rounded-[18px] border border-[#dfe6f0] bg-white shadow-[0_20px_40px_rgba(15,23,42,0.18)]">
+          <div
+            className={cn(
+              "relative flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[18px] border border-[#dfe6f0] bg-white shadow-[0_20px_40px_rgba(15,23,42,0.18)]",
+              requestIntent?.activeContract?.r2ObjectKey
+                ? "max-w-6xl"
+                : "max-w-[32rem]",
+            )}
+          >
             <button
               type="button"
               onClick={closeRequestModal}
@@ -1224,49 +1368,17 @@ export default function BenefitsBoard() {
                 </div>
               </section>
 
-              {requestIntent?.activeContract ? (
-                <section className="rounded-[16px] border border-[#d9e1ef] bg-white p-5">
-                  <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
-                    Contract
-                  </h3>
-                  {requestIntent.activeContract.r2ObjectKey ? (
-                    <a
-                      href={requestIntent.activeContract.r2ObjectKey}
-                      download
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-4 flex items-center gap-3 rounded-[14px] border border-[#e4ebf5] bg-[#fbfcfe] px-4 py-3 text-[0.95rem] text-[#3b4960] transition hover:border-[#cdd8ea] hover:bg-white"
-                    >
-                      <FileText className="h-5 w-5 text-[#2f66f6]" />
-                      <span>{requestModalBenefit.title} PDF</span>
-                    </a>
-                  ) : (
-                    <div className="mt-4 flex items-center gap-3 rounded-[14px] border border-[#e4ebf5] bg-[#fbfcfe] px-4 py-3 text-[0.95rem] text-[#94a3b8]">
-                      <FileText className="h-5 w-5 text-[#94a3b8]" />
-                      <span>PDF unavailable</span>
-                    </div>
-                  )}
-
-                  <label className="mt-4 flex cursor-pointer items-center gap-3 text-[0.95rem] text-[#18243d]">
-                    <input
-                      type="checkbox"
-                      checked={acceptedTerms}
-                      onChange={(event) => setAcceptedTerms(event.target.checked)}
-                      className="sr-only"
-                    />
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full border border-[#2f66f6] bg-white">
-                      {acceptedTerms ? (
-                        <CheckCircle2 className="h-5 w-5 text-[#2f66f6]" />
-                      ) : (
-                        <Circle className="h-4 w-4 text-transparent" />
-                      )}
-                    </span>
-                    <span>
-                      I accept the terms and conditions for{" "}
-                      {requestIntent.activeContract.vendorName}
-                    </span>
-                  </label>
-                </section>
+              {requestIntent?.requiresContractAcceptance ? (
+                requestIntent.activeContract?.r2ObjectKey ? (
+                  <ContractSigningView
+                    benefitTitle={requestModalBenefit.title}
+                    contract={requestIntent.activeContract}
+                    acceptedTerms={acceptedTerms}
+                    onAcceptedTermsChange={setAcceptedTerms}
+                  />
+                ) : (
+                  <ContractEmptyState benefitTitle={requestModalBenefit.title} />
+                )
               ) : null}
 
               {detailError ? (
@@ -1291,7 +1403,8 @@ export default function BenefitsBoard() {
                   confirming ||
                   preparingBenefitId === requestModalBenefit.id ||
                   requestIntent == null ||
-                  (requestIntent?.requiresContractAcceptance && !acceptedTerms)
+                  (requestIntent?.requiresContractAcceptance &&
+                    (!requestIntent.activeContract?.r2ObjectKey || !acceptedTerms))
                 }
                 className="h-11 rounded-[14px] bg-[#9dbffd] px-5 text-[0.95rem] font-medium text-white hover:bg-[#88aff8] disabled:opacity-60"
               >
