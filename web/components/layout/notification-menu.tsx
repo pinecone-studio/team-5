@@ -38,6 +38,7 @@ const FINANCE_NOTIFICATIONS_QUERY = gql`
 `;
 
 type HeaderRole = "employee" | "admin";
+type AppRole = ReturnType<typeof normalizeRole>;
 
 interface NotificationEntry {
   id: string;
@@ -140,12 +141,42 @@ function getFinanceMessage(status: string, benefitName: string) {
   }
 }
 
-export default function NotificationMenu({ role = "admin" }: { role?: HeaderRole }) {
-  const { user } = useUser();
+function readStoredSeenKey(storageKey: string) {
+  if (typeof window === "undefined") return null;
+
+  try {
+    return window.localStorage.getItem(storageKey);
+  } catch {
+    return null;
+  }
+}
+
+function persistSeenKey(storageKey: string, seenKey: string) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(storageKey, seenKey);
+  } catch {
+    // Ignore storage failures and fall back to in-memory state.
+  }
+}
+
+interface NotificationMenuContentProps {
+  role: HeaderRole;
+  actualRole: AppRole;
+  storageKey: string;
+}
+
+function NotificationMenuContent({
+  role,
+  actualRole,
+  storageKey,
+}: NotificationMenuContentProps) {
   const [open, setOpen] = useState(false);
-  const [lastSeenKey, setLastSeenKey] = useState<string | null>(null);
+  const [lastSeenKey, setLastSeenKey] = useState<string | null>(() =>
+    readStoredSeenKey(storageKey),
+  );
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const actualRole = normalizeRole(user?.publicMetadata?.role);
   const isEmployeeShell = role === "employee";
   const isManagerShell = role === "admin" && isManager(actualRole);
   const isFinanceReviewer = role === "admin" && actualRole === "finance_manager";
@@ -254,6 +285,7 @@ export default function NotificationMenu({ role = "admin" }: { role?: HeaderRole
 
   function markNotificationsSeen() {
     if (latestSeenKey) {
+      persistSeenKey(storageKey, latestSeenKey);
       setLastSeenKey(latestSeenKey);
     }
   }
@@ -332,5 +364,20 @@ export default function NotificationMenu({ role = "admin" }: { role?: HeaderRole
         </div>
       ) : null}
     </div>
+  );
+}
+
+export default function NotificationMenu({ role = "admin" }: { role?: HeaderRole }) {
+  const { user } = useUser();
+  const actualRole = normalizeRole(user?.publicMetadata?.role);
+  const storageKey = `notification-menu-seen:${role}:${actualRole}:${user?.id ?? "guest"}`;
+
+  return (
+    <NotificationMenuContent
+      key={storageKey}
+      role={role}
+      actualRole={actualRole}
+      storageKey={storageKey}
+    />
   );
 }

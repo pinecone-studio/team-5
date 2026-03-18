@@ -110,7 +110,7 @@ function AdminActivityLogSkeleton() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[12px] border border-gray-200 bg-white shadow-sm">
+      <div className="admin-table-card">
         <div className="space-y-0">
           {Array.from({ length: 5 }).map((_, index) => (
             <div
@@ -267,31 +267,31 @@ export default function AdminActivityLogPage() {
         </div>
       </div>
       <div className="pt-3">
-        <div className="max-h-[calc(100vh-17rem)] overflow-auto rounded-[12px] border border-[#E2E8F0] bg-white">
-          <table className="w-full min-w-[980px] table-fixed">
-            <thead className="sticky top-0 z-10 bg-[#E1E7F0]">
-              <tr className="h-14.5 border-b border-[#E2E8F0]">
-                <th className="w-15 px-6 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+        <div className="admin-table-card max-h-[calc(100vh-17rem)] overflow-auto">
+          <table className="admin-table w-full min-w-[980px] table-fixed">
+            <thead className="admin-table-head admin-table-head-sticky">
+              <tr className="admin-table-header-row h-14.5">
+                <th className="admin-table-th w-15 px-6 text-left text-[13px]">
                   TIMESTAMP
                 </th>
 
-                <th className="w-25 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                <th className="admin-table-th w-25 text-left text-[13px]">
                   EMPLOYEE
                 </th>
 
-                <th className="w-20 px-3 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                <th className="admin-table-th w-20 px-3 text-left text-[13px]">
                   BENEFITS
                 </th>
 
-                <th className="w-15 px-3 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                <th className="admin-table-th w-15 px-3 text-left text-[13px]">
                   ACTION
                 </th>
 
-                <th className="w-50.5 px-1 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                <th className="admin-table-th w-50.5 px-1 text-left text-[13px]">
                   DETAIL
                 </th>
 
-                <th className="w-25 px-5 text-left text-[13px] font-semibold uppercase tracking-[0.04em] text-[#65748B]">
+                <th className="admin-table-th w-25 px-5 text-left text-[13px]">
                   PERFORMED BY
                 </th>
               </tr>
@@ -302,42 +302,38 @@ export default function AdminActivityLogPage() {
                 <tr>
                   <td
                     colSpan={6}
-                    className="h-13.5 px-5 text-center text-sm text-[#94A3B8] align-middle"
+                    className="admin-table-cell h-13.5 px-5 text-center text-sm text-[#94A3B8] align-middle"
                   >
                     No activity logs found.
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((log, idx) => (
+                filteredLogs.map((log) => (
                   <tr
                     key={log.id}
-                    className={`h-13.5 align-middle ${
-                      idx !== filteredLogs.length - 1
-                        ? "border-b border-[#E2E8F0]"
-                        : ""
-                    }`}
+                    className="h-13.5 align-middle"
                   >
-                    <td className="px-6 py-0 text-[14px] font-normal whitespace-nowrap align-middle text-[#667085]">
+                    <td className="admin-table-cell px-6 py-0 text-[14px] font-normal whitespace-nowrap align-middle text-[#667085]">
                       {formatTimestamp(log.createdAt)}
                     </td>
 
-                    <td className=" py-0 text-[14px] font-semibold whitespace-nowrap align-middle text-[#0F172A]">
+                    <td className="admin-table-cell py-0 text-[14px] font-medium whitespace-nowrap align-middle text-[#0F172A]">
                       {log.employeeName ?? "System"}
                     </td>
 
-                    <td className="px-3 py-0 text-[14px] whitespace-nowrap align-middle text-[#334155]">
+                    <td className="admin-table-cell px-3 py-0 text-[14px] whitespace-nowrap align-middle text-[#334155]">
                       {log.benefitName ?? "-"}
                     </td>
 
-                    <td className="px-3 py-0 whitespace-nowrap align-middle">
+                    <td className="admin-table-cell px-3 py-0 whitespace-nowrap align-middle">
                       <ActionBadge action={log.action} />
                     </td>
 
-                    <td className="px-1 py-0 text-[14px] align-middle text-[#334155]">
+                    <td className="admin-table-cell px-1 py-0 text-[14px] align-middle text-[#334155]">
                       {log.detail}
                     </td>
 
-                    <td className="px-5 py-0 text-[14px] whitespace-nowrap align-middle text-[#667085]">
+                    <td className="admin-table-cell px-5 py-0 text-[14px] whitespace-nowrap align-middle text-[#667085]">
                       {log.performedBy}
                     </td>
                   </tr>

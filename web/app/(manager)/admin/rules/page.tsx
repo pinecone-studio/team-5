@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { gql } from "@apollo/client";
 import { useMutation, useQuery } from "@apollo/client/react";
-import { Check, ChevronDown, FileText, Pencil, Plus, X } from "lucide-react";
+import { Check, ChevronDown, FileText, Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -181,6 +181,17 @@ const EMPTY_FORM = {
   value: "",
   errorMessage: "",
 };
+
+function formatRuleTypeLabel(value: string) {
+  if (!value) {
+    return "Custom rule";
+  }
+
+  return value
+    .replace(/_/g, " ")
+    .replace(/\bokr\b/gi, "OKR")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
 export default function AdminRulesPage() {
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -614,13 +625,13 @@ export default function AdminRulesPage() {
 
   return (
     <>
-      <section className="mx-auto w-full max-w-6xl px-2 py-2 sm:px-4 lg:px-6">
-        <div className="mb-8 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-[2rem] font-semibold tracking-tight text-gray-950">
+      <section className="space-y-10 pb-24">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+          <div className="space-y-2">
+            <h1 className="text-[2.35rem] font-medium tracking-[-0.05em] text-[#17243d]">
               Benefit Rules
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="text-[1.15rem] text-[#708198]">
               Configure eligibility rules for each benefit
             </p>
           </div>
@@ -628,40 +639,48 @@ export default function AdminRulesPage() {
           <Button
             type="button"
             onClick={handleOpenAddBenefit}
-            className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
+            className="h-12 rounded-[14px] bg-[#2F66F6] px-6 text-[1rem] font-medium text-white shadow-[0_10px_24px_rgba(47,102,246,0.18)] hover:bg-[#2456d7]"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-5 w-5" />
             Add Benefit
           </Button>
         </div>
 
-        <div className="flex w-full items-center justify-between gap-4">
-          <div ref={dropdownRef} className="relative z-20 w-full">
-            <label className="mb-3 block text-sm font-medium text-gray-700">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.1fr)_minmax(0,1fr)]">
+          <div ref={dropdownRef} className="relative z-20">
+            <label className="mb-3 block text-[1.05rem] text-[#708198]">
               Select benefit
             </label>
             <button
               type="button"
               onClick={() => setIsBenefitOpen((open) => !open)}
-              className="flex h-11 w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 text-left text-base font-medium text-gray-800 shadow-sm outline-none transition hover:border-gray-300"
+              className="flex h-16 w-full items-center justify-between rounded-[16px] border border-[#d9e1ef] bg-white px-5 text-left text-[1.05rem] font-medium text-[#17243d] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition hover:border-[#c7d5e6]"
               aria-haspopup="listbox"
               aria-expanded={isBenefitOpen}
             >
-              <span>{selectedBenefit?.name ?? (loadingBenefits ? "Loading..." : "No benefits")}</span>
+              <span className="truncate">
+                {selectedBenefit?.name ?? (loadingBenefits ? "Loading..." : "No benefits")}
+              </span>
               <ChevronDown
-                className={`h-5 w-5 text-gray-800 transition-transform ${isBenefitOpen ? "rotate-180" : ""}`}
+                className={`h-5 w-5 shrink-0 text-[#7a8798] transition-transform ${
+                  isBenefitOpen ? "rotate-180" : ""
+                }`}
               />
             </button>
 
             {isBenefitOpen ? (
-              <div className="absolute top-full right-0 left-0 mt-3 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
-                <ul role="listbox" aria-label="Benefit options" className="max-h-[560px] overflow-y-auto py-2">
+              <div className="absolute inset-x-0 top-full mt-3 overflow-hidden rounded-[18px] border border-[#d9e1ef] bg-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+                <ul
+                  role="listbox"
+                  aria-label="Benefit options"
+                  className="max-h-[420px] overflow-y-auto py-2"
+                >
                   {benefits.map((benefit) => (
                     <li key={benefit.id}>
                       <button
                         type="button"
                         onClick={() => setSelectedBenefit(benefit.id)}
-                        className="w-full px-4 py-3 text-left text-base text-gray-800 transition hover:bg-gray-50"
+                        className="w-full px-5 py-3 text-left text-[1rem] text-[#253247] transition hover:bg-[#f8fbff]"
                       >
                         {benefit.name}
                       </button>
@@ -672,102 +691,140 @@ export default function AdminRulesPage() {
             ) : null}
           </div>
 
-          <div className="flex w-full max-w-[700px] gap-4">
-            <div className="w-full">
-              <label className="mb-3 block text-sm font-medium text-gray-700">
-                Details
-              </label>
-                  <button
-                    type="button"
-                    onClick={handleOpenEditBenefit}
-                    className="flex h-11 w-full items-center rounded-xl border border-gray-200 bg-gray-50 px-4 text-left text-sm text-gray-700"
-                  >
-                    {selectedBenefit
-                  ? selectedBenefit.vendorName ?? `${selectedBenefit.subsidyPercent}% subsidy on selected benefit`
-                  : "No benefit selected"}
-                  </button>
-                </div>
+          <div>
+            <label className="mb-3 block text-[1.05rem] text-[#708198]">
+              Details
+            </label>
+            <button
+              type="button"
+              onClick={handleOpenEditBenefit}
+              disabled={!selectedBenefit}
+              className="flex h-16 w-full items-center rounded-[16px] border border-[#d9e1ef] bg-white px-5 text-left text-[1.02rem] text-[#475569] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#c7d5e6] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <span className="truncate">
+                {selectedBenefit
+                  ? `${selectedBenefit.subsidyPercent}% subsidy on ${
+                      selectedBenefit.vendorName ?? selectedBenefit.name
+                    }`
+                  : "Select a benefit to view details"}
+              </span>
+            </button>
+          </div>
 
-            <div className="w-full">
-              <label className="mb-3 block text-sm font-medium text-gray-700">
-                Contract
-              </label>
-                  <button
-                    type="button"
-                    onClick={handleOpenEditBenefit}
-                    className="flex h-11 w-full items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 text-left text-sm text-gray-700"
-                  >
-                    <FileText className="h-4 w-4 text-[#3164e0]" />
-                {selectedBenefit?.activeContractId ? selectedBenefit.activeContractId : "No contract"}
-                  </button>
-                </div>
-              </div>
+          <div>
+            <label className="mb-3 block text-[1.05rem] text-[#708198]">
+              Contract
+            </label>
+            <button
+              type="button"
+              onClick={handleOpenEditBenefit}
+              disabled={!selectedBenefit}
+              className="flex h-16 w-full items-center gap-3 rounded-[16px] border border-[#d9e1ef] bg-white px-5 text-left text-[1.02rem] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#c7d5e6] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <FileText
+                className={`h-5 w-5 shrink-0 ${
+                  selectedBenefit?.activeContractId ? "text-[#2563EB]" : "text-[#94A3B8]"
+                }`}
+              />
+              <span
+                className={`truncate ${
+                  selectedBenefit?.activeContractId ? "text-[#253247]" : "text-[#708198]"
+                }`}
+              >
+                {selectedBenefit?.activeContractId
+                  ? selectedBenefit.activeContractId
+                  : selectedBenefit?.requiresContract
+                    ? "Contract required"
+                    : "No contract attached"}
+              </span>
+            </button>
+          </div>
         </div>
 
-        <div className="mt-8 overflow-hidden rounded-[12px] border border-gray-200 bg-white shadow-sm">
-          <table className="w-full border-collapse">
-            <thead className="bg-white">
-              <tr className="border-b border-gray-200 text-left">
-                <th className="w-16 px-4 py-4 text-xs font-semibold uppercase tracking-wide text-gray-900">#</th>
-                <th className="px-4 py-4 text-xs font-semibold uppercase tracking-wide text-gray-900">Rule Type</th>
-                <th className="px-4 py-4 text-xs font-semibold uppercase tracking-wide text-gray-900">Condition</th>
-                <th className="px-4 py-4 text-xs font-semibold uppercase tracking-wide text-gray-900">Fail Message</th>
-                <th className="w-32 px-4 py-4 text-xs font-semibold uppercase tracking-wide text-gray-900">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rules.map((rule, index) => (
-                <tr key={rule.id} className="border-b border-gray-200 last:border-b-0">
-                  <td className="px-4 py-5 text-base text-gray-700">{index + 1}</td>
-                  <td className="px-4 py-5 text-[15px] font-medium text-gray-900">{rule.type}</td>
-                  <td className="px-4 py-5 font-mono text-[15px] text-gray-600">
-                    {rule.type} {OPERATOR_SYMBOL[rule.operator]} {rule.value}
-                  </td>
-                  <td className="px-4 py-5 text-[15px] text-gray-600">{rule.errorMessage}</td>
-                  <td className="px-4 py-5">
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <button
-                        type="button"
-                        onClick={() => handleEditRule(rule)}
-                        className="rounded-md p-0.5 transition hover:bg-gray-100 hover:text-gray-600"
-                        aria-label={`Edit rule ${rule.id}`}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDeletingRuleId(rule.id);
-                          setActionError(null);
-                        }}
-                        className="rounded-md p-0.5 transition hover:bg-gray-100 hover:text-gray-600"
-                        aria-label={`Delete rule ${rule.id}`}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
+        <div className="admin-table-card">
+          <div className="admin-table-scroll">
+            <table className="admin-table">
+              <thead className="admin-table-head">
+                <tr className="admin-table-header-row">
+                  <th className="admin-table-th w-16">#</th>
+                  <th className="admin-table-th">Rule Type</th>
+                  <th className="admin-table-th">Condition</th>
+                  <th className="admin-table-th">Fail Message</th>
+                  <th className="admin-table-th w-32 text-right">Actions</th>
                 </tr>
-              ))}
-
-              {!loadingRules && rules.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
-                    No rules found for this benefit.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rules.length > 0 ? (
+                  rules.map((rule, index) => (
+                    <tr key={rule.id} className="text-[#17243d]">
+                      <td className="admin-table-cell text-[1rem] text-[#5f6b7e]">
+                        {index + 1}
+                      </td>
+                      <td className="admin-table-cell text-[1.15rem] font-medium tracking-[-0.02em] text-[#17243d]">
+                        {formatRuleTypeLabel(rule.type)}
+                      </td>
+                      <td className="admin-table-cell font-mono text-[1.02rem] text-[#55637d]">
+                        {rule.type} {OPERATOR_SYMBOL[rule.operator]} {rule.value}
+                      </td>
+                      <td className="admin-table-cell text-[1.02rem] text-[#475569]">
+                        {rule.errorMessage}
+                      </td>
+                      <td className="admin-table-cell">
+                        <div className="flex items-center justify-end gap-3 text-[#748197]">
+                          <button
+                            type="button"
+                            onClick={() => handleEditRule(rule)}
+                            className="rounded-[10px] p-1.5 transition hover:bg-[#f4f7fb] hover:text-[#17243d]"
+                            aria-label={`Edit rule ${rule.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeletingRuleId(rule.id);
+                              setActionError(null);
+                            }}
+                            className="rounded-[10px] p-1.5 transition hover:bg-[#f4f7fb] hover:text-[#EF4444]"
+                            aria-label={`Delete rule ${rule.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : !loadingRules ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="admin-table-cell px-6 py-14 text-center text-[1rem] text-[#94A3B8]"
+                    >
+                      No rules found for this benefit.
+                    </td>
+                  </tr>
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="admin-table-cell px-6 py-14 text-center text-[1rem] text-[#94A3B8]"
+                    >
+                      Loading rules...
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <Button
           variant="outline"
           onClick={handleAddRule}
           disabled={!selectedBenefitId}
-          className="mt-8 h-9 rounded-[10px] border-gray-200 px-3 text-sm font-medium text-gray-800 shadow-sm"
+          className="h-11 rounded-[14px] border-[#d9e1ef] bg-white px-5 text-[0.98rem] font-medium text-[#253247] shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:bg-[#f8fbff]"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-4 w-4" />
           Add rule
         </Button>
       </section>

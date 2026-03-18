@@ -739,28 +739,25 @@ export default function EmployeesBoard() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-100 text-[0.95rem] uppercase tracking-[0.03em] text-slate-500">
-                    <th className="px-7 py-6 font-medium">Benefits</th>
-                    <th className="px-7 py-6 font-medium">Status</th>
-                    <th className="px-7 py-6 font-medium">Reason</th>
-                    <th className="px-7 py-6 font-medium">Contract</th>
-                    <th className="px-7 py-6 font-medium">Action</th>
+          <div className="admin-table-card">
+            <div className="admin-table-scroll">
+              <table className="admin-table">
+                <thead className="admin-table-head">
+                  <tr className="admin-table-header-row">
+                    <th className="admin-table-th px-7">Benefits</th>
+                    <th className="admin-table-th px-7">Status</th>
+                    <th className="admin-table-th px-7">Reason</th>
+                    <th className="admin-table-th px-7">Contract</th>
+                    <th className="admin-table-th px-7">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {detailEmployee.benefits.map((benefit) => (
-                    <tr
-                      key={`${detailEmployee.id}-${benefit.id}`}
-                      className="border-b border-slate-200 last:border-b-0"
-                    >
-                      <td className="px-7 py-5 text-[1rem] font-medium text-slate-900">
+                    <tr key={`${detailEmployee.id}-${benefit.id}`} className="text-slate-900">
+                      <td className="admin-table-cell px-7 text-[1rem] font-medium text-slate-900">
                         {benefit.name}
                       </td>
-                      <td className="px-7 py-5">
+                      <td className="admin-table-cell px-7">
                         <div
                           className={cn(
                             "inline-flex items-center rounded-[0.8rem] border px-3.5 py-1.5 text-[0.95rem] font-medium",
@@ -770,10 +767,10 @@ export default function EmployeesBoard() {
                           {benefit.status}
                         </div>
                       </td>
-                      <td className="px-7 py-5 text-[1rem] text-slate-900">
+                      <td className="admin-table-cell px-7 text-[1rem] text-slate-900">
                         {benefit.reason}
                       </td>
-                      <td className="px-7 py-5 text-[1rem] text-slate-900">
+                      <td className="admin-table-cell px-7 text-[1rem] text-slate-900">
                         {benefit.contractLabel === "-" ? (
                           "-"
                         ) : (
@@ -785,7 +782,7 @@ export default function EmployeesBoard() {
                           </button>
                         )}
                       </td>
-                      <td className="px-7 py-5">
+                      <td className="admin-table-cell px-7">
                         <button
                           type="button"
                           onClick={() =>
@@ -851,17 +848,17 @@ export default function EmployeesBoard() {
               {filteredEmployees.length} Employees
             </h3>
 
-            <div className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/80 text-[0.95rem] uppercase tracking-[0.03em] text-slate-500">
-                      <th className="px-7 py-6 font-medium">Workers</th>
-                      <th className="px-6 py-6 font-medium">Status</th>
-                      <th className="px-6 py-6 font-medium">Department</th>
-                      <th className="px-6 py-6 font-medium">Late</th>
-                      <th className="px-6 py-6 font-medium">Contract</th>
-                      <th className="px-6 py-6 font-medium">OKR</th>
+            <div className="admin-table-card">
+              <div className="admin-table-scroll">
+                <table className="admin-table">
+                  <thead className="admin-table-head">
+                    <tr className="admin-table-header-row">
+                      <th className="admin-table-th px-7">Workers</th>
+                      <th className="admin-table-th px-6">Status</th>
+                      <th className="admin-table-th px-6">Department</th>
+                      <th className="admin-table-th px-6">Late</th>
+                      <th className="admin-table-th px-6">Contract</th>
+                      <th className="admin-table-th px-6">OKR</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -869,7 +866,7 @@ export default function EmployeesBoard() {
                       <tr>
                         <td
                           colSpan={6}
-                          className="px-10 py-12 text-center text-base text-slate-500"
+                          className="admin-table-cell px-10 py-12 text-center text-base text-slate-500"
                         >
                           <span className="inline-flex items-center gap-3">
                             <LoaderCircle className="h-5 w-5 animate-spin" />
@@ -881,7 +878,7 @@ export default function EmployeesBoard() {
                       <tr>
                         <td
                           colSpan={6}
-                          className="px-10 py-12 text-center text-base text-rose-500"
+                          className="admin-table-cell px-10 py-12 text-center text-base text-rose-500"
                         >
                           {error.message}
                         </td>
@@ -894,9 +891,9 @@ export default function EmployeesBoard() {
                         <tr
                           key={employee.id}
                           onClick={() => setDetailEmployeeId(employee.id)}
-                          className="cursor-pointer border-b border-slate-200 transition hover:bg-slate-50/70 last:border-b-0"
+                          className="cursor-pointer transition hover:bg-slate-50/70"
                         >
-                          <td className="px-7 py-4">
+                          <td className="admin-table-cell px-7 py-4">
                             <div className="flex items-center gap-4">
                               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-stone-100 text-[1.15rem] font-medium text-slate-900">
                                 {getInitials(employee.name)}
@@ -911,13 +908,13 @@ export default function EmployeesBoard() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-[1rem] text-slate-900">
+                          <td className="admin-table-cell px-6 py-4 text-[1rem] text-slate-900">
                             {employee.status}
                           </td>
-                          <td className="px-6 py-4 text-[1rem] text-slate-900">
+                          <td className="admin-table-cell px-6 py-4 text-[1rem] text-slate-900">
                             {employee.roleLabel}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="admin-table-cell px-6 py-4">
                             <button
                               type="button"
                               onClick={(event) => {
@@ -933,10 +930,10 @@ export default function EmployeesBoard() {
                               {lateCount}
                             </button>
                           </td>
-                          <td className="px-6 py-4 text-[1rem] text-slate-900">
+                          <td className="admin-table-cell px-6 py-4 text-[1rem] text-slate-900">
                             {employee.contract}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="admin-table-cell px-6 py-4">
                             <div className="relative inline-flex">
                               <button
                                 type="button"
@@ -1002,7 +999,7 @@ export default function EmployeesBoard() {
                       <tr>
                         <td
                           colSpan={6}
-                          className="px-10 py-12 text-center text-base text-slate-500"
+                          className="admin-table-cell px-10 py-12 text-center text-base text-slate-500"
                         >
                           No employees matched this filter.
                         </td>
