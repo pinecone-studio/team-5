@@ -19,6 +19,12 @@
 			"migrations_dir": "drizzle/migrations",
 		},
 	],
+	"r2_buckets": [
+		{
+			"binding": "SIGNATURES_BUCKET",
+			"bucket_name": "contracts"
+		}
+	],
 	"vars": {
 		"CLERK_PUBLISHABLE_KEY": "pk_test_Ymxlc3NlZC1wcmltYXRlLTc0LmNsZXJrLmFjY291bnRzLmRldiQ",
 		"FRONTEND_ORIGIN": "https://web.ebmsteam10.workers.dev",
