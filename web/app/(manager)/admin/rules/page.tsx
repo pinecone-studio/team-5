@@ -71,6 +71,7 @@ type RuleMutationData = {
 type BenefitMutationData = {
   createBenefit: BenefitDataItem;
   updateBenefit: BenefitDataItem;
+  deleteBenefit: boolean;
 };
 
 type ContractDataItem = {
@@ -184,6 +185,12 @@ const UPDATE_BENEFIT = gql`
   }
 `;
 
+const DELETE_BENEFIT = gql`
+  mutation DeleteBenefit($id: ID!) {
+    deleteBenefit(id: $id)
+  }
+`;
+
 const CREATE_CONTRACT = gql`
   mutation CreateContract($input: CreateContractInput!) {
     createContract(input: $input) {
@@ -273,6 +280,9 @@ export default function AdminRulesPage() {
   const [isEditBenefitModalOpen, setIsEditBenefitModalOpen] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
+  const [deletingBenefitId, setDeletingBenefitId] = useState<string | null>(
+    null,
+  );
   const [isDeleteSuccessOpen, setIsDeleteSuccessOpen] = useState(false);
   const [isRuleTypeOpen, setIsRuleTypeOpen] = useState(false);
   const [isOperatorOpen, setIsOperatorOpen] = useState(false);
@@ -356,6 +366,7 @@ export default function AdminRulesPage() {
   const [deleteRule, { loading: deletingRule }] = useMutation<RuleMutationData>(DELETE_RULE);
   const [createBenefit, { loading: creatingBenefit }] = useMutation<BenefitMutationData>(CREATE_BENEFIT);
   const [updateBenefit, { loading: updatingBenefit }] = useMutation<BenefitMutationData>(UPDATE_BENEFIT);
+  const [deleteBenefit, { loading: deletingBenefit }] = useMutation<BenefitMutationData>(DELETE_BENEFIT);
   const [createContract] = useMutation<ContractMutationData>(CREATE_CONTRACT);
 
   const isSaving = creatingRule || updatingRule;
@@ -407,6 +418,10 @@ export default function AdminRulesPage() {
   };
 
   const closeDeleteSuccessModal = () => setIsDeleteSuccessOpen(false);
+  const closeDeleteBenefitModal = () => {
+    setDeletingBenefitId(null);
+    setBenefitActionError(null);
+  };
 
   const resetBenefitForm = () => {
     setBenefitNameValue("");
@@ -744,6 +759,29 @@ export default function AdminRulesPage() {
     } catch (error) {
       setBenefitActionError(
         error instanceof Error ? error.message : "Failed to update benefit.",
+      );
+    }
+  };
+
+  const handleDeleteBenefit = async () => {
+    if (!deletingBenefitId) {
+      return;
+    }
+
+    try {
+      await deleteBenefit({ variables: { id: deletingBenefitId } });
+      await refetchBenefits();
+
+      if (selectedBenefitId === deletingBenefitId) {
+        const nextBenefit =
+          benefits.find((benefit) => benefit.id !== deletingBenefitId) ?? null;
+        setSelectedBenefitIdOverride(nextBenefit?.id ?? null);
+      }
+
+      closeDeleteBenefitModal();
+    } catch (error) {
+      setBenefitActionError(
+        error instanceof Error ? error.message : "Failed to delete benefit.",
       );
     }
   };
@@ -1088,13 +1126,27 @@ export default function AdminRulesPage() {
                 >
                   {benefits.map((benefit) => (
                     <li key={benefit.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedBenefit(benefit.id)}
-                        className="w-full px-5 py-3 text-left text-[16px] text-[#253247] transition hover:bg-[#f8fbff]"
-                      >
-                        {benefit.name}
-                      </button>
+                      <div className="flex items-center gap-3 px-3 py-1.5 transition hover:bg-[#f8fbff]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedBenefit(benefit.id)}
+                          className="min-w-0 flex-1 rounded-[12px] px-2 py-2 text-left text-[16px] text-[#253247]"
+                        >
+                          <span className="truncate">{benefit.name}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setDeletingBenefitId(benefit.id);
+                            setBenefitActionError(null);
+                          }}
+                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[#94a3b8] transition hover:bg-[#fee2e2] hover:text-[#dc2626]"
+                          aria-label={`Delete benefit ${benefit.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -1374,6 +1426,41 @@ export default function AdminRulesPage() {
             <p className="mt-6 text-[16px] font-medium leading-[1.3] tracking-tight text-black">
               The rule has been deleted successfully.
             </p>
+          </div>
+        </div>
+      ) : null}
+
+      {deletingBenefitId !== null ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4">
+          <div className="w-full max-w-[360px] rounded-[12px] bg-[#f5f5f5] px-6 py-6 shadow-2xl">
+            <h2 className="text-center text-[16px] font-medium leading-tight text-gray-900">
+              Do you want to delete this benefit?
+            </h2>
+
+            {benefitActionError ? (
+              <p className="mt-4 text-center text-base text-red-600">
+                {benefitActionError}
+              </p>
+            ) : null}
+
+            <div className="mt-7 flex justify-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDeleteBenefitModal}
+                className="h-9 min-w-20 rounded-[10px] border border-gray-300 bg-white px-5 text-base font-medium text-gray-800 shadow-none hover:bg-gray-50"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleDeleteBenefit}
+                disabled={deletingBenefit}
+                className="h-9 min-w-20 rounded-[10px] bg-red-500 px-5 text-base font-medium text-white hover:bg-red-600"
+              >
+                Delete
+              </Button>
+            </div>
           </div>
         </div>
       ) : null}
