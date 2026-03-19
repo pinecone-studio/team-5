@@ -71,19 +71,7 @@ type RuleMutationData = {
 type BenefitMutationData = {
   createBenefit: BenefitDataItem;
   updateBenefit: BenefitDataItem;
-};
-
-type ContractDataItem = {
-  id: string;
-  benefitId: string;
-  version: string;
-  r2ObjectKey: string;
-  sha256Hash: string;
-  isActive: boolean | null;
-};
-
-type ContractMutationData = {
-  createContract: ContractDataItem;
+  deleteBenefit: boolean;
 };
 
 const GET_BENEFITS = gql`
@@ -184,16 +172,9 @@ const UPDATE_BENEFIT = gql`
   }
 `;
 
-const CREATE_CONTRACT = gql`
-  mutation CreateContract($input: CreateContractInput!) {
-    createContract(input: $input) {
-      id
-      benefitId
-      version
-      r2ObjectKey
-      sha256Hash
-      isActive
-    }
+const DELETE_BENEFIT = gql`
+  mutation DeleteBenefit($id: ID!) {
+    deleteBenefit(id: $id)
   }
 `;
 
@@ -273,6 +254,9 @@ export default function AdminRulesPage() {
   const [isEditBenefitModalOpen, setIsEditBenefitModalOpen] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
+  const [deletingBenefitId, setDeletingBenefitId] = useState<string | null>(
+    null,
+  );
   const [isDeleteSuccessOpen, setIsDeleteSuccessOpen] = useState(false);
   const [isRuleTypeOpen, setIsRuleTypeOpen] = useState(false);
   const [isOperatorOpen, setIsOperatorOpen] = useState(false);
@@ -351,12 +335,18 @@ export default function AdminRulesPage() {
     [editingRuleId, rules],
   );
 
-  const [createRule, { loading: creatingRule }] = useMutation<RuleMutationData>(CREATE_RULE);
-  const [updateRule, { loading: updatingRule }] = useMutation<RuleMutationData>(UPDATE_RULE);
-  const [deleteRule, { loading: deletingRule }] = useMutation<RuleMutationData>(DELETE_RULE);
-  const [createBenefit, { loading: creatingBenefit }] = useMutation<BenefitMutationData>(CREATE_BENEFIT);
-  const [updateBenefit, { loading: updatingBenefit }] = useMutation<BenefitMutationData>(UPDATE_BENEFIT);
-  const [createContract] = useMutation<ContractMutationData>(CREATE_CONTRACT);
+  const [createRule, { loading: creatingRule }] =
+    useMutation<RuleMutationData>(CREATE_RULE);
+  const [updateRule, { loading: updatingRule }] =
+    useMutation<RuleMutationData>(UPDATE_RULE);
+  const [deleteRule, { loading: deletingRule }] =
+    useMutation<RuleMutationData>(DELETE_RULE);
+  const [createBenefit, { loading: creatingBenefit }] =
+    useMutation<BenefitMutationData>(CREATE_BENEFIT);
+  const [updateBenefit, { loading: updatingBenefit }] =
+    useMutation<BenefitMutationData>(UPDATE_BENEFIT);
+  const [deleteBenefit, { loading: deletingBenefit }] =
+    useMutation<BenefitMutationData>(DELETE_BENEFIT);
 
   const isSaving = creatingRule || updatingRule;
   const isSavingBenefit = creatingBenefit || updatingBenefit;
@@ -407,6 +397,10 @@ export default function AdminRulesPage() {
   };
 
   const closeDeleteSuccessModal = () => setIsDeleteSuccessOpen(false);
+  const closeDeleteBenefitModal = () => {
+    setDeletingBenefitId(null);
+    setBenefitActionError(null);
+  };
 
   const resetBenefitForm = () => {
     setBenefitNameValue("");
@@ -626,7 +620,9 @@ export default function AdminRulesPage() {
         if (!resolvedBenefitId) {
           const subsidyPercent = Number(benefitSubsidyValue);
           if (!benefitNameValue.trim() || Number.isNaN(subsidyPercent)) {
-            setBenefitActionError("Benefit name and subsidy percent are required before continuing.");
+            setBenefitActionError(
+              "Benefit name and subsidy percent are required before continuing.",
+            );
             return;
           }
 
@@ -654,12 +650,15 @@ export default function AdminRulesPage() {
         // Hash the PDF for D1 record.
         const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
         const hashBytes = Array.from(new Uint8Array(hashBuffer));
-        const sha256Hash = hashBytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+        const sha256Hash = hashBytes
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
 
         // Upload PDF object to R2 (via service worker).
         const configuredGraphqlUrl = process.env.NEXT_PUBLIC_GRAPHQL_URL ?? "";
         const graphqlUrl =
-          window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1"
             ? "http://localhost:8787/graphql"
             : configuredGraphqlUrl;
         if (!graphqlUrl) {
@@ -672,7 +671,9 @@ export default function AdminRulesPage() {
           {
             method: "POST",
             headers: { "content-type": file.type || "application/pdf" },
-            body: new Blob([arrayBuffer], { type: file.type || "application/pdf" }),
+            body: new Blob([arrayBuffer], {
+              type: file.type || "application/pdf",
+            }),
             credentials: "include",
           },
         );
@@ -687,7 +688,11 @@ export default function AdminRulesPage() {
 
         // Create contract row in D1, linked to benefit (also updates benefit.active_contract_id).
         const version = new Date().toISOString();
-        const vendorName = (benefitVendorValue.trim() || selectedBenefit?.vendorName || "Vendor").slice(0, 120);
+        const vendorName = (
+          benefitVendorValue.trim() ||
+          selectedBenefit?.vendorName ||
+          "Vendor"
+        ).slice(0, 120);
         const contractResponse = await createContract({
           variables: {
             input: {
@@ -701,7 +706,8 @@ export default function AdminRulesPage() {
           },
         });
         const createdContractId = contractResponse.data?.createContract?.id;
-        if (!createdContractId) throw new Error("Failed to create contract record");
+        if (!createdContractId)
+          throw new Error("Failed to create contract record");
 
         // Navigate to builder with real URL + ids (no blob URL).
         router.push(
@@ -710,7 +716,9 @@ export default function AdminRulesPage() {
           )}&benefitId=${encodeURIComponent(resolvedBenefitId)}&contractId=${encodeURIComponent(createdContractId)}`,
         );
       } catch (error) {
-        setBenefitActionError(error instanceof Error ? error.message : "Failed to save contract.");
+        setBenefitActionError(
+          error instanceof Error ? error.message : "Failed to save contract.",
+        );
       }
     })();
   };
@@ -748,6 +756,29 @@ export default function AdminRulesPage() {
     }
   };
 
+  const handleDeleteBenefit = async () => {
+    if (!deletingBenefitId) {
+      return;
+    }
+
+    try {
+      await deleteBenefit({ variables: { id: deletingBenefitId } });
+      await refetchBenefits();
+
+      if (selectedBenefitId === deletingBenefitId) {
+        const nextBenefit =
+          benefits.find((benefit) => benefit.id !== deletingBenefitId) ?? null;
+        setSelectedBenefitIdOverride(nextBenefit?.id ?? null);
+      }
+
+      closeDeleteBenefitModal();
+    } catch (error) {
+      setBenefitActionError(
+        error instanceof Error ? error.message : "Failed to delete benefit.",
+      );
+    }
+  };
+
   const renderRuleForm = () => (
     <>
       <div>
@@ -779,8 +810,9 @@ export default function AdminRulesPage() {
                 setIsOperatorOpen(false);
                 setIsRuleTypeOpen((open) => !open);
               }}
-              className={`flex h-11 w-full items-center justify-between rounded-[10px] border border-[#d9e2ef] bg-white px-4 pr-10 text-left text-base ${ruleTypeValue ? "text-gray-800" : "text-black"
-                }`}
+              className={`flex h-11 w-full items-center justify-between rounded-[10px] border border-[#d9e2ef] bg-white px-4 pr-10 text-left text-base ${
+                ruleTypeValue ? "text-gray-800" : "text-black"
+              }`}
               title={
                 ruleTypeValue ? formatRuleTypeLabel(ruleTypeValue) : "Status"
               }
@@ -791,8 +823,9 @@ export default function AdminRulesPage() {
                 {ruleTypeValue ? formatRuleTypeLabel(ruleTypeValue) : "Status"}
               </span>
               <ChevronDown
-                className={`pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400 transition-transform ${isRuleTypeOpen ? "rotate-180" : ""
-                  }`}
+                className={`pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400 transition-transform ${
+                  isRuleTypeOpen ? "rotate-180" : ""
+                }`}
               />
             </button>
 
@@ -845,8 +878,9 @@ export default function AdminRulesPage() {
                 )?.label ?? "Equals"}
               </span>
               <ChevronDown
-                className={`pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400 transition-transform ${isOperatorOpen ? "rotate-180" : ""
-                  }`}
+                className={`pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400 transition-transform ${
+                  isOperatorOpen ? "rotate-180" : ""
+                }`}
               />
             </button>
 
@@ -1074,8 +1108,9 @@ export default function AdminRulesPage() {
                   (loadingBenefits ? "Loading..." : "No benefits")}
               </span>
               <ChevronDown
-                className={`h-5 w-5 shrink-0 text-[#7a8798] transition-transform ${isBenefitOpen ? "rotate-180" : ""
-                  }`}
+                className={`h-5 w-5 shrink-0 text-[#7a8798] transition-transform ${
+                  isBenefitOpen ? "rotate-180" : ""
+                }`}
               />
             </button>
 
@@ -1088,13 +1123,27 @@ export default function AdminRulesPage() {
                 >
                   {benefits.map((benefit) => (
                     <li key={benefit.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedBenefit(benefit.id)}
-                        className="w-full px-5 py-3 text-left text-[16px] text-[#253247] transition hover:bg-[#f8fbff]"
-                      >
-                        {benefit.name}
-                      </button>
+                      <div className="flex items-center gap-3 px-3 py-1.5 transition hover:bg-[#f8fbff]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedBenefit(benefit.id)}
+                          className="min-w-0 flex-1 rounded-[12px] px-2 py-2 text-left text-[16px] text-[#253247]"
+                        >
+                          <span className="truncate">{benefit.name}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setDeletingBenefitId(benefit.id);
+                            setBenefitActionError(null);
+                          }}
+                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[#94a3b8] transition hover:bg-[#fee2e2] hover:text-[#dc2626]"
+                          aria-label={`Delete benefit ${benefit.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -1114,8 +1163,9 @@ export default function AdminRulesPage() {
             >
               <span className="truncate">
                 {selectedBenefit
-                  ? `${selectedBenefit.subsidyPercent}% subsidy on ${selectedBenefit.vendorName ?? selectedBenefit.name
-                  }`
+                  ? `${selectedBenefit.subsidyPercent}% subsidy on ${
+                      selectedBenefit.vendorName ?? selectedBenefit.name
+                    }`
                   : "Select a benefit to view details"}
               </span>
             </button>
@@ -1132,16 +1182,18 @@ export default function AdminRulesPage() {
               className="flex h-16 w-full items-center gap-3 rounded-[16px] border border-[#d9e1ef] bg-white px-5 text-left text-[16px] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#c7d5e6] disabled:cursor-not-allowed disabled:opacity-70"
             >
               <FileText
-                className={`h-5 w-5 shrink-0 ${selectedBenefit?.activeContractId
+                className={`h-5 w-5 shrink-0 ${
+                  selectedBenefit?.activeContractId
                     ? "text-[#2563EB]"
                     : "text-[#94A3B8]"
-                  }`}
+                }`}
               />
               <span
-                className={`truncate ${selectedBenefit?.activeContractId
+                className={`truncate ${
+                  selectedBenefit?.activeContractId
                     ? "text-[#253247]"
                     : "text-[#708198]"
-                  }`}
+                }`}
               >
                 {selectedBenefit?.activeContractId
                   ? selectedBenefit.activeContractId
@@ -1378,6 +1430,41 @@ export default function AdminRulesPage() {
         </div>
       ) : null}
 
+      {deletingBenefitId !== null ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4">
+          <div className="w-full max-w-[360px] rounded-[12px] bg-[#f5f5f5] px-6 py-6 shadow-2xl">
+            <h2 className="text-center text-[16px] font-medium leading-tight text-gray-900">
+              Do you want to delete this benefit?
+            </h2>
+
+            {benefitActionError ? (
+              <p className="mt-4 text-center text-base text-red-600">
+                {benefitActionError}
+              </p>
+            ) : null}
+
+            <div className="mt-7 flex justify-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDeleteBenefitModal}
+                className="h-9 min-w-20 rounded-[10px] border border-gray-300 bg-white px-5 text-base font-medium text-gray-800 shadow-none hover:bg-gray-50"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleDeleteBenefit}
+                disabled={deletingBenefit}
+                className="h-9 min-w-20 rounded-[10px] bg-red-500 px-5 text-base font-medium text-white hover:bg-red-600"
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {isAddBenefitModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4">
           <div className="w-full max-w-[560px] rounded-[12px] bg-[#f5f5f5] p-6 shadow-2xl">
@@ -1429,9 +1516,9 @@ export default function AdminRulesPage() {
       ) : null}
 
       {isAddBenefitModalOpen &&
-        isContractBuilderOpen &&
-        contractPreviewUrl &&
-        benefitContractFile ? (
+      isContractBuilderOpen &&
+      contractPreviewUrl &&
+      benefitContractFile ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020617]/40 p-4">
           <div className="flex h-full max-h-[680px] w-full max-w-6xl flex-col overflow-hidden rounded-[18px] border border-[#d9e1ef] bg-[#f8fafc] shadow-[0_24px_64px_rgba(15,23,42,0.38)]">
             <div className="flex items-center justify-between border-b border-[#dde4f0] bg-white px-6 py-4">

@@ -1,7 +1,12 @@
 import { eq } from "drizzle-orm";
 
 import { getDb } from "../../../db/client";
+import { audit_logs } from "../../../db/schemas/audit_log.schema";
+import { benefit_eligibility } from "../../../db/schemas/benefit_eligibility.schema";
+import { benefit_requests } from "../../../db/schemas/benefit_request.schema";
 import { benefits } from "../../../db/schemas/benefits.schema";
+import { contracts } from "../../../db/schemas/contract.schema";
+import { eligibility_rules } from "../../../db/schemas/eligibility_rules.schema";
 import { requireManagerAccess } from "../shared/authenticated-employee";
 
 const mapBenefit = (row: typeof benefits.$inferSelect) => ({
@@ -112,6 +117,27 @@ export const benefitMutation = {
 			) => {
 				await requireManagerAccess(context);
 				const db = getDb(context.env.DB);
+
+			await db
+				.delete(audit_logs)
+				.where(eq(audit_logs.benefit_id, args.id));
+
+			await db
+				.delete(benefit_requests)
+				.where(eq(benefit_requests.benefit_id, args.id));
+
+			await db
+				.delete(benefit_eligibility)
+				.where(eq(benefit_eligibility.benefit_id, args.id));
+
+			await db
+				.delete(eligibility_rules)
+				.where(eq(eligibility_rules.benefit_id, args.id));
+
+			await db
+				.delete(contracts)
+				.where(eq(contracts.benefit_id, args.id));
+
 			const deleted = await db
 				.delete(benefits)
 				.where(eq(benefits.id, args.id))

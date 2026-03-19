@@ -30,7 +30,8 @@ export default function ContractBuilderPage() {
     if (pdfUrl.startsWith("blob:") || pdfUrl.startsWith("data:")) return pdfUrl;
     // In local dev, prefer the local Worker preview for contract URLs.
     if (
-      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
+      (window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1") &&
       pdfUrl.includes("my-first-worker.ebmsteam10.workers.dev")
     ) {
       try {
@@ -49,7 +50,10 @@ export default function ContractBuilderPage() {
   }, [pdfUrl]);
 
   const pageRefs = useRef<Record<number, HTMLDivElement | null>>({});
-  const getPageRect = (page: number) => pageRefs.current[page]?.getBoundingClientRect() ?? null;
+  const getPageRect = (page: number) =>
+    pageRefs.current[page]?.getBoundingClientRect() ?? null;
+  const getPageRect = (page: number) =>
+    pageRefs.current[page]?.getBoundingClientRect() ?? null;
 
   const [numPages, setNumPages] = useState<number>(0);
   type SignatureBox = {
@@ -60,17 +64,22 @@ export default function ContractBuilderPage() {
     widthPct: number;
     heightPct: number;
   };
-  const [boxes, setBoxes] = useState<
-    SignatureBox[]
-  >([]);
+  const [boxes, setBoxes] = useState<SignatureBox[]>([]);
+  const [boxes, setBoxes] = useState<SignatureBox[]>([]);
   const [activeBoxId, setActiveBoxId] = useState<string | null>(null);
-  const [signaturePreviewByBoxId, setSignaturePreviewByBoxId] = useState<Record<string, string>>(
-    {},
-  );
-  const [signatureUrlByBoxId, setSignatureUrlByBoxId] = useState<Record<string, string>>({});
+  const [signaturePreviewByBoxId, setSignaturePreviewByBoxId] = useState<
+    Record<string, string>
+  >({});
+  const [signatureUrlByBoxId, setSignatureUrlByBoxId] = useState<
+    Record<string, string>
+  >({});
   const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const signatureContainerRef = useRef<HTMLDivElement | null>(null);
-  const drawingRef = useRef<{ isDrawing: boolean; lastX: number; lastY: number }>({
+  const drawingRef = useRef<{
+    isDrawing: boolean;
+    lastX: number;
+    lastY: number;
+  }>({
     isDrawing: false,
     lastX: 0,
     lastY: 0,
@@ -83,20 +92,37 @@ export default function ContractBuilderPage() {
   >({ state: "idle" });
   const [drag, setDrag] = useState<
     | { mode: "none" }
-    | { mode: "move"; id: string; page: number; offsetXPx: number; offsetYPx: number }
     | {
-      mode: "resize";
-      id: string;
-      page: number;
-      startXPx: number;
-      startYPx: number;
-      startWidthPct: number;
-      startHeightPct: number;
-    }
+        mode: "move";
+        id: string;
+        page: number;
+        offsetXPx: number;
+        offsetYPx: number;
+      }
+    | {
+        mode: "resize";
+        id: string;
+        page: number;
+        startXPx: number;
+        startYPx: number;
+        startWidthPct: number;
+        startHeightPct: number;
+      }
+        mode: "resize";
+        id: string;
+        page: number;
+        startXPx: number;
+        startYPx: number;
+        startWidthPct: number;
+        startHeightPct: number;
+      }
   >({ mode: "none" });
 
   const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
-  const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+  const clamp = (value: number, min: number, max: number) =>
+    Math.min(max, Math.max(min, value));
+  const clamp = (value: number, min: number, max: number) =>
+    Math.min(max, Math.max(min, value));
 
   const serviceOrigin = useMemo(() => {
     try {
@@ -119,13 +145,40 @@ export default function ContractBuilderPage() {
         return [
           {
             id: typeof obj.id === "string" ? obj.id : crypto.randomUUID(),
-            page: typeof obj.page === "number" && Number.isFinite(obj.page) ? obj.page : 1,
-            xPct: typeof obj.xPct === "number" && Number.isFinite(obj.xPct) ? obj.xPct : 0.4,
-            yPct: typeof obj.yPct === "number" && Number.isFinite(obj.yPct) ? obj.yPct : 0.46,
+            page:
+              typeof obj.page === "number" && Number.isFinite(obj.page)
+                ? obj.page
+                : 1,
+            xPct:
+              typeof obj.xPct === "number" && Number.isFinite(obj.xPct)
+                ? obj.xPct
+                : 0.4,
+            yPct:
+              typeof obj.yPct === "number" && Number.isFinite(obj.yPct)
+                ? obj.yPct
+                : 0.46,
+            page:
+              typeof obj.page === "number" && Number.isFinite(obj.page)
+                ? obj.page
+                : 1,
+            xPct:
+              typeof obj.xPct === "number" && Number.isFinite(obj.xPct)
+                ? obj.xPct
+                : 0.4,
+            yPct:
+              typeof obj.yPct === "number" && Number.isFinite(obj.yPct)
+                ? obj.yPct
+                : 0.46,
             widthPct:
-              typeof obj.widthPct === "number" && Number.isFinite(obj.widthPct) ? obj.widthPct : 0.2,
+              typeof obj.widthPct === "number" && Number.isFinite(obj.widthPct)
+                ? obj.widthPct
+                : 0.2,
+              typeof obj.widthPct === "number" && Number.isFinite(obj.widthPct)
+                ? obj.widthPct
+                : 0.2,
             heightPct:
-              typeof obj.heightPct === "number" && Number.isFinite(obj.heightPct)
+              typeof obj.heightPct === "number" &&
+              Number.isFinite(obj.heightPct)
                 ? obj.heightPct
                 : 0.08,
           },
@@ -205,7 +258,10 @@ export default function ContractBuilderPage() {
     const canvas = signatureCanvasRef.current;
     if (!canvas) return;
     const dataUrl = canvas.toDataURL("image/png");
-    setSignaturePreviewByBoxId((current) => ({ ...current, [activeBoxId]: dataUrl }));
+    setSignaturePreviewByBoxId((current) => ({
+      ...current,
+      [activeBoxId]: dataUrl,
+    }));
   };
 
   const uploadActiveSignatureToR2 = async () => {
@@ -215,7 +271,8 @@ export default function ContractBuilderPage() {
     if (!serviceOrigin) {
       setSignatureUploadStatus({
         state: "error",
-        message: "Missing NEXT_PUBLIC_GRAPHQL_URL (cannot derive service origin).",
+        message:
+          "Missing NEXT_PUBLIC_GRAPHQL_URL (cannot derive service origin).",
       });
       return;
     }
@@ -235,14 +292,24 @@ export default function ContractBuilderPage() {
       });
       if (!response.ok) {
         const text = await response.text().catch(() => "");
-        throw new Error(`Upload failed (${response.status}): ${text || response.statusText}`);
+        throw new Error(
+          `Upload failed (${response.status}): ${text || response.statusText}`,
+        );
       }
       const result = (await response.json()) as { key?: string; url?: string };
-      if (!result.key || !result.url) throw new Error("Upload response missing key/url");
+      if (!result.key || !result.url)
+        throw new Error("Upload response missing key/url");
 
       saveActiveSignaturePreview();
-      setSignatureUrlByBoxId((current) => ({ ...current, [activeBoxId]: result.url! }));
-      setSignatureUploadStatus({ state: "uploaded", key: result.key, url: result.url });
+      setSignatureUrlByBoxId((current) => ({
+        ...current,
+        [activeBoxId]: result.url!,
+      }));
+      setSignatureUploadStatus({
+        state: "uploaded",
+        key: result.key,
+        url: result.url,
+      });
     } catch (error) {
       setSignatureUploadStatus({
         state: "error",
@@ -255,7 +322,8 @@ export default function ContractBuilderPage() {
     if (!contractId) {
       setSignatureUploadStatus({
         state: "error",
-        message: "Missing contractId in URL (cannot save signatures to contract).",
+        message:
+          "Missing contractId in URL (cannot save signatures to contract).",
       });
       return;
     }
@@ -300,11 +368,20 @@ export default function ContractBuilderPage() {
       });
       if (!response.ok) {
         const text = await response.text().catch(() => "");
-        throw new Error(`Save failed (${response.status}): ${text || response.statusText}`);
+        throw new Error(
+          `Save failed (${response.status}): ${text || response.statusText}`,
+        );
       }
-      const json = (await response.json()) as { errors?: Array<{ message?: string }> };
+      const json = (await response.json()) as {
+        errors?: Array<{ message?: string }>;
+      };
       if (json.errors?.length) {
-        throw new Error(json.errors.map((e) => e.message).filter(Boolean).join("\n") || "Save failed");
+        throw new Error(
+          json.errors
+            .map((e) => e.message)
+            .filter(Boolean)
+            .join("\n") || "Save failed",
+        );
       }
     } catch (error) {
       setSignatureUploadStatus({
@@ -314,7 +391,11 @@ export default function ContractBuilderPage() {
     }
   };
 
-  const addBoxAtClientPoint = (page: number, clientX: number, clientY: number) => {
+  const addBoxAtClientPoint = (
+    page: number,
+    clientX: number,
+    clientY: number,
+  ) => {
     const rect = getPageRect(page);
     if (!rect) return;
 
@@ -414,8 +495,26 @@ export default function ContractBuilderPage() {
             const widthPct = box.widthPct;
             const heightPct = box.heightPct;
 
-            const nextXPx = clamp(pointerXPx - drag.offsetXPx, 0, rect.width - widthPct * rect.width);
-            const nextYPx = clamp(pointerYPx - drag.offsetYPx, 0, rect.height - heightPct * rect.height);
+            const nextXPx = clamp(
+              pointerXPx - drag.offsetXPx,
+              0,
+              rect.width - widthPct * rect.width,
+            );
+            const nextYPx = clamp(
+              pointerYPx - drag.offsetYPx,
+              0,
+              rect.height - heightPct * rect.height,
+            );
+            const nextXPx = clamp(
+              pointerXPx - drag.offsetXPx,
+              0,
+              rect.width - widthPct * rect.width,
+            );
+            const nextYPx = clamp(
+              pointerYPx - drag.offsetYPx,
+              0,
+              rect.height - heightPct * rect.height,
+            );
 
             return {
               ...box,
@@ -430,8 +529,22 @@ export default function ContractBuilderPage() {
           const minWidthPct = Math.max(80 / rect.width, 0.05);
           const minHeightPct = Math.max(40 / rect.height, 0.04);
 
-          const nextWidthPct = Math.max(minWidthPct, drag.startWidthPct + deltaXPx / rect.width);
-          const nextHeightPct = Math.max(minHeightPct, drag.startHeightPct + deltaYPx / rect.height);
+          const nextWidthPct = Math.max(
+            minWidthPct,
+            drag.startWidthPct + deltaXPx / rect.width,
+          );
+          const nextHeightPct = Math.max(
+            minHeightPct,
+            drag.startHeightPct + deltaYPx / rect.height,
+          );
+          const nextWidthPct = Math.max(
+            minWidthPct,
+            drag.startWidthPct + deltaXPx / rect.width,
+          );
+          const nextHeightPct = Math.max(
+            minHeightPct,
+            drag.startHeightPct + deltaYPx / rect.height,
+          );
 
           const maxWidthPct = 1 - box.xPct;
           const maxHeightPct = 1 - box.yPct;
@@ -474,7 +587,11 @@ export default function ContractBuilderPage() {
             onClick={() => void saveSignaturesToContract()}
             disabled={!contractId}
             className="rounded-[12px] bg-[#2563eb] px-4 py-2 text-[0.85rem] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
-            title={contractId ? "Save signature placements to contract" : "Missing contractId"}
+            title={
+              contractId
+                ? "Save signature placements to contract"
+                : "Missing contractId"
+            }
           >
             Save signatures
           </button>
@@ -483,9 +600,8 @@ export default function ContractBuilderPage() {
 
       <div className="flex flex-1 gap-5 pb-4">
         <section className="flex-1 rounded-[18px] border border-[#e5e7eb] bg-white shadow-sm">
-          <div
-            className="relative h-full overflow-auto bg-[#f9fafb] p-3"
-          >
+          <div className="relative h-full overflow-auto bg-[#f9fafb] p-3">
+          <div className="relative h-full overflow-auto bg-[#f9fafb] p-3">
             {pdfUrl ? (
               <Document
                 file={pdfSource}
@@ -504,8 +620,12 @@ export default function ContractBuilderPage() {
                     ) : null}
                   </div>
                 }
-                onLoadError={(error) => setPdfError(error?.message ?? String(error))}
-                onSourceError={(error) => setPdfError(error?.message ?? String(error))}
+                onLoadError={(error) =>
+                  setPdfError(error?.message ?? String(error))
+                }
+                onSourceError={(error) =>
+                  setPdfError(error?.message ?? String(error))
+                }
                 onLoadSuccess={({ numPages: nextNumPages }) => {
                   setPdfError(null);
                   setNumPages(nextNumPages);
@@ -513,15 +633,24 @@ export default function ContractBuilderPage() {
                     current.length
                       ? current
                       : [
-                        {
-                          id: crypto.randomUUID(),
-                          page: 1,
-                          xPct: 0.4,
-                          yPct: 0.46,
-                          widthPct: 0.2,
-                          heightPct: 0.08,
-                        },
-                      ],
+                          {
+                            id: crypto.randomUUID(),
+                            page: 1,
+                            xPct: 0.4,
+                            yPct: 0.46,
+                            widthPct: 0.2,
+                            heightPct: 0.08,
+                          },
+                        ],
+                          {
+                            id: crypto.randomUUID(),
+                            page: 1,
+                            xPct: 0.4,
+                            yPct: 0.46,
+                            widthPct: 0.2,
+                            heightPct: 0.08,
+                          },
+                        ],
                   );
                 }}
               >
@@ -539,7 +668,16 @@ export default function ContractBuilderPage() {
                         addBoxAtClientPoint(page, event.clientX, event.clientY);
                       }}
                     >
-                      <Page pageNumber={page} renderTextLayer={false} renderAnnotationLayer={false} />
+                      <Page
+                        pageNumber={page}
+                        renderTextLayer={false}
+                        renderAnnotationLayer={false}
+                      />
+                      <Page
+                        pageNumber={page}
+                        renderTextLayer={false}
+                        renderAnnotationLayer={false}
+                      />
 
                       {boxes
                         .filter((box) => box.page === page)
@@ -578,7 +716,9 @@ export default function ContractBuilderPage() {
                             )}
                             <div
                               className="absolute bottom-1 right-1 h-3 w-3 cursor-se-resize rounded-[4px] bg-[#2563eb]"
-                              onMouseDown={(event) => startResize(event, box.id)}
+                              onMouseDown={(event) =>
+                                startResize(event, box.id)
+                              }
                             />
 
                             {activeBoxId === box.id ? (
@@ -635,23 +775,41 @@ export default function ContractBuilderPage() {
                                       e.stopPropagation();
                                       const canvas = e.currentTarget;
                                       canvas.setPointerCapture(e.pointerId);
-                                      const rect = canvas.getBoundingClientRect();
+                                      const rect =
+                                        canvas.getBoundingClientRect();
                                       const x = e.clientX - rect.left;
                                       const y = e.clientY - rect.top;
-                                      drawingRef.current = { isDrawing: true, lastX: x, lastY: y };
+                                      drawingRef.current = {
+                                        isDrawing: true,
+                                        lastX: x,
+                                        lastY: y,
+                                      };
+                                      drawingRef.current = {
+                                        isDrawing: true,
+                                        lastX: x,
+                                        lastY: y,
+                                      };
                                     }}
                                     onPointerMove={(e) => {
                                       if (!drawingRef.current.isDrawing) return;
                                       e.preventDefault();
                                       e.stopPropagation();
                                       const canvas = e.currentTarget;
-                                      const rect = canvas.getBoundingClientRect();
+                                      const rect =
+                                        canvas.getBoundingClientRect();
                                       const x = e.clientX - rect.left;
                                       const y = e.clientY - rect.top;
                                       const ctx = canvas.getContext("2d");
                                       if (!ctx) return;
                                       ctx.beginPath();
-                                      ctx.moveTo(drawingRef.current.lastX, drawingRef.current.lastY);
+                                      ctx.moveTo(
+                                        drawingRef.current.lastX,
+                                        drawingRef.current.lastY,
+                                      );
+                                      ctx.moveTo(
+                                        drawingRef.current.lastX,
+                                        drawingRef.current.lastY,
+                                      );
                                       ctx.lineTo(x, y);
                                       ctx.stroke();
                                       drawingRef.current.lastX = x;
@@ -680,18 +838,23 @@ export default function ContractBuilderPage() {
                                       e.stopPropagation();
                                       void uploadActiveSignatureToR2();
                                     }}
-                                    disabled={signatureUploadStatus.state === "uploading"}
+                                    disabled={
+                                      signatureUploadStatus.state ===
+                                      "uploading"
+                                    }
                                   >
                                     {signatureUploadStatus.state === "uploading"
                                       ? "Uploading…"
                                       : "Save to R2"}
                                   </button>
 
-                                  {signatureUploadStatus.state === "uploaded" ? (
+                                  {signatureUploadStatus.state ===
+                                  "uploaded" ? (
                                     <div className="truncate text-[0.7rem] text-[#065f46]">
                                       Saved: {signatureUploadStatus.key}
                                     </div>
-                                  ) : signatureUploadStatus.state === "error" ? (
+                                  ) : signatureUploadStatus.state ===
+                                    "error" ? (
                                     <div className="truncate text-[0.7rem] text-[#b91c1c]">
                                       {signatureUploadStatus.message}
                                     </div>
@@ -720,4 +883,3 @@ export default function ContractBuilderPage() {
     </div>
   );
 }
-
