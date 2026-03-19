@@ -5,6 +5,49 @@ import { contracts } from "../../../db/schemas/contract.schema";
 import { requireHrAdminAccess } from "../shared/authenticated-employee";
 import { findActiveContractForBenefit } from "../shared/contract-lifecycle";
 
+type ContractSignature = {
+  id: string;
+  page: number;
+  xPct: number;
+  yPct: number;
+  widthPct: number;
+  heightPct: number;
+  r2ObjectKey: string;
+};
+
+function parseSignatures(raw: string | null | undefined): ContractSignature[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const obj = item as Record<string, unknown>;
+      const id = typeof obj.id === "string" ? obj.id : null;
+      const page = typeof obj.page === "number" ? obj.page : null;
+      const xPct = typeof obj.xPct === "number" ? obj.xPct : null;
+      const yPct = typeof obj.yPct === "number" ? obj.yPct : null;
+      const widthPct = typeof obj.widthPct === "number" ? obj.widthPct : null;
+      const heightPct = typeof obj.heightPct === "number" ? obj.heightPct : null;
+      const r2ObjectKey = typeof obj.r2ObjectKey === "string" ? obj.r2ObjectKey : null;
+      if (
+        !id ||
+        page == null ||
+        xPct == null ||
+        yPct == null ||
+        widthPct == null ||
+        heightPct == null ||
+        !r2ObjectKey
+      ) {
+        return [];
+      }
+      return [{ id, page, xPct, yPct, widthPct, heightPct, r2ObjectKey }];
+    });
+  } catch {
+    return [];
+  }
+}
+
 const mapContract = (row: typeof contracts.$inferSelect) => ({
   id: row.id,
   benefitId: row.benefit_id,
@@ -15,6 +58,7 @@ const mapContract = (row: typeof contracts.$inferSelect) => ({
   effectiveDate: row.effective_date,
   expiryDate: row.expiry_date,
   isActive: row.is_active ?? false,
+  signatures: parseSignatures(row.signatures_json),
 });
 
 export const contractQuery = {

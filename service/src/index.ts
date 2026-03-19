@@ -16,6 +16,7 @@ import { employeeTimeData } from './mockEmployees/employee-time-data';
 interface Env {
 	DB: D1Database;
 	SIGNATURES_BUCKET: R2Bucket;
+	CONTRACTS_BUCKET: R2Bucket;
 	CLERK_SECRET_KEY?: string;
 	CLERK_PUBLISHABLE_KEY?: string;
 	CLERK_JWT_KEY?: string;
@@ -70,7 +71,7 @@ app.use(
 			return allowedOrigins.includes(origin) ? origin : allowedOrigins[0] ?? 'null';
 		},
 		credentials: true,
-		allowHeaders: ['Authorization', 'Content-Type'],
+		allowHeaders: ['Authorization', 'Content-Type', 'Range', 'If-Range'],
 		allowMethods: ['GET', 'POST', 'OPTIONS'],
 	})
 );
@@ -176,7 +177,73 @@ app.post('/signatures', requireClerkAuth, requireManagerRole, async (c) => {
 		},
 	});
 
-	return c.json({ key });
+	const origin = new URL(c.req.url).origin;
+	return c.json({ key, url: `${origin}/signatures?key=${encodeURIComponent(key)}` });
+});
+
+app.get('/signatures', requireClerkAuth, requireManagerRole, async (c) => {
+	const key = c.req.query('key');
+	if (!key) return c.text('Missing key', 400);
+
+	const object = await c.env.SIGNATURES_BUCKET.get(key, {
+		onlyIf: c.req.raw.headers,
+		range: c.req.raw.headers,
+	});
+	if (!object) return c.text('Not found', 404);
+
+	const headers = new Headers();
+	object.writeHttpMetadata(headers);
+	headers.set('etag', object.httpEtag);
+
+	return new Response('body' in object ? object.body : undefined, {
+		status: 'body' in object ? 200 : 412,
+		headers,
+	});
+});
+
+app.post('/contracts/upload', requireClerkAuth, requireManagerRole, async (c) => {
+	const benefitId = c.req.query('benefitId');
+	const fileName = c.req.query('fileName') ?? 'contract.pdf';
+	if (!benefitId) return c.json({ error: 'Missing benefitId' }, 400);
+
+	const contentType = c.req.header('content-type') ?? 'application/pdf';
+	const body = await c.req.arrayBuffer();
+	if (body.byteLength === 0) return c.json({ error: 'Empty body' }, 400);
+
+	const safeName = fileName.replaceAll(/[^a-zA-Z0-9._-]/g, '_');
+	const key = `contracts/${benefitId}/${crypto.randomUUID()}-${safeName}`;
+	await c.env.CONTRACTS_BUCKET.put(key, body, {
+		httpMetadata: {
+			contentType,
+		},
+		customMetadata: {
+			benefitId,
+			fileName: safeName,
+		},
+	});
+
+	const origin = new URL(c.req.url).origin;
+	return c.json({ key, url: `${origin}/contracts?key=${encodeURIComponent(key)}` });
+});
+
+app.get('/contracts', requireClerkAuth, requireManagerRole, async (c) => {
+	const key = c.req.query('key');
+	if (!key) return c.text('Missing key', 400);
+
+	const object = await c.env.CONTRACTS_BUCKET.get(key, {
+		onlyIf: c.req.raw.headers,
+		range: c.req.raw.headers,
+	});
+	if (!object) return c.text('Not found', 404);
+
+	const headers = new Headers();
+	object.writeHttpMetadata(headers);
+	headers.set('etag', object.httpEtag);
+
+	return new Response('body' in object ? object.body : undefined, {
+		status: 'body' in object ? 200 : 412,
+		headers,
+	});
 });
 
 export default {

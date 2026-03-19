@@ -14,6 +14,49 @@ import {
 } from "../shared/contract-lifecycle";
 import { getBenefitName, writeAuditLog } from "../shared/audit-log";
 
+type ContractSignature = {
+  id: string;
+  page: number;
+  xPct: number;
+  yPct: number;
+  widthPct: number;
+  heightPct: number;
+  r2ObjectKey: string;
+};
+
+function parseSignatures(raw: string | null | undefined): ContractSignature[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const obj = item as Record<string, unknown>;
+      const id = typeof obj.id === "string" ? obj.id : null;
+      const page = typeof obj.page === "number" ? obj.page : null;
+      const xPct = typeof obj.xPct === "number" ? obj.xPct : null;
+      const yPct = typeof obj.yPct === "number" ? obj.yPct : null;
+      const widthPct = typeof obj.widthPct === "number" ? obj.widthPct : null;
+      const heightPct = typeof obj.heightPct === "number" ? obj.heightPct : null;
+      const r2ObjectKey = typeof obj.r2ObjectKey === "string" ? obj.r2ObjectKey : null;
+      if (
+        !id ||
+        page == null ||
+        xPct == null ||
+        yPct == null ||
+        widthPct == null ||
+        heightPct == null ||
+        !r2ObjectKey
+      ) {
+        return [];
+      }
+      return [{ id, page, xPct, yPct, widthPct, heightPct, r2ObjectKey }];
+    });
+  } catch {
+    return [];
+  }
+}
+
 const mapContract = (row: typeof contracts.$inferSelect) => ({
   id: row.id,
   benefitId: row.benefit_id,
@@ -24,6 +67,7 @@ const mapContract = (row: typeof contracts.$inferSelect) => ({
   effectiveDate: row.effective_date,
   expiryDate: row.expiry_date,
   isActive: row.is_active ?? false,
+  signatures: parseSignatures(row.signatures_json),
 });
 
 export const contractMutation = {
@@ -65,6 +109,7 @@ export const contractMutation = {
           sha256_hash: input.sha256Hash,
           effective_date: input.effectiveDate ?? null,
           expiry_date: input.expiryDate ?? null,
+          signatures_json: "[]",
           is_active: input.isActive ?? true,
         })
         .returning()
@@ -93,6 +138,44 @@ export const contractMutation = {
       });
 
       return mapContract(lifecycleRow ?? inserted);
+    },
+
+    updateContractSignatures: async (
+      _parent: unknown,
+      args: { contractId: string; signatures: ContractSignature[] },
+      context: { env: Env },
+    ) => {
+      const auth = await requireHrAdminAccess(context);
+      const db = getDb(context.env.DB);
+      const existing = await getContractById(db, args.contractId);
+      if (!existing) throw new Error("Contract not found");
+
+      const signaturesJson = JSON.stringify(args.signatures ?? []);
+      const updated = await db
+        .update(contracts)
+        .set({ signatures_json: signaturesJson })
+        .where(eq(contracts.id, args.contractId))
+        .returning()
+        .get();
+
+      const benefitName = await getBenefitName(db, updated.benefit_id);
+      await writeAuditLog(db, {
+        benefitId: updated.benefit_id,
+        action: "Contract Updated",
+        detail: benefitName
+          ? `${benefitName} contract ${updated.version} signature fields were updated.`
+          : `Contract ${updated.version} signature fields were updated.`,
+        performedByEmployeeId: auth.employee?.id ?? null,
+        performedByLabel: auth.employee?.full_name ?? auth.clerkEmail,
+        metadata: {
+          contractId: updated.id,
+          version: updated.version,
+          source: "updateContractSignatures",
+          signatureCount: Array.isArray(args.signatures) ? args.signatures.length : 0,
+        },
+      });
+
+      return mapContract(updated);
     },
 
     updateContract: async (
@@ -173,20 +256,18 @@ export const contractMutation = {
             ? "Contract Deactivated"
             : "Contract Updated",
         detail: benefitName
-          ? `${benefitName} contract ${updated.version} ${
-              becameActive
-                ? "was activated."
-                : deactivated
-                  ? "was deactivated."
-                  : "was updated."
-            }`
-          : `Contract ${updated.version} ${
-              becameActive
-                ? "was activated."
-                : deactivated
-                  ? "was deactivated."
-                  : "was updated."
-            }`,
+          ? `${benefitName} contract ${updated.version} ${becameActive
+            ? "was activated."
+            : deactivated
+              ? "was deactivated."
+              : "was updated."
+          }`
+          : `Contract ${updated.version} ${becameActive
+            ? "was activated."
+            : deactivated
+              ? "was deactivated."
+              : "was updated."
+          }`,
         performedByEmployeeId: auth.employee?.id ?? null,
         performedByLabel: auth.employee?.full_name ?? auth.clerkEmail,
         metadata: {

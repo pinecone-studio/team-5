@@ -18,13 +18,29 @@ export async function GET(request: Request) {
   }
 
   const range = request.headers.get("range");
+  const cookie = request.headers.get("cookie");
+  const authorization = request.headers.get("authorization");
+
+  const upstreamHeaders = new Headers();
+  if (range) upstreamHeaders.set("range", range);
+  // Forward auth so the Worker can authorize the request.
+  if (cookie) upstreamHeaders.set("cookie", cookie);
+  if (authorization) upstreamHeaders.set("authorization", authorization);
+
   const upstream = await fetch(target, {
-    headers: range ? { range } : undefined,
+    headers: upstreamHeaders,
   });
 
   // pdf.js expects 200 or 206. Bubble up upstream failures.
   if (!(upstream.status === 200 || upstream.status === 206)) {
-    return new Response(`Upstream error (${upstream.status})`, { status: 502 });
+    const text = await upstream.text().catch(() => "");
+    return new Response(text || `Upstream error (${upstream.status})`, {
+      status: upstream.status,
+      headers: {
+        "cache-control": "no-store",
+        "content-type": upstream.headers.get("content-type") ?? "text/plain; charset=utf-8",
+      },
+    });
   }
 
   const headers = new Headers();

@@ -73,6 +73,19 @@ type BenefitMutationData = {
   updateBenefit: BenefitDataItem;
 };
 
+type ContractDataItem = {
+  id: string;
+  benefitId: string;
+  version: string;
+  r2ObjectKey: string;
+  sha256Hash: string;
+  isActive: boolean | null;
+};
+
+type ContractMutationData = {
+  createContract: ContractDataItem;
+};
+
 const GET_BENEFITS = gql`
   query GetBenefits {
     benefits {
@@ -167,6 +180,19 @@ const UPDATE_BENEFIT = gql`
       category
       requiresContract
       subsidyPercent
+    }
+  }
+`;
+
+const CREATE_CONTRACT = gql`
+  mutation CreateContract($input: CreateContractInput!) {
+    createContract(input: $input) {
+      id
+      benefitId
+      version
+      r2ObjectKey
+      sha256Hash
+      isActive
     }
   }
 `;
@@ -325,16 +351,12 @@ export default function AdminRulesPage() {
     [editingRuleId, rules],
   );
 
-  const [createRule, { loading: creatingRule }] =
-    useMutation<RuleMutationData>(CREATE_RULE);
-  const [updateRule, { loading: updatingRule }] =
-    useMutation<RuleMutationData>(UPDATE_RULE);
-  const [deleteRule, { loading: deletingRule }] =
-    useMutation<RuleMutationData>(DELETE_RULE);
-  const [createBenefit, { loading: creatingBenefit }] =
-    useMutation<BenefitMutationData>(CREATE_BENEFIT);
-  const [updateBenefit, { loading: updatingBenefit }] =
-    useMutation<BenefitMutationData>(UPDATE_BENEFIT);
+  const [createRule, { loading: creatingRule }] = useMutation<RuleMutationData>(CREATE_RULE);
+  const [updateRule, { loading: updatingRule }] = useMutation<RuleMutationData>(UPDATE_RULE);
+  const [deleteRule, { loading: deletingRule }] = useMutation<RuleMutationData>(DELETE_RULE);
+  const [createBenefit, { loading: creatingBenefit }] = useMutation<BenefitMutationData>(CREATE_BENEFIT);
+  const [updateBenefit, { loading: updatingBenefit }] = useMutation<BenefitMutationData>(UPDATE_BENEFIT);
+  const [createContract] = useMutation<ContractMutationData>(CREATE_CONTRACT);
 
   const isSaving = creatingRule || updatingRule;
   const isSavingBenefit = creatingBenefit || updatingBenefit;
@@ -592,10 +614,105 @@ export default function AdminRulesPage() {
       return;
     }
 
-    setBenefitActionError(null);
-    const fileName = encodeURIComponent(benefitContractFile.name);
-    const url = encodeURIComponent(contractPreviewUrl);
-    router.push(`/admin/rules/contract-builder?file=${fileName}&url=${url}`);
+    void (async () => {
+      try {
+        setBenefitActionError(null);
+
+        const file = benefitContractFile;
+        const arrayBuffer = await file.arrayBuffer();
+
+        // Ensure we have a benefit ID to attach the contract to.
+        let resolvedBenefitId = selectedBenefitId;
+        if (!resolvedBenefitId) {
+          const subsidyPercent = Number(benefitSubsidyValue);
+          if (!benefitNameValue.trim() || Number.isNaN(subsidyPercent)) {
+            setBenefitActionError("Benefit name and subsidy percent are required before continuing.");
+            return;
+          }
+
+          const response = await createBenefit({
+            variables: {
+              input: {
+                name: benefitNameValue.trim(),
+                category: benefitCategoryValue.trim() || null,
+                subsidyPercent,
+                vendorName: benefitVendorValue.trim() || null,
+                activeContractId: null,
+              },
+            },
+          });
+          resolvedBenefitId = response?.data?.createBenefit?.id ?? "";
+          if (!resolvedBenefitId) {
+            setBenefitActionError("Failed to create benefit.");
+            return;
+          }
+
+          await refetchBenefits();
+          setSelectedBenefitIdOverride(resolvedBenefitId);
+        }
+
+        // Hash the PDF for D1 record.
+        const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+        const hashBytes = Array.from(new Uint8Array(hashBuffer));
+        const sha256Hash = hashBytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+
+        // Upload PDF object to R2 (via service worker).
+        const configuredGraphqlUrl = process.env.NEXT_PUBLIC_GRAPHQL_URL ?? "";
+        const graphqlUrl =
+          window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+            ? "http://localhost:8787/graphql"
+            : configuredGraphqlUrl;
+        if (!graphqlUrl) {
+          setBenefitActionError("Missing NEXT_PUBLIC_GRAPHQL_URL.");
+          return;
+        }
+        const serviceOrigin = new URL(graphqlUrl).origin;
+        const uploadResponse = await fetch(
+          `${serviceOrigin}/contracts/upload?benefitId=${encodeURIComponent(resolvedBenefitId)}&fileName=${encodeURIComponent(file.name)}`,
+          {
+            method: "POST",
+            headers: { "content-type": file.type || "application/pdf" },
+            body: new Blob([arrayBuffer], { type: file.type || "application/pdf" }),
+            credentials: "include",
+          },
+        );
+        if (!uploadResponse.ok) {
+          const text = await uploadResponse.text().catch(() => "");
+          throw new Error(
+            `PDF upload failed (${uploadResponse.status}): ${text || uploadResponse.statusText}`,
+          );
+        }
+        const uploadJson = (await uploadResponse.json()) as { url?: string };
+        if (!uploadJson.url) throw new Error("PDF upload response missing url");
+
+        // Create contract row in D1, linked to benefit (also updates benefit.active_contract_id).
+        const version = new Date().toISOString();
+        const vendorName = (benefitVendorValue.trim() || selectedBenefit?.vendorName || "Vendor").slice(0, 120);
+        const contractResponse = await createContract({
+          variables: {
+            input: {
+              benefitId: resolvedBenefitId,
+              vendorName,
+              version,
+              r2ObjectKey: uploadJson.url,
+              sha256Hash,
+              isActive: true,
+            },
+          },
+        });
+        const createdContractId = contractResponse.data?.createContract?.id;
+        if (!createdContractId) throw new Error("Failed to create contract record");
+
+        // Navigate to builder with real URL + ids (no blob URL).
+        router.push(
+          `/admin/rules/contract-builder?file=${encodeURIComponent(file.name)}&url=${encodeURIComponent(
+            uploadJson.url,
+          )}&benefitId=${encodeURIComponent(resolvedBenefitId)}&contractId=${encodeURIComponent(createdContractId)}`,
+        );
+      } catch (error) {
+        setBenefitActionError(error instanceof Error ? error.message : "Failed to save contract.");
+      }
+    })();
   };
 
   const handleUpdateBenefit = async () => {
@@ -662,9 +779,8 @@ export default function AdminRulesPage() {
                 setIsOperatorOpen(false);
                 setIsRuleTypeOpen((open) => !open);
               }}
-              className={`flex h-11 w-full items-center justify-between rounded-[10px] border border-[#d9e2ef] bg-white px-4 pr-10 text-left text-base ${
-                ruleTypeValue ? "text-gray-800" : "text-black"
-              }`}
+              className={`flex h-11 w-full items-center justify-between rounded-[10px] border border-[#d9e2ef] bg-white px-4 pr-10 text-left text-base ${ruleTypeValue ? "text-gray-800" : "text-black"
+                }`}
               title={
                 ruleTypeValue ? formatRuleTypeLabel(ruleTypeValue) : "Status"
               }
@@ -675,9 +791,8 @@ export default function AdminRulesPage() {
                 {ruleTypeValue ? formatRuleTypeLabel(ruleTypeValue) : "Status"}
               </span>
               <ChevronDown
-                className={`pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400 transition-transform ${
-                  isRuleTypeOpen ? "rotate-180" : ""
-                }`}
+                className={`pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400 transition-transform ${isRuleTypeOpen ? "rotate-180" : ""
+                  }`}
               />
             </button>
 
@@ -730,9 +845,8 @@ export default function AdminRulesPage() {
                 )?.label ?? "Equals"}
               </span>
               <ChevronDown
-                className={`pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400 transition-transform ${
-                  isOperatorOpen ? "rotate-180" : ""
-                }`}
+                className={`pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400 transition-transform ${isOperatorOpen ? "rotate-180" : ""
+                  }`}
               />
             </button>
 
@@ -960,9 +1074,8 @@ export default function AdminRulesPage() {
                   (loadingBenefits ? "Loading..." : "No benefits")}
               </span>
               <ChevronDown
-                className={`h-5 w-5 shrink-0 text-[#7a8798] transition-transform ${
-                  isBenefitOpen ? "rotate-180" : ""
-                }`}
+                className={`h-5 w-5 shrink-0 text-[#7a8798] transition-transform ${isBenefitOpen ? "rotate-180" : ""
+                  }`}
               />
             </button>
 
@@ -1001,9 +1114,8 @@ export default function AdminRulesPage() {
             >
               <span className="truncate">
                 {selectedBenefit
-                  ? `${selectedBenefit.subsidyPercent}% subsidy on ${
-                      selectedBenefit.vendorName ?? selectedBenefit.name
-                    }`
+                  ? `${selectedBenefit.subsidyPercent}% subsidy on ${selectedBenefit.vendorName ?? selectedBenefit.name
+                  }`
                   : "Select a benefit to view details"}
               </span>
             </button>
@@ -1020,18 +1132,16 @@ export default function AdminRulesPage() {
               className="flex h-16 w-full items-center gap-3 rounded-[16px] border border-[#d9e1ef] bg-white px-5 text-left text-[16px] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#c7d5e6] disabled:cursor-not-allowed disabled:opacity-70"
             >
               <FileText
-                className={`h-5 w-5 shrink-0 ${
-                  selectedBenefit?.activeContractId
+                className={`h-5 w-5 shrink-0 ${selectedBenefit?.activeContractId
                     ? "text-[#2563EB]"
                     : "text-[#94A3B8]"
-                }`}
+                  }`}
               />
               <span
-                className={`truncate ${
-                  selectedBenefit?.activeContractId
+                className={`truncate ${selectedBenefit?.activeContractId
                     ? "text-[#253247]"
                     : "text-[#708198]"
-                }`}
+                  }`}
               >
                 {selectedBenefit?.activeContractId
                   ? selectedBenefit.activeContractId
@@ -1319,9 +1429,9 @@ export default function AdminRulesPage() {
       ) : null}
 
       {isAddBenefitModalOpen &&
-      isContractBuilderOpen &&
-      contractPreviewUrl &&
-      benefitContractFile ? (
+        isContractBuilderOpen &&
+        contractPreviewUrl &&
+        benefitContractFile ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020617]/40 p-4">
           <div className="flex h-full max-h-[680px] w-full max-w-6xl flex-col overflow-hidden rounded-[18px] border border-[#d9e1ef] bg-[#f8fafc] shadow-[0_24px_64px_rgba(15,23,42,0.38)]">
             <div className="flex items-center justify-between border-b border-[#dde4f0] bg-white px-6 py-4">

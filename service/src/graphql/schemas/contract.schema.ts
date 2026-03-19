@@ -1,4 +1,14 @@
 export const contractTypeDefs = `
+  type ContractSignature {
+    id: ID!
+    page: Int!
+    xPct: Float!
+    yPct: Float!
+    widthPct: Float!
+    heightPct: Float!
+    r2ObjectKey: String!
+  }
+
   type Contract {
     id: ID!
     benefitId: ID!
@@ -9,6 +19,7 @@ export const contractTypeDefs = `
     effectiveDate: String
     expiryDate: String
     isActive: Boolean
+    signatures: [ContractSignature!]!
   }
 
   input CreateContractInput {
@@ -33,6 +44,16 @@ export const contractTypeDefs = `
     isActive: Boolean
   }
 
+  input ContractSignatureInput {
+    id: ID!
+    page: Int!
+    xPct: Float!
+    yPct: Float!
+    widthPct: Float!
+    heightPct: Float!
+    r2ObjectKey: String!
+  }
+
   extend type Query {
     contracts(benefitId: ID): [Contract!]!
     contract(id: ID!): Contract
@@ -42,6 +63,7 @@ export const contractTypeDefs = `
   extend type Mutation {
     createContract(input: CreateContractInput!): Contract!
     updateContract(input: UpdateContractInput!): Contract!
+    updateContractSignatures(contractId: ID!, signatures: [ContractSignatureInput!]!): Contract!
     deleteContract(id: ID!): Boolean!
   }
 `;
