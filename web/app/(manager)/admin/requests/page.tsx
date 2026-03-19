@@ -1,15 +1,15 @@
-"use client"
+"use client";
 
-import { useEffect, useMemo, useState } from "react"
-import { gql } from "@apollo/client"
-import { useMutation, useQuery } from "@apollo/client/react"
-import { useUser } from "@clerk/react"
-import { CheckCircle2, FileText, LoaderCircle, X, XCircle } from "lucide-react"
+import { useEffect, useMemo, useState } from "react";
+import { gql } from "@apollo/client";
+import { useMutation, useQuery } from "@apollo/client/react";
+import { useUser } from "@clerk/react";
+import { CheckCircle2, FileText, LoaderCircle, X, XCircle } from "lucide-react";
 
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { canAccessAdminRequests, isManager, normalizeRole } from "@/lib/auth"
-import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { canAccessAdminRequests, isManager, normalizeRole } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 const ADMIN_REQUESTS_QUERY = gql`
   query AdminRequestsPageData {
@@ -35,7 +35,7 @@ const ADMIN_REQUESTS_QUERY = gql`
       updatedAt
     }
   }
-`
+`;
 
 const REVIEWER_REQUESTS_QUERY = gql`
   query ReviewerRequestsPageData {
@@ -56,10 +56,12 @@ const REVIEWER_REQUESTS_QUERY = gql`
       updatedAt
     }
   }
-`
+`;
 
 const UPDATE_REQUEST_STATUS_MUTATION = gql`
-  mutation UpdateBenefitRequestStatus($input: UpdateBenefitRequestStatusInput!) {
+  mutation UpdateBenefitRequestStatus(
+    $input: UpdateBenefitRequestStatusInput!
+  ) {
     updateBenefitRequestStatus(input: $input) {
       id
       status
@@ -69,149 +71,156 @@ const UPDATE_REQUEST_STATUS_MUTATION = gql`
       updatedAt
     }
   }
-`
+`;
 
-type RequestStatus = "pending" | "approved" | "rejected" | "cancelled"
-type NoticeTone = "approved" | "rejected"
+type RequestStatus = "pending" | "approved" | "rejected" | "cancelled";
+type NoticeTone = "approved" | "rejected";
 
 interface EmployeeItem {
-  id: string
-  fullName: string
-  okrSubmitted: boolean
+  id: string;
+  fullName: string;
+  okrSubmitted: boolean;
 }
 
 interface BenefitItem {
-  id: string
-  name: string
-  requiresContract: boolean | null
+  id: string;
+  name: string;
+  requiresContract: boolean | null;
 }
 
 interface BenefitRequestItem {
-  id: string
-  employeeId: string
-  benefitId: string
-  status: RequestStatus
-  contractAcceptedAt: string | null
-  reviewNotes: string | null
-  reviewedBy: string | null
-  createdAt: string
-  updatedAt: string
+  id: string;
+  employeeId: string;
+  benefitId: string;
+  status: RequestStatus;
+  contractAcceptedAt: string | null;
+  reviewNotes: string | null;
+  reviewedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface AdminRequestsQueryData {
-  employees: EmployeeItem[]
-  benefits: BenefitItem[]
-  benefitRequests: BenefitRequestItem[]
+  employees: EmployeeItem[];
+  benefits: BenefitItem[];
+  benefitRequests: BenefitRequestItem[];
 }
 
 interface ReviewerRequestsQueryData {
-  benefits: BenefitItem[]
-  benefitRequests: BenefitRequestItem[]
+  benefits: BenefitItem[];
+  benefitRequests: BenefitRequestItem[];
 }
 
 interface UpdateRequestStatusMutationData {
   updateBenefitRequestStatus: {
-    id: string
-    status: RequestStatus
-    contractAcceptedAt: string | null
-    reviewNotes: string | null
-    reviewedBy: string | null
-    updatedAt: string
-  }
+    id: string;
+    status: RequestStatus;
+    contractAcceptedAt: string | null;
+    reviewNotes: string | null;
+    reviewedBy: string | null;
+    updatedAt: string;
+  };
 }
 
 interface UpdateRequestStatusMutationVariables {
   input: {
-    id: string
-    status: RequestStatus
-    reviewNotes?: string | null
-  }
+    id: string;
+    status: RequestStatus;
+    reviewNotes?: string | null;
+  };
 }
 
 interface RequestRow {
-  id: string
-  employee: string
-  benefit: string
-  requiresContract: boolean
-  status: RequestStatus
-  createdAt: string
-  contractAcceptedAt: string | null
-  reviewNotes: string | null
+  id: string;
+  employee: string;
+  benefit: string;
+  requiresContract: boolean;
+  status: RequestStatus;
+  createdAt: string;
+  contractAcceptedAt: string | null;
+  reviewNotes: string | null;
 }
 
 function formatDate(isoDate: string) {
-  const parsed = new Date(isoDate)
-  if (Number.isNaN(parsed.getTime())) return isoDate
+  const parsed = new Date(isoDate);
+  if (Number.isNaN(parsed.getTime())) return isoDate;
 
   return parsed.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
-  })
+  });
 }
 
 function getStatusClasses(status: RequestStatus) {
   switch (status) {
     case "approved":
-      return "text-[#16A34A]"
+      return "text-[#16A34A]";
     case "rejected":
-      return "text-[#EF4444]"
+      return "text-[#EF4444]";
     case "cancelled":
-      return "text-[#64748B]"
+      return "text-[#64748B]";
     default:
-      return "text-[#2563EB]"
+      return "text-[#2563EB]";
   }
 }
 
 function getStatusLabel(status: RequestStatus) {
   switch (status) {
     case "approved":
-      return "Approved"
+      return "Approved";
     case "rejected":
-      return "Rejected"
+      return "Rejected";
     case "cancelled":
-      return "Cancelled"
+      return "Cancelled";
     default:
-      return "Requested"
+      return "Requested";
   }
 }
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Request could not be updated."
+  return error instanceof Error
+    ? error.message
+    : "Request could not be updated.";
 }
 
-function shouldShowContractAccepted(request: Pick<RequestRow, "benefit" | "requiresContract" | "contractAcceptedAt">) {
-  const normalizedBenefitName = request.benefit.trim().toLowerCase()
+function shouldShowContractAccepted(
+  request: Pick<
+    RequestRow,
+    "benefit" | "requiresContract" | "contractAcceptedAt"
+  >,
+) {
+  const normalizedBenefitName = request.benefit.trim().toLowerCase();
 
   return (
     request.requiresContract &&
     Boolean(request.contractAcceptedAt) &&
     !normalizedBenefitName.includes("okr")
-  )
+  );
 }
 
 function StatusBadge({ status }: { status: RequestStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center text-[1.05rem] font-medium tracking-[-0.02em]",
+        "inline-flex items-center text-[16px] font-medium tracking-[-0.02em]",
         getStatusClasses(status),
       )}
     >
       {getStatusLabel(status)}
     </span>
-  )
+  );
 }
 
 function RequestNotice({
   notice,
 }: {
-  notice: { tone: NoticeTone; title: string } | null
+  notice: { tone: NoticeTone; title: string } | null;
 }) {
-  if (!notice) return null
+  if (!notice) return null;
 
-  const isApproved = notice.tone === "approved"
-  const Icon = isApproved ? CheckCircle2 : XCircle
+  const isApproved = notice.tone === "approved";
+  const Icon = isApproved ? CheckCircle2 : XCircle;
 
   return (
     <div className="pointer-events-none fixed bottom-6 right-6 z-[60]">
@@ -224,7 +233,7 @@ function RequestNotice({
         />
         <p
           className={cn(
-            "text-[1rem] font-medium tracking-[-0.02em]",
+            "text-[16px] font-medium tracking-[-0.02em]",
             isApproved ? "text-[#16A34A]" : "text-[#EF4444]",
           )}
         >
@@ -232,7 +241,7 @@ function RequestNotice({
         </p>
       </div>
     </div>
-  )
+  );
 }
 
 function RejectRequestDialog({
@@ -244,25 +253,25 @@ function RejectRequestDialog({
   submitting,
   errorMessage,
 }: {
-  request: RequestRow | null
-  reviewNotes: string
-  onReviewNotesChange: (value: string) => void
-  onClose: () => void
-  onConfirm: () => void
-  submitting: boolean
-  errorMessage: string | null
+  request: RequestRow | null;
+  reviewNotes: string;
+  onReviewNotesChange: (value: string) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+  submitting: boolean;
+  errorMessage: string | null;
 }) {
-  if (!request) return null
+  if (!request) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
       <div className="w-full max-w-3xl rounded-[18px] border border-[#d7deea] bg-white px-8 py-7 shadow-[0_24px_80px_rgba(15,23,42,0.2)]">
         <div className="flex items-start justify-between gap-5">
           <div className="space-y-3">
-            <h2 className="text-[2.4rem] font-medium tracking-[-0.05em] text-[#17243d]">
+            <h2 className="text-[16px] font-medium tracking-[-0.05em] text-[#17243d]">
               Reject Request
             </h2>
-            <p className="max-w-[44rem] text-[1.05rem] leading-[1.65] text-[#6D7B93]">
+            <p className="max-w-[44rem] text-[16px] leading-[1.65] text-[#6D7B93]">
               You are about to reject {request.employee}&apos;s request for{" "}
               {request.benefit}.
             </p>
@@ -280,7 +289,7 @@ function RejectRequestDialog({
         <div className="mt-8 space-y-3">
           <label
             htmlFor="reject-review-notes"
-            className="block text-[1.1rem] font-medium tracking-[-0.03em] text-[#17243d]"
+            className="block text-[16px] font-medium tracking-[-0.03em] text-[#17243d]"
           >
             Review Notes (Optional)
           </label>
@@ -289,10 +298,10 @@ function RejectRequestDialog({
             value={reviewNotes}
             onChange={(event) => onReviewNotesChange(event.target.value)}
             placeholder="Add notes for the employee regarding this reject..."
-            className="min-h-40 w-full rounded-[14px] border-2 border-[#2F66F6] px-5 py-4 text-[1rem] leading-7 text-[#17243d] outline-none placeholder:text-[#7A8798]"
+            className="min-h-40 w-full rounded-[14px] border-2 border-[#2F66F6] px-5 py-4 text-[16px] leading-7 text-[#17243d] outline-none placeholder:text-[#7A8798]"
           />
           {errorMessage ? (
-            <p className="text-sm text-rose-600">{errorMessage}</p>
+            <p className="text-[16px] text-rose-600">{errorMessage}</p>
           ) : null}
         </div>
 
@@ -302,7 +311,7 @@ function RejectRequestDialog({
             variant="outline"
             onClick={onClose}
             disabled={submitting}
-            className="h-12 min-w-[10rem] rounded-[12px] border-[#d7deea] px-6 text-[1rem] font-medium text-[#17243d] hover:bg-[#f8fafc]"
+            className="h-12 min-w-[10rem] rounded-[12px] border-[#d7deea] px-6 text-[16px] font-medium text-[#17243d] hover:bg-[#f8fafc]"
           >
             Cancel
           </Button>
@@ -310,7 +319,7 @@ function RejectRequestDialog({
             type="button"
             onClick={onConfirm}
             disabled={submitting}
-            className="h-12 min-w-[13rem] rounded-[12px] bg-[#EF4444] px-6 text-[1rem] font-medium text-white hover:bg-[#DC2626]"
+            className="h-12 min-w-[13rem] rounded-[12px] bg-[#EF4444] px-6 text-[16px] font-medium text-white hover:bg-[#DC2626]"
           >
             {submitting ? (
               <>
@@ -324,7 +333,7 @@ function RejectRequestDialog({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function AdminRequestsSkeleton() {
@@ -336,7 +345,7 @@ function AdminRequestsSkeleton() {
       </div>
 
       <div className="admin-table-card">
-        <div className="grid grid-cols-[4.5rem_1.4fr_1.2fr_1fr_1fr_1.15fr] gap-4 bg-[#edf2f9] px-6 py-5">
+        <div className="grid grid-cols-[4.5rem_1.05fr_1.15fr_1fr_1fr_1.25fr] gap-4 bg-[#edf2f9] px-6 py-5">
           {Array.from({ length: 6 }).map((_, index) => (
             <Skeleton key={index} className="h-6 w-full" />
           ))}
@@ -344,7 +353,7 @@ function AdminRequestsSkeleton() {
         {Array.from({ length: 4 }).map((_, rowIndex) => (
           <div
             key={rowIndex}
-            className="grid grid-cols-[4.5rem_1.4fr_1.2fr_1fr_1fr_1.15fr] gap-4 border-t border-[#e8edf5] px-6 py-5"
+            className="grid grid-cols-[4.5rem_1.05fr_1.15fr_1fr_1fr_1.25fr] gap-4 border-t border-[#e8edf5] px-6 py-5"
           >
             {Array.from({ length: 6 }).map((__, cellIndex) => (
               <Skeleton key={cellIndex} className="h-8 w-full" />
@@ -353,22 +362,27 @@ function AdminRequestsSkeleton() {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 export default function AdminRequestsPage() {
-  const [notice, setNotice] = useState<{ tone: NoticeTone; title: string } | null>(
+  const [notice, setNotice] = useState<{
+    tone: NoticeTone;
+    title: string;
+  } | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(
     null,
-  )
-  const [actionError, setActionError] = useState<string | null>(null)
-  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
-  const [rejectingRequest, setRejectingRequest] = useState<RequestRow | null>(null)
-  const [rejectReviewNotes, setRejectReviewNotes] = useState("")
+  );
+  const [rejectingRequest, setRejectingRequest] = useState<RequestRow | null>(
+    null,
+  );
+  const [rejectReviewNotes, setRejectReviewNotes] = useState("");
 
-  const { isLoaded: isRoleLoaded, user } = useUser()
-  const role = normalizeRole(user?.publicMetadata?.role)
-  const canViewStaffSummary = isManager(role)
-  const canReviewRequests = canAccessAdminRequests(role)
+  const { isLoaded: isRoleLoaded, user } = useUser();
+  const role = normalizeRole(user?.publicMetadata?.role);
+  const canViewStaffSummary = isManager(role);
+  const canReviewRequests = canAccessAdminRequests(role);
 
   const {
     data: adminData,
@@ -377,7 +391,7 @@ export default function AdminRequestsPage() {
     refetch: refetchAdminData,
   } = useQuery<AdminRequestsQueryData>(ADMIN_REQUESTS_QUERY, {
     skip: !isRoleLoaded || !canViewStaffSummary,
-  })
+  });
 
   const {
     data: reviewerData,
@@ -386,46 +400,49 @@ export default function AdminRequestsPage() {
     refetch: refetchReviewerData,
   } = useQuery<ReviewerRequestsQueryData>(REVIEWER_REQUESTS_QUERY, {
     skip: !isRoleLoaded || canViewStaffSummary || !canReviewRequests,
-  })
+  });
 
   const [updateRequestStatus, { loading: updateLoading }] = useMutation<
     UpdateRequestStatusMutationData,
     UpdateRequestStatusMutationVariables
-  >(UPDATE_REQUEST_STATUS_MUTATION)
+  >(UPDATE_REQUEST_STATUS_MUTATION);
 
   const loading =
-    !isRoleLoaded || (canViewStaffSummary ? adminLoading : reviewerLoading)
-  const error = canViewStaffSummary ? adminError : reviewerError
+    !isRoleLoaded || (canViewStaffSummary ? adminLoading : reviewerLoading);
+  const error = canViewStaffSummary ? adminError : reviewerError;
 
-  const employees = useMemo(() => adminData?.employees ?? [], [adminData?.employees])
+  const employees = useMemo(
+    () => adminData?.employees ?? [],
+    [adminData?.employees],
+  );
   const benefits = useMemo(
     () =>
       canViewStaffSummary
-        ? adminData?.benefits ?? []
-        : reviewerData?.benefits ?? [],
+        ? (adminData?.benefits ?? [])
+        : (reviewerData?.benefits ?? []),
     [adminData?.benefits, canViewStaffSummary, reviewerData?.benefits],
-  )
+  );
   const benefitRequests = useMemo(
     () =>
       canViewStaffSummary
-        ? adminData?.benefitRequests ?? []
-        : reviewerData?.benefitRequests ?? [],
+        ? (adminData?.benefitRequests ?? [])
+        : (reviewerData?.benefitRequests ?? []),
     [
       adminData?.benefitRequests,
       canViewStaffSummary,
       reviewerData?.benefitRequests,
     ],
-  )
+  );
 
   const employeeMap = useMemo(
     () => new Map(employees.map((employee) => [employee.id, employee])),
     [employees],
-  )
+  );
 
   const benefitMap = useMemo(
     () => new Map(benefits.map((benefit) => [benefit.id, benefit])),
     [benefits],
-  )
+  );
 
   const requests = useMemo<RequestRow[]>(
     () =>
@@ -449,37 +466,37 @@ export default function AdminRequestsPage() {
             new Date(left.createdAt).getTime(),
         ),
     [benefitMap, benefitRequests, employeeMap],
-  )
+  );
 
   useEffect(() => {
-    if (!notice) return
+    if (!notice) return;
 
     const timeoutId = window.setTimeout(() => {
-      setNotice(null)
-    }, 2800)
+      setNotice(null);
+    }, 2800);
 
-    return () => window.clearTimeout(timeoutId)
-  }, [notice])
+    return () => window.clearTimeout(timeoutId);
+  }, [notice]);
 
   function closeRejectDialog() {
-    if (updateLoading) return
+    if (updateLoading) return;
 
-    setRejectingRequest(null)
-    setRejectReviewNotes("")
-    setActionError(null)
+    setRejectingRequest(null);
+    setRejectReviewNotes("");
+    setActionError(null);
   }
 
   function openRejectDialog(request: RequestRow) {
-    setRejectingRequest(request)
-    setRejectReviewNotes(request.reviewNotes ?? "")
-    setActionError(null)
+    setRejectingRequest(request);
+    setRejectReviewNotes(request.reviewNotes ?? "");
+    setActionError(null);
   }
 
   async function refetchRequests() {
     if (canViewStaffSummary) {
-      await refetchAdminData()
+      await refetchAdminData();
     } else {
-      await refetchReviewerData()
+      await refetchReviewerData();
     }
   }
 
@@ -489,8 +506,8 @@ export default function AdminRequestsPage() {
     reviewNotes?: string | null,
   ) {
     try {
-      setActionError(null)
-      setProcessingRequestId(requestId)
+      setActionError(null);
+      setProcessingRequestId(requestId);
 
       await updateRequestStatus({
         variables: {
@@ -500,66 +517,66 @@ export default function AdminRequestsPage() {
             ...(reviewNotes !== undefined ? { reviewNotes } : {}),
           },
         },
-      })
+      });
 
-      await refetchRequests()
+      await refetchRequests();
       setNotice({
         tone: status === "approved" ? "approved" : "rejected",
         title: status === "approved" ? "Request Approved" : "Request Rejected",
-      })
+      });
     } catch (mutationError) {
-      setActionError(getErrorMessage(mutationError))
-      throw mutationError
+      setActionError(getErrorMessage(mutationError));
+      throw mutationError;
     } finally {
-      setProcessingRequestId(null)
+      setProcessingRequestId(null);
     }
   }
 
   async function handleApprove(request: RequestRow) {
-    await handleUpdateRequest(request.id, "approved")
+    await handleUpdateRequest(request.id, "approved");
   }
 
   async function handleConfirmReject() {
-    if (!rejectingRequest) return
+    if (!rejectingRequest) return;
 
     try {
       await handleUpdateRequest(
         rejectingRequest.id,
         "rejected",
         rejectReviewNotes.trim() || null,
-      )
-      closeRejectDialog()
+      );
+      closeRejectDialog();
     } catch {
-      return
+      return;
     }
   }
 
   if (loading) {
-    return <AdminRequestsSkeleton />
+    return <AdminRequestsSkeleton />;
   }
 
   if (!canReviewRequests) {
     return (
-      <section className="rounded-[12px] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+      <section className="rounded-[12px] border border-rose-200 bg-rose-50 p-5 text-[16px] text-rose-700">
         You do not have permission to review employee requests.
       </section>
-    )
+    );
   }
 
   if (error) {
     return (
-      <section className="rounded-[12px] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+      <section className="rounded-[12px] border border-rose-200 bg-rose-50 p-5 text-[16px] text-rose-700">
         Requests dashboard could not be loaded. {error.message}
       </section>
-    )
+    );
   }
 
   const title = canViewStaffSummary
     ? "HR Admin Dashboard"
-    : "Finance Review Dashboard"
+    : "Finance Review Dashboard";
   const description = canViewStaffSummary
     ? "Employee Access Privilege Management and Control"
-    : "Review and confirm benefit requests that need financial approval"
+    : "Review and confirm benefit requests that need financial approval";
 
   return (
     <>
@@ -572,54 +589,63 @@ export default function AdminRequestsPage() {
         </section>
 
         {actionError && !rejectingRequest ? (
-          <section className="rounded-[12px] border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
+          <section className="rounded-[12px] border border-rose-200 bg-rose-50 px-5 py-4 text-[16px] text-rose-700">
             {actionError}
           </section>
         ) : null}
 
         <section className="admin-table-card">
           <div className="admin-table-scroll">
-            <table className="admin-table">
+            <table className="admin-table min-w-[1040px] table-fixed">
+              <colgroup>
+                <col className="w-16" />
+                <col className="w-[19%]" />
+                <col className="w-[21%]" />
+                <col className="w-[18%]" />
+                <col className="w-[18%]" />
+                <col className="w-[24%]" />
+              </colgroup>
               <thead className="admin-table-head">
                 <tr className="admin-table-header-row">
-                  <th className="admin-table-th w-16">#</th>
-                  <th className="admin-table-th">Employee</th>
-                  <th className="admin-table-th">Benefit</th>
-                  <th className="admin-table-th">Date</th>
-                  <th className="admin-table-th">Status</th>
-                  <th className="admin-table-th text-right">Actions</th>
+                  <th className="admin-table-th w-16 text-[16px]">#</th>
+                  <th className="admin-table-th text-[16px]">Employee</th>
+                  <th className="admin-table-th text-[16px]">Benefit</th>
+                  <th className="admin-table-th text-[16px]">Date</th>
+                  <th className="admin-table-th text-[16px]">Status</th>
+                  <th className="admin-table-th text-right text-[16px]">
+                    Actions
+                  </th>
                 </tr>
               </thead>
 
               <tbody>
                 {requests.length > 0 ? (
                   requests.map((request, index) => {
-                    const isPending = request.status === "pending"
+                    const isPending = request.status === "pending";
                     const isProcessing =
-                      updateLoading && processingRequestId === request.id
+                      updateLoading && processingRequestId === request.id;
 
                     return (
-                      <tr
-                        key={request.id}
-                        className="text-[#17243d]"
-                      >
-                        <td className="admin-table-cell text-[1rem]">{index + 1}</td>
-                        <td className="admin-table-cell text-[1.15rem] font-medium tracking-[-0.02em]">
+                      <tr key={request.id} className="text-[#17243d]">
+                        <td className="admin-table-cell text-[16px]">
+                          {index + 1}
+                        </td>
+                        <td className="admin-table-cell text-[16px] font-medium tracking-[-0.02em]">
                           {request.employee}
                         </td>
                         <td className="admin-table-cell">
                           <div className="space-y-1">
-                            <p className="text-[1.15rem] tracking-[-0.02em] text-[#17243d]">
+                            <p className="text-[16px] tracking-[-0.02em] text-[#17243d]">
                               {request.benefit}
                             </p>
                             {shouldShowContractAccepted(request) ? (
-                              <p className="text-[0.95rem] text-[#16A34A]">
+                              <p className="text-[16px] text-[#16A34A]">
                                 Contract Accepted
                               </p>
                             ) : null}
                           </div>
                         </td>
-                        <td className="admin-table-cell text-[1.1rem] text-[#5F6B7E]">
+                        <td className="admin-table-cell text-[16px] text-[#5F6B7E]">
                           {formatDate(request.createdAt)}
                         </td>
                         <td className="admin-table-cell">
@@ -634,7 +660,7 @@ export default function AdminRequestsPage() {
                                   variant="outline"
                                   onClick={() => openRejectDialog(request)}
                                   disabled={isProcessing}
-                                  className="h-10 rounded-[10px] border-[#d9e1ef] px-5 text-[0.95rem] font-medium text-[#17243d] hover:bg-[#f8fafc]"
+                                  className="h-10 rounded-[10px] border-[#d9e1ef] px-5 text-[16px] font-medium text-[#17243d] hover:bg-[#f8fafc]"
                                 >
                                   Reject
                                 </Button>
@@ -642,7 +668,7 @@ export default function AdminRequestsPage() {
                                   type="button"
                                   onClick={() => handleApprove(request)}
                                   disabled={isProcessing}
-                                  className="h-10 rounded-[10px] bg-[#2F66F6] px-5 text-[0.95rem] font-medium text-white hover:bg-[#2456d7]"
+                                  className="h-10 rounded-[10px] bg-[#2F66F6] px-5 text-[16px] font-medium text-white hover:bg-[#2456d7]"
                                 >
                                   {isProcessing ? (
                                     <>
@@ -655,12 +681,14 @@ export default function AdminRequestsPage() {
                                 </Button>
                               </>
                             ) : (
-                              <span className="text-sm text-[#94A3B8]">-</span>
+                              <span className="text-[16px] text-[#94A3B8]">
+                                -
+                              </span>
                             )}
                           </div>
                         </td>
                       </tr>
-                    )
+                    );
                   })
                 ) : (
                   <tr>
@@ -669,10 +697,10 @@ export default function AdminRequestsPage() {
                         <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-[#f4f7fb] text-[#708198]">
                           <FileText className="h-6 w-6" />
                         </div>
-                        <p className="text-[1.05rem] font-medium text-[#17243d]">
+                        <p className="text-[16px] font-medium text-[#17243d]">
                           No requests found
                         </p>
-                        <p className="text-[0.95rem] text-[#708198]">
+                        <p className="text-[16px] text-[#708198]">
                           New employee requests will appear here once submitted.
                         </p>
                       </div>
@@ -691,11 +719,13 @@ export default function AdminRequestsPage() {
         onReviewNotesChange={setRejectReviewNotes}
         onClose={closeRejectDialog}
         onConfirm={handleConfirmReject}
-        submitting={updateLoading && processingRequestId === rejectingRequest?.id}
+        submitting={
+          updateLoading && processingRequestId === rejectingRequest?.id
+        }
         errorMessage={actionError}
       />
 
       <RequestNotice notice={notice} />
     </>
-  )
+  );
 }

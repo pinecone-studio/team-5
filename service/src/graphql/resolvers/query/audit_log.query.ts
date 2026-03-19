@@ -7,10 +7,15 @@ import { employee } from "../../../db/schemas/employee.schema";
 import { requireManagerAccess } from "../shared/authenticated-employee";
 
 type AuditLogRow = typeof audit_logs.$inferSelect;
+const HIDDEN_AUDIT_ACTIONS = new Set(["contract created"]);
 
 function mapMetadataJson(metadata: AuditLogRow["metadata_json"]) {
 	if (metadata == null) return null;
 	return JSON.stringify(metadata);
+}
+
+function shouldHideAuditLogAction(action: string) {
+	return HIDDEN_AUDIT_ACTIONS.has(action.trim().toLowerCase());
 }
 
 export const auditLogQuery = {
@@ -68,6 +73,10 @@ export const auditLogQuery = {
 					};
 				})
 				.filter((row) => {
+					if (shouldHideAuditLogAction(row.action)) {
+						return false;
+					}
+
 					if (normalizedAction && row.action.toLowerCase() !== normalizedAction) {
 						return false;
 					}

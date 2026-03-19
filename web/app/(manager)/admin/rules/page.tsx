@@ -4,12 +4,29 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { gql } from "@apollo/client";
 import { useMutation, useQuery } from "@apollo/client/react";
-import { Check, ChevronDown, FileText, Pencil, Plus, Trash2, UploadCloud, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  FileText,
+  Pencil,
+  Plus,
+  Trash2,
+  UploadCloud,
+  X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type RuleOperator = "eq" | "neq" | "lt" | "lte" | "gt" | "gte" | "in" | "not_in";
+type RuleOperator =
+  | "eq"
+  | "neq"
+  | "lt"
+  | "lte"
+  | "gt"
+  | "gte"
+  | "in"
+  | "not_in";
 
 type BenefitDataItem = {
   activeContractId: string | null;
@@ -93,13 +110,13 @@ const GET_RULES = gql`
 `;
 
 const RULE_TYPE_OPTIONS = [
-  "employment_status",
-  "okr_submitted",
-  "attendance",
-  "responsibility_level",
-  "role",
-  "department",
-  "tenure_days",
+  { value: "employment_status", label: "Status" },
+  { value: "okr_submitted", label: "OKR Submitted" },
+  { value: "attendance", label: "Late Arrivals" },
+  { value: "tenure_days", label: "Tenure (Days)" },
+  { value: "responsibility_level", label: "Level" },
+  { value: "role", label: "Role" },
+  { value: "department", label: "Department" },
 ];
 
 const CREATE_RULE = gql`
@@ -177,7 +194,7 @@ const OPERATOR_SYMBOL: Record<RuleOperator, string> = {
 };
 
 const EMPTY_FORM = {
-  type: RULE_TYPE_OPTIONS[0],
+  type: "",
   operator: OPERATOR_OPTIONS[0].value,
   value: "",
   errorMessage: "",
@@ -202,6 +219,13 @@ function formatRuleTypeLabel(value: string) {
     return "Custom rule";
   }
 
+  const matchingOption = RULE_TYPE_OPTIONS.find(
+    (option) => option.value === value,
+  );
+  if (matchingOption) {
+    return matchingOption.label;
+  }
+
   return value
     .replace(/_/g, " ")
     .replace(/\bokr\b/gi, "OKR")
@@ -210,9 +234,13 @@ function formatRuleTypeLabel(value: string) {
 
 export default function AdminRulesPage() {
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const ruleTypeDropdownRef = useRef<HTMLDivElement>(null);
+  const operatorDropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  const [selectedBenefitIdOverride, setSelectedBenefitIdOverride] = useState<string | null>(null);
+  const [selectedBenefitIdOverride, setSelectedBenefitIdOverride] = useState<
+    string | null
+  >(null);
   const [isBenefitOpen, setIsBenefitOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddBenefitModalOpen, setIsAddBenefitModalOpen] = useState(false);
@@ -220,20 +248,33 @@ export default function AdminRulesPage() {
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
   const [isDeleteSuccessOpen, setIsDeleteSuccessOpen] = useState(false);
+  const [isRuleTypeOpen, setIsRuleTypeOpen] = useState(false);
+  const [isOperatorOpen, setIsOperatorOpen] = useState(false);
   const [ruleTypeValue, setRuleTypeValue] = useState(EMPTY_FORM.type);
-  const [conditionOperator, setConditionOperator] = useState<RuleOperator>(EMPTY_FORM.operator);
+  const [ruleTypeInputValue, setRuleTypeInputValue] = useState("");
+  const [conditionOperator, setConditionOperator] = useState<RuleOperator>(
+    EMPTY_FORM.operator,
+  );
   const [conditionValue, setConditionValue] = useState(EMPTY_FORM.value);
-  const [failMessageValue, setFailMessageValue] = useState(EMPTY_FORM.errorMessage);
+  const [failMessageValue, setFailMessageValue] = useState(
+    EMPTY_FORM.errorMessage,
+  );
   const [actionError, setActionError] = useState<string | null>(null);
-  const [benefitActionError, setBenefitActionError] = useState<string | null>(null);
+  const [benefitActionError, setBenefitActionError] = useState<string | null>(
+    null,
+  );
   const [benefitNameValue, setBenefitNameValue] = useState("");
   const [benefitCategoryValue, setBenefitCategoryValue] = useState("");
   const [benefitVendorValue, setBenefitVendorValue] = useState("");
   const [benefitSubsidyValue, setBenefitSubsidyValue] = useState("50");
   const [benefitContractValue, setBenefitContractValue] = useState("");
-  const [benefitContractFile, setBenefitContractFile] = useState<File | null>(null);
+  const [benefitContractFile, setBenefitContractFile] = useState<File | null>(
+    null,
+  );
   const [isContractBuilderOpen, setIsContractBuilderOpen] = useState(false);
-  const [contractPreviewUrl, setContractPreviewUrl] = useState<string | null>(null);
+  const [contractPreviewUrl, setContractPreviewUrl] = useState<string | null>(
+    null,
+  );
 
   const {
     data: benefitData,
@@ -246,20 +287,19 @@ export default function AdminRulesPage() {
     [benefitData?.benefits],
   );
 
-  const selectedBenefitId = selectedBenefitIdOverride ?? benefits[0]?.id ?? null;
+  const selectedBenefitId =
+    selectedBenefitIdOverride ?? benefits[0]?.id ?? null;
 
   const selectedBenefit = useMemo(
     () => benefits.find((benefit) => benefit.id === selectedBenefitId) ?? null,
     [benefits, selectedBenefitId],
   );
 
-  const { data: latestVersionData, refetch: refetchLatestVersion } = useQuery<LatestVersionQueryData>(
-    GET_LATEST_RULE_VERSION,
-    {
+  const { data: latestVersionData, refetch: refetchLatestVersion } =
+    useQuery<LatestVersionQueryData>(GET_LATEST_RULE_VERSION, {
       variables: { benefitId: selectedBenefitId },
       skip: !selectedBenefitId,
-    },
-  );
+    });
 
   const latestVersion = latestVersionData?.eligibilityRuleLatestVersion ?? 1;
 
@@ -275,27 +315,38 @@ export default function AdminRulesPage() {
     skip: !selectedBenefitId,
   });
 
-  const rules = useMemo(() => rulesData?.eligibilityRules ?? [], [rulesData?.eligibilityRules]);
+  const rules = useMemo(
+    () => rulesData?.eligibilityRules ?? [],
+    [rulesData?.eligibilityRules],
+  );
 
   const editingRule = useMemo(
     () => rules.find((rule) => rule.id === editingRuleId) ?? null,
     [editingRuleId, rules],
   );
 
-  const [createRule, { loading: creatingRule }] = useMutation<RuleMutationData>(CREATE_RULE);
-  const [updateRule, { loading: updatingRule }] = useMutation<RuleMutationData>(UPDATE_RULE);
-  const [deleteRule, { loading: deletingRule }] = useMutation<RuleMutationData>(DELETE_RULE);
-  const [createBenefit, { loading: creatingBenefit }] = useMutation<BenefitMutationData>(CREATE_BENEFIT);
-  const [updateBenefit, { loading: updatingBenefit }] = useMutation<BenefitMutationData>(UPDATE_BENEFIT);
+  const [createRule, { loading: creatingRule }] =
+    useMutation<RuleMutationData>(CREATE_RULE);
+  const [updateRule, { loading: updatingRule }] =
+    useMutation<RuleMutationData>(UPDATE_RULE);
+  const [deleteRule, { loading: deletingRule }] =
+    useMutation<RuleMutationData>(DELETE_RULE);
+  const [createBenefit, { loading: creatingBenefit }] =
+    useMutation<BenefitMutationData>(CREATE_BENEFIT);
+  const [updateBenefit, { loading: updatingBenefit }] =
+    useMutation<BenefitMutationData>(UPDATE_BENEFIT);
 
   const isSaving = creatingRule || updatingRule;
   const isSavingBenefit = creatingBenefit || updatingBenefit;
 
   const resetForm = () => {
     setRuleTypeValue(EMPTY_FORM.type);
+    setRuleTypeInputValue("");
     setConditionOperator(EMPTY_FORM.operator);
     setConditionValue(EMPTY_FORM.value);
     setFailMessageValue(EMPTY_FORM.errorMessage);
+    setIsRuleTypeOpen(false);
+    setIsOperatorOpen(false);
     setActionError(null);
   };
 
@@ -303,6 +354,14 @@ export default function AdminRulesPage() {
     function handlePointerDown(event: MouseEvent) {
       if (!dropdownRef.current?.contains(event.target as Node)) {
         setIsBenefitOpen(false);
+      }
+
+      if (!ruleTypeDropdownRef.current?.contains(event.target as Node)) {
+        setIsRuleTypeOpen(false);
+      }
+
+      if (!operatorDropdownRef.current?.contains(event.target as Node)) {
+        setIsOperatorOpen(false);
       }
     }
 
@@ -384,9 +443,12 @@ export default function AdminRulesPage() {
   const handleEditRule = (rule: RuleDataItem) => {
     setEditingRuleId(rule.id);
     setRuleTypeValue(rule.type);
+    setRuleTypeInputValue(formatRuleTypeLabel(rule.type));
     setConditionOperator(rule.operator);
     setConditionValue(rule.value);
     setFailMessageValue(rule.errorMessage);
+    setIsRuleTypeOpen(false);
+    setIsOperatorOpen(false);
     setActionError(null);
   };
 
@@ -396,8 +458,14 @@ export default function AdminRulesPage() {
       return;
     }
 
-    if (!ruleTypeValue.trim() || !conditionValue.trim() || !failMessageValue.trim()) {
-      setActionError("Rule type, condition value, and fail message are required.");
+    if (
+      !ruleTypeValue.trim() ||
+      !conditionValue.trim() ||
+      !failMessageValue.trim()
+    ) {
+      setActionError(
+        "Rule type, condition value, and fail message are required.",
+      );
       return;
     }
 
@@ -416,7 +484,9 @@ export default function AdminRulesPage() {
       await syncAfterRuleMutation();
       closeAddModal();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Failed to create rule.");
+      setActionError(
+        error instanceof Error ? error.message : "Failed to create rule.",
+      );
     }
   };
 
@@ -425,8 +495,14 @@ export default function AdminRulesPage() {
       return;
     }
 
-    if (!ruleTypeValue.trim() || !conditionValue.trim() || !failMessageValue.trim()) {
-      setActionError("Rule type, condition value, and fail message are required.");
+    if (
+      !ruleTypeValue.trim() ||
+      !conditionValue.trim() ||
+      !failMessageValue.trim()
+    ) {
+      setActionError(
+        "Rule type, condition value, and fail message are required.",
+      );
       return;
     }
 
@@ -445,7 +521,9 @@ export default function AdminRulesPage() {
       await syncAfterRuleMutation();
       closeEditModal();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Failed to update rule.");
+      setActionError(
+        error instanceof Error ? error.message : "Failed to update rule.",
+      );
     }
   };
 
@@ -460,7 +538,9 @@ export default function AdminRulesPage() {
       setDeletingRuleId(null);
       setIsDeleteSuccessOpen(true);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Failed to delete rule.");
+      setActionError(
+        error instanceof Error ? error.message : "Failed to delete rule.",
+      );
     }
   };
 
@@ -495,7 +575,9 @@ export default function AdminRulesPage() {
       }
       closeAddBenefitModal();
     } catch (error) {
-      setBenefitActionError(error instanceof Error ? error.message : "Failed to create benefit.");
+      setBenefitActionError(
+        error instanceof Error ? error.message : "Failed to create benefit.",
+      );
     }
   };
 
@@ -543,7 +625,9 @@ export default function AdminRulesPage() {
       await refetchBenefits();
       closeEditBenefitModal();
     } catch (error) {
-      setBenefitActionError(error instanceof Error ? error.message : "Failed to update benefit.");
+      setBenefitActionError(
+        error instanceof Error ? error.message : "Failed to update benefit.",
+      );
     }
   };
 
@@ -554,10 +638,15 @@ export default function AdminRulesPage() {
           Rule Type
         </label>
         <Input
-          value={ruleTypeValue}
-          onChange={(event) => setRuleTypeValue(event.target.value)}
+          value={ruleTypeInputValue}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            setRuleTypeInputValue(nextValue);
+            setRuleTypeValue(nextValue);
+            setIsRuleTypeOpen(false);
+          }}
           placeholder="e.g., Employment Status"
-          className="h-11 rounded-xl border border-[#cfd8e6] bg-white px-4 text-base text-gray-800 focus-visible:ring-0"
+          className="h-11 rounded-xl border border-[#cfd8e6] bg-white px-4 text-base text-gray-800 placeholder:text-[#7A8798] focus-visible:ring-0"
         />
       </div>
 
@@ -566,36 +655,118 @@ export default function AdminRulesPage() {
           Condition
         </label>
         <div className="grid grid-cols-3 gap-3">
-          <div className="relative">
-            <div
-              className="flex h-11 items-center rounded-[10px] border border-[#d9e2ef] bg-white px-4 pr-10 text-sm text-slate-500"
-              title={ruleTypeValue || "Rule type"}
+          <div ref={ruleTypeDropdownRef} className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setIsOperatorOpen(false);
+                setIsRuleTypeOpen((open) => !open);
+              }}
+              className={`flex h-11 w-full items-center justify-between rounded-[10px] border border-[#d9e2ef] bg-white px-4 pr-10 text-left text-base ${
+                ruleTypeValue ? "text-gray-800" : "text-black"
+              }`}
+              title={
+                ruleTypeValue ? formatRuleTypeLabel(ruleTypeValue) : "Status"
+              }
+              aria-haspopup="listbox"
+              aria-expanded={isRuleTypeOpen}
             >
-              {ruleTypeValue || "Employment..."}
-            </div>
-            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <span className="truncate">
+                {ruleTypeValue ? formatRuleTypeLabel(ruleTypeValue) : "Status"}
+              </span>
+              <ChevronDown
+                className={`pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400 transition-transform ${
+                  isRuleTypeOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {isRuleTypeOpen ? (
+              <div className="absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-[16px] border border-[#d9e1ef] bg-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+                <ul
+                  role="listbox"
+                  aria-label="Rule type options"
+                  className="max-h-64 overflow-y-auto py-2"
+                >
+                  {RULE_TYPE_OPTIONS.map((option) => (
+                    <li key={option.value}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRuleTypeValue(option.value);
+                          setRuleTypeInputValue(option.label);
+                          setIsRuleTypeOpen(false);
+                        }}
+                        className="w-full px-4 py-3 text-left text-[16px] text-[#253247] transition hover:bg-[#f8fbff]"
+                      >
+                        {option.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
 
-          <div className="relative">
-            <select
-              value={conditionOperator}
-              onChange={(event) => setConditionOperator(event.target.value as RuleOperator)}
-              className="h-11 w-full appearance-none rounded-[10px] border border-[#d9e2ef] bg-white px-4 pr-10 text-sm text-gray-800 outline-none"
+          <div ref={operatorDropdownRef} className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setIsRuleTypeOpen(false);
+                setIsOperatorOpen((open) => !open);
+              }}
+              className="flex h-11 w-full items-center justify-between rounded-[10px] border border-[#d9e2ef] bg-white px-4 pr-10 text-left text-base text-gray-800"
+              title={
+                OPERATOR_OPTIONS.find(
+                  (option) => option.value === conditionOperator,
+                )?.label ?? "Equals"
+              }
+              aria-haspopup="listbox"
+              aria-expanded={isOperatorOpen}
             >
-              {OPERATOR_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <span className="truncate">
+                {OPERATOR_OPTIONS.find(
+                  (option) => option.value === conditionOperator,
+                )?.label ?? "Equals"}
+              </span>
+              <ChevronDown
+                className={`pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400 transition-transform ${
+                  isOperatorOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {isOperatorOpen ? (
+              <div className="absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-[16px] border border-[#d9e1ef] bg-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+                <ul
+                  role="listbox"
+                  aria-label="Operator options"
+                  className="max-h-64 overflow-y-auto py-2"
+                >
+                  {OPERATOR_OPTIONS.map((option) => (
+                    <li key={option.value}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConditionOperator(option.value);
+                          setIsOperatorOpen(false);
+                        }}
+                        className="w-full px-4 py-3 text-left text-[16px] text-[#253247] transition hover:bg-[#f8fbff]"
+                      >
+                        {option.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
 
           <Input
             value={conditionValue}
             onChange={(event) => setConditionValue(event.target.value)}
             placeholder="Value"
-            className="h-11 rounded-[10px] border border-[#d9e2ef] bg-white px-4 text-sm text-gray-800 focus-visible:ring-0"
+            className="h-11 rounded-[10px] border border-[#d9e2ef] bg-white px-4 text-base text-gray-800 placeholder:text-[#7A8798] focus-visible:ring-0"
           />
         </div>
       </div>
@@ -608,12 +779,12 @@ export default function AdminRulesPage() {
           value={failMessageValue}
           onChange={(event) => setFailMessageValue(event.target.value)}
           placeholder="Message shown when rule fails"
-          className="h-11 rounded-[10px] border border-[#d9e2ef] bg-white px-4 text-sm text-gray-800 focus-visible:ring-0"
+          className="h-11 rounded-[10px] border border-[#d9e2ef] bg-white px-4 text-base text-gray-800 placeholder:text-[#7A8798] focus-visible:ring-0"
         />
       </div>
 
       {actionError ? (
-        <p className="text-sm text-red-600">{actionError}</p>
+        <p className="text-base text-red-600">{actionError}</p>
       ) : null}
     </>
   );
@@ -640,7 +811,7 @@ export default function AdminRulesPage() {
           value={benefitVendorValue}
           onChange={(event) => setBenefitVendorValue(event.target.value)}
           placeholder="Write the benefit details"
-          className="min-h-[76px] w-full resize-none rounded-xl border border-[#d9e2ef] bg-white px-4 py-3 text-sm text-gray-800 outline-none"
+          className="min-h-[76px] w-full resize-none rounded-xl border border-[#d9e2ef] bg-white px-4 py-3 text-base text-gray-800 outline-none"
         />
       </div>
 
@@ -700,10 +871,10 @@ export default function AdminRulesPage() {
                 className="flex w-full flex-col items-center justify-center rounded-2xl border border-dashed border-[#d9e2ef] bg-[#fbfcff] px-4 py-7 text-center transition hover:border-[#b9c7dd] hover:bg-white"
               >
                 <UploadCloud className="mb-3 h-7 w-7 text-[#3164e0]" />
-                <p className="text-[0.95rem] font-medium text-[#17243d]">
+                <p className="text-[16px] font-medium text-[#17243d]">
                   Drag and drop your PDF here
                 </p>
-                <p className="mt-1 text-[0.85rem] text-[#7a8798]">
+                <p className="mt-1 text-[16px] text-[#7a8798]">
                   Upload a contract PDF to add signature fields
                 </p>
               </button>
@@ -715,10 +886,10 @@ export default function AdminRulesPage() {
                   <FileText className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-[0.95rem] font-medium text-[#17243d]">
+                  <p className="truncate text-[16px] font-medium text-[#17243d]">
                     {benefitContractFile.name}
                   </p>
-                  <p className="text-[0.85rem] text-[#7a8798]">
+                  <p className="text-[16px] text-[#7a8798]">
                     {formatFileSize(benefitContractFile.size)}
                   </p>
                 </div>
@@ -744,7 +915,7 @@ export default function AdminRulesPage() {
       </div>
 
       {benefitActionError ? (
-        <p className="text-sm text-red-600">{benefitActionError}</p>
+        <p className="text-base text-red-600">{benefitActionError}</p>
       ) : null}
     </>
   );
@@ -765,7 +936,7 @@ export default function AdminRulesPage() {
           <Button
             type="button"
             onClick={handleOpenAddBenefit}
-            className="h-12 rounded-[14px] bg-[#2F66F6] px-6 text-[1rem] font-medium text-white shadow-[0_10px_24px_rgba(47,102,246,0.18)] hover:bg-[#2456d7]"
+            className="h-12 rounded-[14px] bg-[#2F66F6] px-6 text-[16px] font-medium text-white shadow-[0_10px_24px_rgba(47,102,246,0.18)] hover:bg-[#2456d7]"
           >
             <Plus className="h-5 w-5" />
             Add Benefit
@@ -774,22 +945,24 @@ export default function AdminRulesPage() {
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.1fr)_minmax(0,1fr)]">
           <div ref={dropdownRef} className="relative z-20">
-            <label className="mb-3 block text-[1.05rem] text-[#708198]">
+            <label className="mb-3 block text-[16px] text-[#708198]">
               Select benefit
             </label>
             <button
               type="button"
               onClick={() => setIsBenefitOpen((open) => !open)}
-              className="flex h-16 w-full items-center justify-between rounded-[16px] border border-[#d9e1ef] bg-white px-5 text-left text-[1.05rem] font-medium text-[#17243d] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition hover:border-[#c7d5e6]"
+              className="flex h-16 w-full items-center justify-between rounded-[16px] border border-[#d9e1ef] bg-white px-5 text-left text-[16px] font-medium text-[#17243d] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition hover:border-[#c7d5e6]"
               aria-haspopup="listbox"
               aria-expanded={isBenefitOpen}
             >
               <span className="truncate">
-                {selectedBenefit?.name ?? (loadingBenefits ? "Loading..." : "No benefits")}
+                {selectedBenefit?.name ??
+                  (loadingBenefits ? "Loading..." : "No benefits")}
               </span>
               <ChevronDown
-                className={`h-5 w-5 shrink-0 text-[#7a8798] transition-transform ${isBenefitOpen ? "rotate-180" : ""
-                  }`}
+                className={`h-5 w-5 shrink-0 text-[#7a8798] transition-transform ${
+                  isBenefitOpen ? "rotate-180" : ""
+                }`}
               />
             </button>
 
@@ -805,7 +978,7 @@ export default function AdminRulesPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedBenefit(benefit.id)}
-                        className="w-full px-5 py-3 text-left text-[1rem] text-[#253247] transition hover:bg-[#f8fbff]"
+                        className="w-full px-5 py-3 text-left text-[16px] text-[#253247] transition hover:bg-[#f8fbff]"
                       >
                         {benefit.name}
                       </button>
@@ -817,41 +990,48 @@ export default function AdminRulesPage() {
           </div>
 
           <div>
-            <label className="mb-3 block text-[1.05rem] text-[#708198]">
+            <label className="mb-3 block text-[16px] text-[#708198]">
               Details
             </label>
             <button
               type="button"
               onClick={handleOpenEditBenefit}
               disabled={!selectedBenefit}
-              className="flex h-16 w-full items-center rounded-[16px] border border-[#d9e1ef] bg-white px-5 text-left text-[1.02rem] text-[#475569] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#c7d5e6] disabled:cursor-not-allowed disabled:opacity-70"
+              className="flex h-16 w-full items-center rounded-[16px] border border-[#d9e1ef] bg-white px-5 text-left text-[16px] text-[#475569] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#c7d5e6] disabled:cursor-not-allowed disabled:opacity-70"
             >
               <span className="truncate">
                 {selectedBenefit
-                  ? `${selectedBenefit.subsidyPercent}% subsidy on ${selectedBenefit.vendorName ?? selectedBenefit.name
-                  }`
+                  ? `${selectedBenefit.subsidyPercent}% subsidy on ${
+                      selectedBenefit.vendorName ?? selectedBenefit.name
+                    }`
                   : "Select a benefit to view details"}
               </span>
             </button>
           </div>
 
           <div>
-            <label className="mb-3 block text-[1.05rem] text-[#708198]">
+            <label className="mb-3 block text-[16px] text-[#708198]">
               Contract
             </label>
             <button
               type="button"
               onClick={handleOpenEditBenefit}
               disabled={!selectedBenefit}
-              className="flex h-16 w-full items-center gap-3 rounded-[16px] border border-[#d9e1ef] bg-white px-5 text-left text-[1.02rem] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#c7d5e6] disabled:cursor-not-allowed disabled:opacity-70"
+              className="flex h-16 w-full items-center gap-3 rounded-[16px] border border-[#d9e1ef] bg-white px-5 text-left text-[16px] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#c7d5e6] disabled:cursor-not-allowed disabled:opacity-70"
             >
               <FileText
-                className={`h-5 w-5 shrink-0 ${selectedBenefit?.activeContractId ? "text-[#2563EB]" : "text-[#94A3B8]"
-                  }`}
+                className={`h-5 w-5 shrink-0 ${
+                  selectedBenefit?.activeContractId
+                    ? "text-[#2563EB]"
+                    : "text-[#94A3B8]"
+                }`}
               />
               <span
-                className={`truncate ${selectedBenefit?.activeContractId ? "text-[#253247]" : "text-[#708198]"
-                  }`}
+                className={`truncate ${
+                  selectedBenefit?.activeContractId
+                    ? "text-[#253247]"
+                    : "text-[#708198]"
+                }`}
               >
                 {selectedBenefit?.activeContractId
                   ? selectedBenefit.activeContractId
@@ -868,27 +1048,30 @@ export default function AdminRulesPage() {
             <table className="admin-table">
               <thead className="admin-table-head">
                 <tr className="admin-table-header-row">
-                  <th className="admin-table-th w-16">#</th>
-                  <th className="admin-table-th">Rule Type</th>
-                  <th className="admin-table-th">Condition</th>
-                  <th className="admin-table-th">Fail Message</th>
-                  <th className="admin-table-th w-32 text-right">Actions</th>
+                  <th className="admin-table-th w-16 text-[16px]">#</th>
+                  <th className="admin-table-th text-[16px]">Rule Type</th>
+                  <th className="admin-table-th text-[16px]">Condition</th>
+                  <th className="admin-table-th text-[16px]">Fail Message</th>
+                  <th className="admin-table-th w-32 text-right text-[16px]">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {rules.length > 0 ? (
                   rules.map((rule, index) => (
                     <tr key={rule.id} className="text-[#17243d]">
-                      <td className="admin-table-cell text-[1rem] text-[#5f6b7e]">
+                      <td className="admin-table-cell text-[16px] text-[#5f6b7e]">
                         {index + 1}
                       </td>
-                      <td className="admin-table-cell text-[1.15rem] font-medium tracking-[-0.02em] text-[#17243d]">
+                      <td className="admin-table-cell text-[16px] font-medium tracking-[-0.02em] text-[#17243d]">
                         {formatRuleTypeLabel(rule.type)}
                       </td>
-                      <td className="admin-table-cell font-mono text-[1.02rem] text-[#55637d]">
-                        {rule.type} {OPERATOR_SYMBOL[rule.operator]} {rule.value}
+                      <td className="admin-table-cell font-mono text-[16px] text-[#55637d]">
+                        {rule.type} {OPERATOR_SYMBOL[rule.operator]}{" "}
+                        {rule.value}
                       </td>
-                      <td className="admin-table-cell text-[1.02rem] text-[#475569]">
+                      <td className="admin-table-cell text-[16px] text-[#475569]">
                         {rule.errorMessage}
                       </td>
                       <td className="admin-table-cell">
@@ -920,7 +1103,7 @@ export default function AdminRulesPage() {
                   <tr>
                     <td
                       colSpan={5}
-                      className="admin-table-cell px-6 py-14 text-center text-[1rem] text-[#94A3B8]"
+                      className="admin-table-cell px-6 py-14 text-center text-[16px] text-[#94A3B8]"
                     >
                       No rules found for this benefit.
                     </td>
@@ -929,7 +1112,7 @@ export default function AdminRulesPage() {
                   <tr>
                     <td
                       colSpan={5}
-                      className="admin-table-cell px-6 py-14 text-center text-[1rem] text-[#94A3B8]"
+                      className="admin-table-cell px-6 py-14 text-center text-[16px] text-[#94A3B8]"
                     >
                       Loading rules...
                     </td>
@@ -944,7 +1127,7 @@ export default function AdminRulesPage() {
           variant="outline"
           onClick={handleAddRule}
           disabled={!selectedBenefitId}
-          className="h-11 rounded-[14px] border-[#d9e1ef] bg-white px-5 text-[0.98rem] font-medium text-[#253247] shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:bg-[#f8fbff]"
+          className="h-11 rounded-[14px] border-[#d9e1ef] bg-white px-5 text-[16px] font-medium text-[#253247] shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:bg-[#f8fbff]"
         >
           <Plus className="h-4 w-4" />
           Add rule
@@ -955,8 +1138,14 @@ export default function AdminRulesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4">
           <div className="w-full max-w-[560px] rounded-[12px] bg-[#f5f5f5] p-6 shadow-2xl">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold tracking-tight text-gray-900">Edit Rule</h2>
-              <button type="button" onClick={closeEditModal} className="text-gray-400">
+              <h2 className="text-[16px] font-semibold tracking-tight text-gray-900">
+                Edit Rule
+              </h2>
+              <button
+                type="button"
+                onClick={closeEditModal}
+                className="text-gray-400"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -987,10 +1176,16 @@ export default function AdminRulesPage() {
 
       {isAddModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4">
-          <div className="w-full max-w-[560px] rounded-[12px] bg-[#f5f5f5] p-6 shadow-2xl">
+          <div className="w-full max-w-[560px] rounded-[12px] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold tracking-tight text-gray-900">Add New Rule</h2>
-              <button type="button" onClick={closeAddModal} className="text-gray-400">
+              <h2 className="text-[16px] font-semibold tracking-tight text-gray-900">
+                Add New Rule
+              </h2>
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="text-gray-400"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -1022,12 +1217,14 @@ export default function AdminRulesPage() {
       {deletingRuleId !== null ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4">
           <div className="w-full max-w-[360px] rounded-[12px] bg-[#f5f5f5] px-6 py-6 shadow-2xl">
-            <h2 className="text-center text-xl font-medium leading-tight text-gray-900">
+            <h2 className="text-center text-[16px] font-medium leading-tight text-gray-900">
               Do you want to delete this rule?
             </h2>
 
             {actionError ? (
-              <p className="mt-4 text-center text-sm text-red-600">{actionError}</p>
+              <p className="mt-4 text-center text-base text-red-600">
+                {actionError}
+              </p>
             ) : null}
 
             <div className="mt-7 flex justify-center gap-3">
@@ -1064,7 +1261,7 @@ export default function AdminRulesPage() {
               </div>
             </div>
 
-            <p className="mt-6 text-2xl font-medium leading-[1.3] tracking-tight text-black">
+            <p className="mt-6 text-[16px] font-medium leading-[1.3] tracking-tight text-black">
               The rule has been deleted successfully.
             </p>
           </div>
@@ -1075,8 +1272,14 @@ export default function AdminRulesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4">
           <div className="w-full max-w-[560px] rounded-[12px] bg-[#f5f5f5] p-6 shadow-2xl">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold tracking-tight text-gray-900">Add Benefit</h2>
-              <button type="button" onClick={closeAddBenefitModal} className="text-gray-400">
+              <h2 className="text-[16px] font-semibold tracking-tight text-gray-900">
+                Add Benefit
+              </h2>
+              <button
+                type="button"
+                onClick={closeAddBenefitModal}
+                className="text-gray-400"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -1115,16 +1318,20 @@ export default function AdminRulesPage() {
         </div>
       ) : null}
 
-      {isAddBenefitModalOpen && isContractBuilderOpen && contractPreviewUrl && benefitContractFile ? (
+      {isAddBenefitModalOpen &&
+      isContractBuilderOpen &&
+      contractPreviewUrl &&
+      benefitContractFile ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020617]/40 p-4">
           <div className="flex h-full max-h-[680px] w-full max-w-6xl flex-col overflow-hidden rounded-[18px] border border-[#d9e1ef] bg-[#f8fafc] shadow-[0_24px_64px_rgba(15,23,42,0.38)]">
             <div className="flex items-center justify-between border-b border-[#dde4f0] bg-white px-6 py-4">
               <div className="space-y-1">
-                <h2 className="text-[1.25rem] font-semibold tracking-[-0.04em] text-[#17243d]">
+                <h2 className="text-[16px] font-semibold tracking-[-0.04em] text-[#17243d]">
                   Prepare contract for {benefitNameValue || "New benefit"}
                 </h2>
-                <p className="text-[0.92rem] text-[#6d7b93]">
-                  Review the contract and confirm the template before activating this benefit.
+                <p className="text-[16px] text-[#6d7b93]">
+                  Review the contract and confirm the template before activating
+                  this benefit.
                 </p>
               </div>
               <button
@@ -1141,10 +1348,10 @@ export default function AdminRulesPage() {
               <section className="flex-1 overflow-hidden rounded-[16px] border border-[#d9e1ef] bg-white">
                 <div className="flex items-center justify-between border-b border-[#e2e8f0] px-4 py-3">
                   <div className="min-w-0">
-                    <p className="truncate text-[0.95rem] font-medium text-[#17243d]">
+                    <p className="truncate text-[16px] font-medium text-[#17243d]">
                       {benefitContractFile.name}
                     </p>
-                    <p className="text-[0.82rem] text-[#7a8798]">
+                    <p className="text-[16px] text-[#7a8798]">
                       PDF preview · {formatFileSize(benefitContractFile.size)}
                     </p>
                   </div>
@@ -1161,12 +1368,12 @@ export default function AdminRulesPage() {
               </section>
 
               <section className="w-full max-w-sm rounded-[16px] border border-[#d9e1ef] bg-white px-5 py-5">
-                <h3 className="text-[0.98rem] font-semibold text-[#17243d]">
+                <h3 className="text-[16px] font-semibold text-[#17243d]">
                   Template details
                 </h3>
-                <div className="mt-4 space-y-3 text-[0.9rem]">
+                <div className="mt-4 space-y-3 text-[16px]">
                   <div className="space-y-1">
-                    <p className="text-[0.78rem] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">
+                    <p className="text-[16px] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">
                       Benefit
                     </p>
                     <p className="rounded-[10px] border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2 text-[#0f172a]">
@@ -1174,7 +1381,7 @@ export default function AdminRulesPage() {
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[0.78rem] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">
+                    <p className="text-[16px] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">
                       Details
                     </p>
                     <p className="min-h-[64px] rounded-[10px] border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2 text-[#4b5563]">
@@ -1183,7 +1390,7 @@ export default function AdminRulesPage() {
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[0.78rem] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">
+                    <p className="text-[16px] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">
                       Subsidy
                     </p>
                     <p className="rounded-[10px] border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2 text-[#0f172a]">
@@ -1193,12 +1400,17 @@ export default function AdminRulesPage() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-6 space-y-3 text-[0.85rem] text-[#64748b]">
+                <div className="mt-6 space-y-3 text-[16px] text-[#64748b]">
                   <p className="font-medium text-[#0f172a]">Next steps</p>
                   <ul className="space-y-1.5">
                     <li>Review the PDF with your legal or HR team.</li>
-                    <li>Confirm this file as the active template for the benefit.</li>
-                    <li>Save to make this contract available for employee requests.</li>
+                    <li>
+                      Confirm this file as the active template for the benefit.
+                    </li>
+                    <li>
+                      Save to make this contract available for employee
+                      requests.
+                    </li>
                   </ul>
                 </div>
                 <div className="mt-6 flex items-center justify-end gap-3">
@@ -1206,7 +1418,7 @@ export default function AdminRulesPage() {
                     type="button"
                     variant="outline"
                     onClick={() => setIsContractBuilderOpen(false)}
-                    className="h-9 rounded-[10px] border-[#d9e1ef] px-4 text-[0.9rem] text-[#1f2933] hover:bg-[#f8fafc]"
+                    className="h-9 rounded-[10px] border-[#d9e1ef] px-4 text-[16px] text-[#1f2933] hover:bg-[#f8fafc]"
                   >
                     Close
                   </Button>
@@ -1214,7 +1426,7 @@ export default function AdminRulesPage() {
                     type="button"
                     onClick={handleCreateBenefit}
                     disabled={isSavingBenefit}
-                    className="h-9 rounded-[10px] bg-[#2563eb] px-4 text-[0.9rem] font-medium text-white hover:bg-[#1d4ed8]"
+                    className="h-9 rounded-[10px] bg-[#2563eb] px-4 text-[16px] font-medium text-white hover:bg-[#1d4ed8]"
                   >
                     Save template
                   </Button>
@@ -1229,8 +1441,14 @@ export default function AdminRulesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4">
           <div className="w-full max-w-[560px] rounded-[12px] bg-[#f5f5f5] p-6 shadow-2xl">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold tracking-tight text-gray-900">Edit Benefit</h2>
-              <button type="button" onClick={closeEditBenefitModal} className="text-gray-400">
+              <h2 className="text-[16px] font-semibold tracking-tight text-gray-900">
+                Edit Benefit
+              </h2>
+              <button
+                type="button"
+                onClick={closeEditBenefitModal}
+                className="text-gray-400"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>

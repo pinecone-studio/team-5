@@ -3,7 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { gql } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
-import { Search, ChevronDown, Check } from "lucide-react";
+import {
+  Search,
+  ChevronDown,
+  Check,
+  CalendarDays,
+  X,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -29,6 +37,7 @@ const ACTION_FILTERS = [
   "Requested",
   "Approved",
   "Locked",
+  "Overridden",
 ] as const;
 
 interface AuditLogItem {
@@ -89,15 +98,112 @@ function getActionTone(action: string) {
   return "text-[#0062DB]";
 }
 
-function ActionBadge({ action }: { action: string }) {
+function getActionFilterLabel(action: string) {
   const normalized = action.toLowerCase();
-  const label = normalized.includes("eligibility overridden")
-    ? "Overridden"
-    : action;
+
+  if (normalized.includes("overridden")) {
+    return "Overridden";
+  }
+
+  if (normalized.includes("approved")) {
+    return "Approved";
+  }
+
+  if (normalized.includes("locked")) {
+    return "Locked";
+  }
+
+  if (normalized.includes("requested")) {
+    return "Requested";
+  }
+
+  return action;
+}
+
+function getDateKey(isoDate: string) {
+  const parsed = new Date(isoDate);
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  return getDateKeyFromDate(parsed);
+}
+
+function getDateKeyFromDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getCalendarDays(date: Date) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+
+  const firstDay = new Date(year, month, 1);
+  const jsDay = firstDay.getDay();
+  const mondayBasedOffset = (jsDay + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const days: Array<number | null> = [];
+
+  for (let i = 0; i < mondayBasedOffset; i += 1) {
+    days.push(null);
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    days.push(day);
+  }
+
+  while (days.length % 7 !== 0) {
+    days.push(null);
+  }
+
+  return days;
+}
+
+function getDateFromDateKey(value: string) {
+  if (!value) {
+    return null;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+
+  return new Date(year, month - 1, day);
+}
+
+function isSameDay(left: Date | null, right: Date | null) {
+  if (!left || !right) return false;
+
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
+function formatDateFilterLabel(value: string) {
+  if (!value) {
+    return "";
+  }
+
+  const parsed = getDateFromDateKey(value);
+  if (!parsed) {
+    return value;
+  }
+
+  return parsed.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function ActionBadge({ action }: { action: string }) {
+  const label = getActionFilterLabel(action);
 
   return (
     <span
-      className={`inline-flex h-8 items-center rounded-[10px] px-3 text-[14px] font-medium ${getActionTone(
+      className={`inline-flex h-8 items-center rounded-[10px] px-3 text-[16px] font-medium ${getActionTone(
         action,
       )}`}
     >
@@ -118,6 +224,7 @@ function AdminActivityLogSkeleton() {
         <div className="flex w-full max-w-xl gap-4">
           <Skeleton className="h-14 flex-1 rounded-[10px]" />
           <Skeleton className="h-14 w-56 rounded-[10px]" />
+          <Skeleton className="h-9 w-9 rounded-[10px]" />
         </div>
       </div>
 
@@ -143,7 +250,14 @@ export default function AdminActivityLogPage() {
   const [search, setSearch] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState("All Actions");
+  const [selectedStartDate, setSelectedStartDate] = useState("");
+  const [selectedEndDate, setSelectedEndDate] = useState("");
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+  const [draftStartDate, setDraftStartDate] = useState<Date | null>(null);
+  const [draftEndDate, setDraftEndDate] = useState<Date | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const calendarRef = useRef<HTMLDivElement | null>(null);
 
   const { data, loading, error } = useQuery<AdminActivityLogQueryData>(
     ADMIN_ACTIVITY_LOG_QUERY,
@@ -159,6 +273,10 @@ export default function AdminActivityLogPage() {
       if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setDropdownOpen(false);
       }
+
+      if (calendarRef.current && !calendarRef.current.contains(target)) {
+        setIsCalendarOpen(false);
+      }
     }
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -167,6 +285,96 @@ export default function AdminActivityLogPage() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  const calendarDays = useMemo(
+    () => getCalendarDays(calendarMonth),
+    [calendarMonth],
+  );
+
+  const openCalendar = () => {
+    const baseDate =
+      getDateFromDateKey(selectedStartDate) ??
+      getDateFromDateKey(selectedEndDate) ??
+      new Date();
+    setCalendarMonth(baseDate);
+    setDraftStartDate(getDateFromDateKey(selectedStartDate));
+    setDraftEndDate(getDateFromDateKey(selectedEndDate));
+    setDropdownOpen(false);
+    setIsCalendarOpen(true);
+  };
+
+  const closeCalendar = () => {
+    setIsCalendarOpen(false);
+    setDraftStartDate(getDateFromDateKey(selectedStartDate));
+    setDraftEndDate(getDateFromDateKey(selectedEndDate));
+  };
+
+  const applyCalendarFilter = () => {
+    if (!draftStartDate) {
+      setIsCalendarOpen(false);
+      return;
+    }
+
+    setSelectedStartDate(getDateKeyFromDate(draftStartDate));
+    setSelectedEndDate(getDateKeyFromDate(draftEndDate ?? draftStartDate));
+    setIsCalendarOpen(false);
+  };
+
+  const handleDraftDateSelect = (date: Date) => {
+    if (!draftStartDate || draftEndDate) {
+      setDraftStartDate(date);
+      setDraftEndDate(null);
+      return;
+    }
+
+    if (date.getTime() < draftStartDate.getTime()) {
+      setDraftEndDate(draftStartDate);
+      setDraftStartDate(date);
+      return;
+    }
+
+    setDraftEndDate(date);
+  };
+
+  const normalizedDateRange = useMemo(() => {
+    if (selectedStartDate && selectedEndDate) {
+      return selectedStartDate <= selectedEndDate
+        ? { from: selectedStartDate, to: selectedEndDate }
+        : { from: selectedEndDate, to: selectedStartDate };
+    }
+
+    return {
+      from: selectedStartDate,
+      to: selectedEndDate || selectedStartDate,
+    };
+  }, [selectedEndDate, selectedStartDate]);
+
+  const normalizedDraftDateRange = useMemo(() => {
+    if (draftStartDate && draftEndDate) {
+      return draftStartDate.getTime() <= draftEndDate.getTime()
+        ? { from: draftStartDate, to: draftEndDate }
+        : { from: draftEndDate, to: draftStartDate };
+    }
+
+    return {
+      from: draftStartDate,
+      to: draftEndDate || draftStartDate,
+    };
+  }, [draftEndDate, draftStartDate]);
+
+  const selectedDateRangeLabel = useMemo(() => {
+    if (!selectedStartDate) {
+      return "Filter by date";
+    }
+
+    if (!selectedEndDate || selectedStartDate === selectedEndDate) {
+      return formatDateFilterLabel(selectedStartDate);
+    }
+
+    return `${formatDateFilterLabel(selectedStartDate)} - ${formatDateFilterLabel(
+      selectedEndDate,
+    )}`;
+  }, [selectedEndDate, selectedStartDate]);
 
   const filteredLogs = useMemo(() => {
     const logs = data?.auditLog ?? [];
@@ -186,11 +394,24 @@ export default function AdminActivityLogPage() {
         performedBy.includes(normalizedSearch);
 
       const matchesFilter =
-        selectedFilter === "All Actions" || log.action === selectedFilter;
+        selectedFilter === "All Actions" ||
+        getActionFilterLabel(log.action) === selectedFilter;
 
-      return matchesSearch && matchesFilter;
+      const logDate = getDateKey(log.createdAt);
+      const matchesDate =
+        (normalizedDateRange.from === "" ||
+          logDate >= normalizedDateRange.from) &&
+        (normalizedDateRange.to === "" || logDate <= normalizedDateRange.to);
+
+      return matchesSearch && matchesFilter && matchesDate;
     });
-  }, [data?.auditLog, search, selectedFilter]);
+  }, [
+    data?.auditLog,
+    normalizedDateRange.from,
+    normalizedDateRange.to,
+    search,
+    selectedFilter,
+  ]);
 
   if (loading) {
     return <AdminActivityLogSkeleton />;
@@ -223,7 +444,7 @@ export default function AdminActivityLogPage() {
           </p>
         </div>
 
-        <div className="flex items-center pt-12 gap-3">
+        <div className="flex items-center gap-3 pt-12">
           <div className="relative w-[288px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
@@ -232,19 +453,20 @@ export default function AdminActivityLogPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search name..."
-              className="h-10 w-full rounded-[10px] border border-[#E2E8F0] bg-white pl-9 pr-4 text-[14px] text-slate-700 outline-none placeholder:text-slate-400 focus:border-[#CBD5E1]"
+              className="h-10 w-full rounded-[10px] border border-[#E2E8F0] bg-white pl-9 pr-4 text-[16px] text-slate-700 outline-none placeholder:text-slate-400 focus:border-[#CBD5E1]"
             />
           </div>
 
-          <div className="relative h-10 w-48.75" ref={dropdownRef}>
+          <div className="relative h-10 w-48.75 " ref={dropdownRef}>
             <button
+              type="button"
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex h-10 w-full items-center justify-between rounded-[10px] border border-[#E2E8F0] bg-white px-4 text-[14px] font-medium text-slate-700"
+              className="flex h-10 w-full items-center justify-between rounded-[10px] border border-[#E2E8F0] bg-white px-4 text-[16px] font-medium text-slate-700"
             >
               {selectedFilter}
 
               <ChevronDown
-                className={`h-4 w-4 text-slate-400 transition ${
+                className={`h-4 w-4 text-slate-400 transition  cursor-pointer ${
                   dropdownOpen ? "rotate-180" : ""
                 }`}
               />
@@ -260,7 +482,7 @@ export default function AdminActivityLogPage() {
                       setSelectedFilter(filter);
                       setDropdownOpen(false);
                     }}
-                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-[14px] ${
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-[16px] ${
                       selectedFilter === filter
                         ? "bg-slate-50 font-medium text-slate-900"
                         : "text-slate-600 hover:bg-slate-50"
@@ -274,6 +496,192 @@ export default function AdminActivityLogPage() {
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="relative flex items-center gap-2" ref={calendarRef}>
+            <button
+              type="button"
+              onClick={openCalendar}
+              className={`flex h-9 w-9 items-center justify-center rounded-[10px] border cursor-pointer bg-white transition hover:bg-slate-50 ${
+                selectedStartDate
+                  ? "border-[#BFD3FF] text-[#2F66F6]"
+                  : "border-[#E2E8F0] text-slate-500"
+              }`}
+              title={selectedDateRangeLabel}
+              aria-label={selectedDateRangeLabel}
+            >
+              <CalendarDays className="h-4 w-4" />
+            </button>
+
+            {selectedStartDate || selectedEndDate ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStartDate("");
+                  setSelectedEndDate("");
+                  setDraftStartDate(null);
+                  setDraftEndDate(null);
+                  setIsCalendarOpen(false);
+                }}
+                className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-[#E2E8F0] bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+                aria-label="Clear date range filter"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+
+            {isCalendarOpen ? (
+              <div className="absolute right-0 top-11 z-50 w-75 overflow-hidden rounded-[18px] border border-[#D9E2EF] bg-white shadow-[0_20px_48px_rgba(15,23,42,0.14)]">
+                <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCalendarMonth(
+                        new Date(
+                          calendarMonth.getFullYear(),
+                          calendarMonth.getMonth() - 1,
+                          1,
+                        ),
+                      )
+                    }
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                    aria-label="Previous month"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+
+                  <div className="text-center">
+                    <p className="text-[16px] font-semibold text-slate-900">
+                      {calendarMonth.toLocaleDateString("en-US", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCalendarMonth(
+                        new Date(
+                          calendarMonth.getFullYear(),
+                          calendarMonth.getMonth() + 1,
+                          1,
+                        ),
+                      )
+                    }
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                    aria-label="Next month"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="px-5 py-4">
+                  <div className="grid grid-cols-7 text-center text-[13px] font-semibold text-slate-500">
+                    {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((day) => (
+                      <div
+                        key={day}
+                        className="flex h-8 items-center justify-center"
+                      >
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-7 gap-y-2 text-center">
+                    {calendarDays.map((day, index) => {
+                      const cellDate =
+                        day === null
+                          ? null
+                          : new Date(
+                              calendarMonth.getFullYear(),
+                              calendarMonth.getMonth(),
+                              day,
+                            );
+
+                      const isStart = isSameDay(
+                        cellDate,
+                        normalizedDraftDateRange.from,
+                      );
+                      const isEnd = isSameDay(
+                        cellDate,
+                        normalizedDraftDateRange.to,
+                      );
+                      const isSingleDayRange = isStart && isEnd;
+                      const isBetween =
+                        cellDate !== null &&
+                        normalizedDraftDateRange.from !== null &&
+                        normalizedDraftDateRange.to !== null &&
+                        cellDate.getTime() >
+                          normalizedDraftDateRange.from.getTime() &&
+                        cellDate.getTime() <
+                          normalizedDraftDateRange.to.getTime();
+
+                      return (
+                        <div
+                          key={`${day}-${index}`}
+                          className="relative flex h-10 items-center justify-center"
+                        >
+                          {day === null ? (
+                            <div className="h-10 w-10" />
+                          ) : (
+                            <>
+                              {isBetween ? (
+                                <div className="absolute inset-y-1 left-0 right-0 bg-[#EEF4FF]" />
+                              ) : null}
+                              {isStart &&
+                              normalizedDraftDateRange.to &&
+                              !isSingleDayRange ? (
+                                <div className="absolute inset-y-1 left-1/2 right-0 bg-[#EEF4FF]" />
+                              ) : null}
+                              {isEnd &&
+                              normalizedDraftDateRange.from &&
+                              !isSingleDayRange ? (
+                                <div className="absolute inset-y-1 left-0 right-1/2 bg-[#EEF4FF]" />
+                              ) : null}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (cellDate) {
+                                    handleDraftDateSelect(cellDate);
+                                  }
+                                }}
+                                className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full text-[16px] font-medium transition ${
+                                  isStart || isEnd
+                                    ? "bg-[#2F66F6] text-white"
+                                    : "text-slate-700 hover:bg-slate-100"
+                                }`}
+                              >
+                                {day}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-3 border-t border-[#E5E7EB] px-5 py-4">
+                  <button
+                    type="button"
+                    onClick={closeCalendar}
+                    className="flex cursor-pointer h-8 min-w-[96px] items-center justify-center rounded-[12px] border border-[#D9E2EF] bg-white px-4 text-[16px] font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyCalendarFilter}
+                    disabled={!draftStartDate}
+                    className="flex cursor-pointer h-8 min-w-[96px] items-center justify-center rounded-[12px] bg-[#2F66F6] px-4 text-[16px] font-medium text-white transition hover:bg-[#2456d7] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Search
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -321,15 +729,15 @@ export default function AdminActivityLogPage() {
               ) : (
                 filteredLogs.map((log) => (
                   <tr key={log.id} className="h-13.5 align-middle">
-                    <td className="admin-table-cell px-6 py-0 text-[14px] font-normal whitespace-nowrap align-middle text-[#667085]">
+                    <td className="admin-table-cell px-6 py-0 text-[16px] font-normal whitespace-nowrap align-middle text-[#667085]">
                       {formatTimestamp(log.createdAt)}
                     </td>
 
-                    <td className="admin-table-cell py-0 text-[14px] font-medium whitespace-nowrap align-middle text-[#0F172A]">
+                    <td className="admin-table-cell py-0 text-[16px] font-medium whitespace-nowrap align-middle text-[#0F172A]">
                       {log.employeeName ?? "System"}
                     </td>
 
-                    <td className="admin-table-cell px-3 py-0 text-[14px] whitespace-nowrap align-middle text-[#334155]">
+                    <td className="admin-table-cell px-3 py-0 text-[16px] whitespace-nowrap align-middle text-[#334155]">
                       {log.benefitName ?? "-"}
                     </td>
 
@@ -337,11 +745,11 @@ export default function AdminActivityLogPage() {
                       <ActionBadge action={log.action} />
                     </td>
 
-                    <td className="admin-table-cell px-1 py-0 text-[14px] align-middle text-[#334155]">
+                    <td className="admin-table-cell px-1 py-0 text-[16px] align-middle text-[#334155]">
                       {log.detail}
                     </td>
 
-                    <td className="admin-table-cell px-5 py-0 text-[14px] whitespace-nowrap align-middle text-[#667085]">
+                    <td className="admin-table-cell px-5 py-0 text-[16px] whitespace-nowrap align-middle text-[#667085]">
                       {log.performedBy}
                     </td>
                   </tr>
