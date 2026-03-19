@@ -16,6 +16,8 @@ export default function ContractBuilderPage() {
 
   const fileName = searchParams.get("file")?.trim() || "Contract.pdf";
   const pdfUrl = searchParams.get("url") ?? "";
+  const benefitId = searchParams.get("benefitId") ?? "";
+  const contractId = searchParams.get("contractId") ?? "";
   const [pdfError, setPdfError] = useState<string | null>(null);
 
   const storageKey = useMemo(() => {
@@ -26,6 +28,20 @@ export default function ContractBuilderPage() {
   const pdfSource = useMemo(() => {
     if (!pdfUrl) return "";
     if (pdfUrl.startsWith("blob:") || pdfUrl.startsWith("data:")) return pdfUrl;
+    // In local dev, prefer the local Worker preview for contract URLs.
+    if (
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
+      pdfUrl.includes("my-first-worker.ebmsteam10.workers.dev")
+    ) {
+      try {
+        const url = new URL(pdfUrl);
+        url.protocol = "http:";
+        url.host = "localhost:8787";
+        return `/api/pdf?url=${encodeURIComponent(url.toString())}`;
+      } catch {
+        // ignore
+      }
+    }
     if (pdfUrl.startsWith("http://") || pdfUrl.startsWith("https://")) {
       return `/api/pdf?url=${encodeURIComponent(pdfUrl)}`;
     }
@@ -51,6 +67,7 @@ export default function ContractBuilderPage() {
   const [signaturePreviewByBoxId, setSignaturePreviewByBoxId] = useState<Record<string, string>>(
     {},
   );
+  const [signatureUrlByBoxId, setSignatureUrlByBoxId] = useState<Record<string, string>>({});
   const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const signatureContainerRef = useRef<HTMLDivElement | null>(null);
   const drawingRef = useRef<{ isDrawing: boolean; lastX: number; lastY: number }>({
@@ -61,7 +78,7 @@ export default function ContractBuilderPage() {
   const [signatureUploadStatus, setSignatureUploadStatus] = useState<
     | { state: "idle" }
     | { state: "uploading" }
-    | { state: "uploaded"; key: string }
+    | { state: "uploaded"; key: string; url: string }
     | { state: "error"; message: string }
   >({ state: "idle" });
   const [drag, setDrag] = useState<
@@ -220,11 +237,75 @@ export default function ContractBuilderPage() {
         const text = await response.text().catch(() => "");
         throw new Error(`Upload failed (${response.status}): ${text || response.statusText}`);
       }
-      const result = (await response.json()) as { key?: string };
-      if (!result.key) throw new Error("Upload response missing key");
+      const result = (await response.json()) as { key?: string; url?: string };
+      if (!result.key || !result.url) throw new Error("Upload response missing key/url");
 
       saveActiveSignaturePreview();
-      setSignatureUploadStatus({ state: "uploaded", key: result.key });
+      setSignatureUrlByBoxId((current) => ({ ...current, [activeBoxId]: result.url! }));
+      setSignatureUploadStatus({ state: "uploaded", key: result.key, url: result.url });
+    } catch (error) {
+      setSignatureUploadStatus({
+        state: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  const saveSignaturesToContract = async () => {
+    if (!contractId) {
+      setSignatureUploadStatus({
+        state: "error",
+        message: "Missing contractId in URL (cannot save signatures to contract).",
+      });
+      return;
+    }
+    const graphqlUrl = process.env.NEXT_PUBLIC_GRAPHQL_URL ?? "";
+    if (!graphqlUrl) {
+      setSignatureUploadStatus({
+        state: "error",
+        message: "Missing NEXT_PUBLIC_GRAPHQL_URL (cannot save signatures).",
+      });
+      return;
+    }
+
+    const signatures = boxes.flatMap((box) => {
+      const url = signatureUrlByBoxId[box.id];
+      if (!url) return [];
+      return [
+        {
+          id: box.id,
+          page: box.page,
+          xPct: box.xPct,
+          yPct: box.yPct,
+          widthPct: box.widthPct,
+          heightPct: box.heightPct,
+          r2ObjectKey: url,
+        },
+      ];
+    });
+
+    try {
+      const response = await fetch(graphqlUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          query: `mutation UpdateContractSignatures($contractId: ID!, $signatures: [ContractSignatureInput!]!) {
+            updateContractSignatures(contractId: $contractId, signatures: $signatures) {
+              id
+            }
+          }`,
+          variables: { contractId, signatures },
+        }),
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(`Save failed (${response.status}): ${text || response.statusText}`);
+      }
+      const json = (await response.json()) as { errors?: Array<{ message?: string }> };
+      if (json.errors?.length) {
+        throw new Error(json.errors.map((e) => e.message).filter(Boolean).join("\n") || "Save failed");
+      }
     } catch (error) {
       setSignatureUploadStatus({
         state: "error",
@@ -384,7 +465,20 @@ export default function ContractBuilderPage() {
         >
           &#8592; Back to {fileName}
         </button>
-        <div className="text-[0.9rem] text-[#6b7280]">Upload PDF Document</div>
+        <div className="flex items-center gap-3">
+          <div className="text-[0.9rem] text-[#6b7280]">
+            {benefitId ? `Benefit: ${benefitId}` : "Upload PDF Document"}
+          </div>
+          <button
+            type="button"
+            onClick={() => void saveSignaturesToContract()}
+            disabled={!contractId}
+            className="rounded-[12px] bg-[#2563eb] px-4 py-2 text-[0.85rem] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
+            title={contractId ? "Save signature placements to contract" : "Missing contractId"}
+          >
+            Save signatures
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-1 gap-5 pb-4">

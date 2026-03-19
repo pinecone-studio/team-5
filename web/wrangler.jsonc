@@ -13,6 +13,6 @@
   },
   "vars": {
     "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_Ymxlc3NlZC1wcmltYXRlLTc0LmNsZXJrLmFjY291bnRzLmRldiQ",
-    "NEXT_PUBLIC_GRAPHQL_URL": "https://my-first-worker.ebmsteam10.workers.dev/graphql",
+    "NEXT_PUBLIC_GRAPHQL_URL": "http://localhost:8787/graphql",
   },
 }

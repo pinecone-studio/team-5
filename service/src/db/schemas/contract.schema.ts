@@ -21,5 +21,7 @@ export const contracts = sqliteTable("contracts", {
 
     expiry_date: text(),
 
+    signatures_json: text('signatures_json').notNull().default('[]'),
+
     is_active: integer({ mode: "boolean" }).default(true)
 })

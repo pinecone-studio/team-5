@@ -17,7 +17,6 @@ export const eligibilityRuleTypeDefs = `
     operator: RuleOperator!
     value: String!        # Backward compatible scalar value string
     valueJson: String!    # JSON-safe representation of expected value
-    configVersion: Int!
     errorMessage: String!
     priority: Int!
     isActive: Boolean!
@@ -28,7 +27,6 @@ export const eligibilityRuleTypeDefs = `
     value: String!
     type: String
     operator: RuleOperator = eq
-    configVersion: Int
     errorMessage: String!
     priority: Int
     isActive: Boolean = true
@@ -39,7 +37,6 @@ export const eligibilityRuleTypeDefs = `
     value: String
     type: String
     operator: RuleOperator
-    configVersion: Int
     errorMessage: String
     priority: Int
     isActive: Boolean
@@ -48,7 +45,6 @@ export const eligibilityRuleTypeDefs = `
   extend type Query {
     eligibilityRules(
       benefitId: ID
-      configVersion: Int
       activeOnly: Boolean = false
     ): [EligibilityRule!]!
     eligibilityRuleLatestVersion(benefitId: ID!): Int!
