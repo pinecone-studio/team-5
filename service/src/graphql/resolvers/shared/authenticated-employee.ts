@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { getDb } from '../../../db/client';
 import { employee } from '../../../db/schemas/employee.schema';
@@ -44,7 +44,7 @@ function requireClerkUserId(context: ResolverContext): string {
 }
 
 function requireClerkEmail(context: ResolverContext): string {
-	const email = context.clerkEmail?.trim();
+	const email = normalizeEmail(context.clerkEmail);
 
 	if (!email) {
 		throw new Error('Authenticated Clerk user does not have an email address.');
@@ -63,7 +63,14 @@ function isLocalFrontendOrigin(frontendOrigin?: string): boolean {
 }
 
 export function getPrimaryClerkEmail(user: ClerkLikeUser): string | null {
-	return user.primaryEmailAddress?.emailAddress ?? user.emailAddresses?.[0]?.emailAddress ?? null;
+	return normalizeEmail(
+		user.primaryEmailAddress?.emailAddress ?? user.emailAddresses?.[0]?.emailAddress ?? null,
+	);
+}
+
+function normalizeEmail(email: string | null | undefined): string | null {
+	const normalized = email?.trim().toLowerCase();
+	return normalized && normalized.length > 0 ? normalized : null;
 }
 
 export function getClerkDisplayName(user: ClerkLikeUser): string {
@@ -94,7 +101,7 @@ export async function requireAuthenticatedEmployee(
 	const employeeRow = await db
 		.select()
 		.from(employee)
-		.where(eq(employee.email, clerkEmail))
+		.where(sql`lower(${employee.email}) = ${clerkEmail}`)
 		.get();
 
 	if (employeeRow) {

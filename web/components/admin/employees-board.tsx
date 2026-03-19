@@ -124,6 +124,14 @@ interface EmployeeItem {
   benefits: EmployeeBenefit[];
 }
 
+const FIXED_DEPARTMENT_FILTERS = [
+  { label: "All", value: "all" },
+  { label: "Development", value: "development" },
+  { label: "Designer", value: "designer" },
+  { label: "Marketing", value: "marketing" },
+  { label: "Backoffice", value: "backoffice" },
+] as const;
+
 type PendingLateAction =
   | { type: "add"; employeeId: string }
   | { type: "delete"; employeeId: string; date: string };
@@ -204,6 +212,79 @@ function titleCase(value: string) {
     .join(" ");
 }
 
+function normalizeEmail(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+const DEPARTMENT_CYCLE = [
+  "development",
+  "designer",
+  "marketing",
+  "backoffice",
+] as const;
+
+function getStableDepartmentFallback(seed: string) {
+  const normalizedSeed = seed.trim().toLowerCase();
+
+  let hash = 0;
+  for (let index = 0; index < normalizedSeed.length; index += 1) {
+    hash = (hash * 31 + normalizedSeed.charCodeAt(index)) >>> 0;
+  }
+
+  return DEPARTMENT_CYCLE[hash % DEPARTMENT_CYCLE.length];
+}
+
+function normalizeDepartment(params: {
+  department: string | null | undefined;
+  role: string | null | undefined;
+  email: string | null | undefined;
+  fullName: string | null | undefined;
+}) {
+  const source = `${params.department ?? ""} ${params.role ?? ""}`.toLowerCase();
+
+  if (
+    source.includes("dev") ||
+    source.includes("engineer") ||
+    source.includes("frontend") ||
+    source.includes("backend")
+  ) {
+    return "development";
+  }
+
+  if (source.includes("market")) {
+    return "marketing";
+  }
+
+  if (source.includes("design") || source.includes("ux") || source.includes("ui")) {
+    return "designer";
+  }
+
+  return getStableDepartmentFallback(
+    params.email?.trim() || params.fullName?.trim() || "employee",
+  );
+}
+
+function getEmployeeUsageScore(
+  employee: EmployeeItem,
+  usage: {
+    requestCount: number;
+    eligibilityCount: number;
+  },
+) {
+  let score = 0;
+
+  score += usage.requestCount * 100;
+  score += usage.eligibilityCount * 40;
+  score += employee.lateDates.length * 10;
+  score += employee.contract !== "-" ? 8 : 0;
+  score += employee.responsibilityLevel * 3;
+  score += employee.okr === "Success" ? 3 : employee.okr === "Submitted" ? 2 : 1;
+  score += employee.roleLabel.trim().length > 0 ? 2 : 0;
+  score += employee.name.trim().length;
+
+  return score;
+}
+
 function formatContractLabel(name: string, requiresContract: boolean | null) {
   return requiresContract ? `${name} PDF` : "-";
 }
@@ -263,16 +344,16 @@ function mapBenefitStatus(params: {
   eligibilityStatus?: "active" | "eligible" | "locked" | "pending";
   latestRequestStatus?: "pending" | "approved" | "rejected" | "cancelled";
 }): BenefitStatus {
+  if (params.eligibilityStatus === "active") {
+    return "Active";
+  }
   if (params.latestRequestStatus === "approved") {
     return "Active";
   }
   if (params.latestRequestStatus === "pending") {
     return "Pending";
   }
-  if (
-    params.eligibilityStatus === "active" ||
-    params.eligibilityStatus === "eligible"
-  ) {
+  if (params.eligibilityStatus === "eligible") {
     return "Available";
   }
 
@@ -287,6 +368,10 @@ function buildBenefitReason(params: {
   eligibilityFailureReason?: string | null;
 }) {
   if (params.status === "Active") {
+    if (params.eligibilityOverrideReason?.trim()) {
+      return params.eligibilityOverrideReason.trim();
+    }
+
     return params.latestRequestUpdatedAt
       ? `Approved ${formatLateDate(params.latestRequestUpdatedAt)}`
       : "Approved";
@@ -406,6 +491,8 @@ export default function EmployeesBoard() {
   const [lateDialogEmployeeId, setLateDialogEmployeeId] = useState<
     string | null
   >(null);
+  const [lateSelectedDate, setLateSelectedDate] = useState<Date | null>(null);
+  const [lateMonth, setLateMonth] = useState(() => new Date());
   const [overrideDialog, setOverrideDialog] =
     useState<OverrideDialogState | null>(null);
   const [overrideEnabled, setOverrideEnabled] = useState(true);
@@ -494,6 +581,22 @@ export default function EmployeesBoard() {
       string,
       EmployeeRecord["benefitRequests"][number]
     >();
+    const requestCountByEmployeeId = new Map<string, number>();
+    const eligibilityCountByEmployeeId = new Map<string, number>();
+
+    data.benefitRequests.forEach((request) => {
+      requestCountByEmployeeId.set(
+        request.employeeId,
+        (requestCountByEmployeeId.get(request.employeeId) ?? 0) + 1,
+      );
+    });
+
+    data.benefitEligibility.forEach((item) => {
+      eligibilityCountByEmployeeId.set(
+        item.employeeId,
+        (eligibilityCountByEmployeeId.get(item.employeeId) ?? 0) + 1,
+      );
+    });
 
     data.benefitRequests.forEach((request) => {
       const key = `${request.employeeId}:${request.benefitId}`;
@@ -510,8 +613,13 @@ export default function EmployeesBoard() {
       }
     });
 
-    return data.employees.map((employee) => {
-      const department = employee.department?.trim().toLowerCase() || "general";
+    const mappedEmployees = data.employees.map((employee) => {
+      const department = normalizeDepartment({
+        department: employee.department,
+        role: employee.role,
+        email: employee.email,
+        fullName: employee.fullName,
+      });
       const benefits = activeBenefits.map((benefit) => {
         const key = `${employee.id}:${benefit.id}`;
         const eligibility = eligibilityByKey.get(key);
@@ -548,7 +656,15 @@ export default function EmployeesBoard() {
         email: employee.email ?? "-",
         status: titleCase((employee.status ?? "active").toLowerCase()),
         department,
-        roleLabel: employee.role?.trim() || titleCase(department),
+        roleLabel:
+          employee.role?.trim() ||
+          (department === "development"
+            ? "Developer"
+            : department === "marketing"
+              ? "Marketing"
+              : department === "designer"
+                ? "Designer"
+                : "Backoffice"),
         okr: mapOkrStatus(employee.okrStatus),
         lateDates: deriveLateDates(
           employee.lateArrivalCount ?? 0,
@@ -559,20 +675,45 @@ export default function EmployeesBoard() {
         benefits,
       };
     });
+
+    const uniqueEmployees = new Map<string, EmployeeItem>();
+
+    mappedEmployees.forEach((employee) => {
+      const normalizedEmail = normalizeEmail(employee.email);
+
+      if (!normalizedEmail) {
+        uniqueEmployees.set(employee.id, employee);
+        return;
+      }
+
+      const existing = uniqueEmployees.get(normalizedEmail);
+      if (!existing) {
+        uniqueEmployees.set(normalizedEmail, employee);
+        return;
+      }
+
+      const existingUsage = {
+        requestCount: requestCountByEmployeeId.get(existing.id) ?? 0,
+        eligibilityCount: eligibilityCountByEmployeeId.get(existing.id) ?? 0,
+      };
+      const nextUsage = {
+        requestCount: requestCountByEmployeeId.get(employee.id) ?? 0,
+        eligibilityCount: eligibilityCountByEmployeeId.get(employee.id) ?? 0,
+      };
+
+      const existingScore = getEmployeeUsageScore(existing, existingUsage);
+      const nextScore = getEmployeeUsageScore(employee, nextUsage);
+
+      uniqueEmployees.set(
+        normalizedEmail,
+        nextScore > existingScore ? employee : existing,
+      );
+    });
+
+    return Array.from(uniqueEmployees.values());
   }, [data]);
 
-  const departmentFilters = useMemo(
-    () => [
-      { label: "All", value: "all" },
-      ...Array.from(new Set(employees.map((employee) => employee.department)))
-        .sort((left, right) => left.localeCompare(right))
-        .map((department) => ({
-          label: titleCase(department),
-          value: department,
-        })),
-    ],
-    [employees],
-  );
+  const departmentFilters = FIXED_DEPARTMENT_FILTERS;
 
   const filteredEmployees = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -603,10 +744,13 @@ export default function EmployeesBoard() {
     () => getCalendarDays(overrideMonth),
     [overrideMonth],
   );
+  const lateCalendarDays = useMemo(() => getCalendarDays(lateMonth), [lateMonth]);
 
   function closeLateDialogs() {
     setLateDialogEmployeeId(null);
     setPendingLateAction(null);
+    setLateSelectedDate(null);
+    setLateMonth(new Date());
   }
 
   async function updateEmployeeOkr(employeeId: string, okr: OkrStatus) {
@@ -710,13 +854,14 @@ export default function EmployeesBoard() {
     }
   }
 
-  async function confirmLateAction() {
-    if (!pendingLateAction) {
-      return;
-    }
-
+  async function persistLateAttendance(params: {
+    employeeId: string;
+    nextLateCount: number;
+    updatedAt: string;
+    successMessage: string;
+  }) {
     const targetEmployee = employees.find(
-      (employee) => employee.id === pendingLateAction.employeeId,
+      (employee) => employee.id === params.employeeId,
     );
 
     if (!targetEmployee) {
@@ -725,26 +870,16 @@ export default function EmployeesBoard() {
       return;
     }
 
-    const nextLateCount =
-      pendingLateAction.type === "add"
-        ? targetEmployee.lateDates.length + 1
-        : Math.max(0, targetEmployee.lateDates.length - 1);
-
     try {
       await updateEmployee({
         variables: {
           id: targetEmployee.id,
-          lateArrivalCount: nextLateCount,
-          lateArrivalUpdatedAt: new Date().toISOString(),
+          lateArrivalCount: params.nextLateCount,
+          lateArrivalUpdatedAt: params.updatedAt,
         },
       });
       await refetch();
-      setSuccessMessage(
-        pendingLateAction.type === "add"
-          ? "Late attendance marked successfully."
-          : "Late attendance removed successfully.",
-      );
-      closeLateDialogs();
+      setSuccessMessage(params.successMessage);
     } catch (mutationError) {
       setErrorMessage(
         mutationError instanceof Error
@@ -752,6 +887,51 @@ export default function EmployeesBoard() {
           : "Late attendance could not be updated.",
       );
     }
+  }
+
+  async function addLateAttendance() {
+    if (!selectedEmployee || !lateSelectedDate) {
+      setErrorMessage("Please select a date to add.");
+      return;
+    }
+
+    await persistLateAttendance({
+      employeeId: selectedEmployee.id,
+      nextLateCount: selectedEmployee.lateDates.length + 1,
+      updatedAt: lateSelectedDate.toISOString(),
+      successMessage: "Late attendance marked successfully.",
+    });
+    closeLateDialogs();
+  }
+
+  async function deleteLateAttendance(date: string) {
+    if (!selectedEmployee) {
+      return;
+    }
+
+    const remainingDates = selectedEmployee.lateDates.filter(
+      (currentDate) => currentDate !== date,
+    );
+    const updatedAt =
+      remainingDates[remainingDates.length - 1] != null
+        ? new Date(`${remainingDates[remainingDates.length - 1]}T00:00:00.000Z`).toISOString()
+        : new Date().toISOString();
+
+    await persistLateAttendance({
+      employeeId: selectedEmployee.id,
+      nextLateCount: Math.max(0, selectedEmployee.lateDates.length - 1),
+      updatedAt,
+      successMessage: "Late attendance removed successfully.",
+    });
+  }
+
+  async function confirmDeleteLateAttendance() {
+    if (pendingLateAction?.type !== "delete") {
+      return;
+    }
+
+    await deleteLateAttendance(pendingLateAction.date);
+    closeLateDialogs();
   }
 
   return (
@@ -920,18 +1100,18 @@ export default function EmployeesBoard() {
             </div>
           </div>
 
-          <div className="border-b border-slate-200">
-            <div className="flex flex-wrap gap-8">
+          <div className="border-b border-[#dfe6f0]">
+            <div className="flex flex-wrap gap-10">
               {departmentFilters.map((filter) => (
                 <button
                   key={filter.value}
                   type="button"
                   onClick={() => setSelectedDepartment(filter.value)}
                   className={cn(
-                    "relative -mb-px cursor-pointer border-b-2 px-4 pb-4 text-[1.05rem] font-medium transition",
+                    "relative -mb-px cursor-pointer border-b-2 px-0 pb-3 text-[0.98rem] font-medium leading-none transition",
                     selectedDepartment === filter.value
-                      ? "border-blue-600 text-blue-600"
-                      : "border-transparent text-slate-900 hover:text-blue-600",
+                      ? "border-[#2f66f6] text-[#2f66f6]"
+                      : "border-transparent text-[#18243d] hover:text-[#2f66f6]",
                   )}
                 >
                   {filter.label}
@@ -1018,6 +1198,9 @@ export default function EmployeesBoard() {
                                   event.stopPropagation();
                                   setLateDialogEmployeeId(employee.id);
                                   setPendingLateAction(null);
+                                  const today = new Date();
+                                  setLateSelectedDate(today);
+                                  setLateMonth(today);
                                 }}
                                 className={cn(
                                   "inline-flex min-w-9 cursor-pointer items-center justify-center rounded-2xl px-3 py-1.5 text-[1rem] font-medium transition hover:opacity-85",
@@ -1116,14 +1299,14 @@ export default function EmployeesBoard() {
 
       {selectedEmployee ? (
         <div
-          className="fixed inset-y-0 left-0 right-0 z-40 bg-gray-900/25 md:left-60"
+          className="fixed inset-0 z-[60] bg-gray-900/25"
           onClick={closeLateDialogs}
         />
       ) : null}
 
       {selectedEmployee && !pendingLateAction ? (
         <div
-          className="fixed inset-y-0 left-0 right-0 z-50 flex items-center justify-center p-4 md:left-60"
+          className="fixed inset-y-0 left-0 right-0 z-[70] flex items-center justify-center p-4 md:left-[14.625rem]"
           onClick={closeLateDialogs}
         >
           <div
@@ -1173,44 +1356,206 @@ export default function EmployeesBoard() {
                   employeeId: selectedEmployee.id,
                 })
               }
-              className="mt-6 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
+              className="mt-6 inline-flex cursor-pointer items-center gap-3 rounded-xl px-1 py-1 text-[1.05rem] font-medium text-slate-700 transition hover:text-slate-900"
               aria-label="Add late attendance"
             >
-              <Plus className="h-4 w-4" />
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700">
+                <Plus className="h-4 w-4" />
+              </span>
+              <span>Add late day</span>
             </button>
           </div>
         </div>
       ) : null}
 
-      {pendingLateAction ? (
+      {pendingLateAction?.type === "add" ? (
         <div
-          className="fixed inset-y-0 left-0 right-0 z-50 flex items-center justify-center p-4 md:left-60"
+          className="fixed inset-0 z-[80] flex items-center justify-center p-4"
           onClick={closeLateDialogs}
         >
           <div
-            className="w-full max-w-88 rounded-[1.6rem] border border-gray-200 bg-white px-6 py-7 text-center shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
+            className="flex h-[549px] w-[400px] flex-col overflow-hidden rounded-[12px] border border-gray-200 bg-white p-6 shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="text-[1.05rem] font-medium leading-9 text-gray-900">
-              {pendingLateAction.type === "add"
-                ? "Mark today's attendance as late?"
-                : "Delete this late attendance record?"}
-            </p>
+            <div className="flex items-start justify-between gap-4">
+              <h3 className="text-[1.05rem] font-semibold text-gray-900 sm:text-[1.15rem]">
+                Days marked late
+              </h3>
+              <button
+                type="button"
+                onClick={closeLateDialogs}
+                className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Close late dialog"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
-            <div className="mt-7 flex items-center justify-center gap-3">
+            <div className="mt-4 shrink-0 space-y-2">
+              {selectedEmployee?.lateDates.length ? (
+                selectedEmployee.lateDates.map((date) => (
+                  <div
+                    key={date}
+                    className="flex items-center justify-between gap-4 text-[0.95rem] text-gray-500"
+                  >
+                    <span>{formatLateDate(date)}</span>
+                    <span className="text-[1.4rem] leading-none text-gray-400">
+                      -
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">
+                  No late attendance records yet.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-4 flex min-h-0 flex-1 flex-col border-t border-slate-200 pt-4">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLateMonth(
+                      new Date(
+                        lateMonth.getFullYear(),
+                        lateMonth.getMonth() - 1,
+                        1,
+                      ),
+                    )
+                  }
+                  className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+
+                <p className="text-[1rem] font-semibold text-slate-900">
+                  {lateMonth.toLocaleDateString("en-US", {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLateMonth(
+                      new Date(
+                        lateMonth.getFullYear(),
+                        lateMonth.getMonth() + 1,
+                        1,
+                      ),
+                    )
+                  }
+                  className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mt-3 grid grid-cols-7 border-t border-slate-200 pt-3 text-center text-[12px] font-semibold text-slate-500">
+                {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((day) => (
+                  <div
+                    key={day}
+                    className="flex h-5 items-center justify-center"
+                  >
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-2 grid grid-cols-7 gap-y-2 text-center text-[12px]">
+                {lateCalendarDays.map((day, index) => {
+                  const cellDate =
+                    day === null
+                      ? null
+                      : new Date(
+                          lateMonth.getFullYear(),
+                          lateMonth.getMonth(),
+                          day,
+                        );
+
+                  const selected = isSameDay(cellDate, lateSelectedDate);
+
+                  return (
+                    <div
+                      key={`${day}-${index}`}
+                      className="flex justify-center"
+                    >
+                      {day === null ? (
+                        <div className="h-8 w-8" />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setLateSelectedDate(cellDate)}
+                          className={cn(
+                            "flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-[0.9rem] font-medium transition",
+                            selected
+                              ? "bg-blue-600 text-white"
+                              : "text-slate-700 hover:bg-slate-100",
+                          )}
+                        >
+                          {day}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-3 flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 pt-3">
               <button
                 type="button"
                 onClick={() => setPendingLateAction(null)}
-                className="inline-flex min-w-20 cursor-pointer items-center justify-center rounded-xl border border-gray-200 px-5 py-2 text-base font-medium text-gray-700 transition hover:bg-gray-50"
+                className="inline-flex h-11 min-w-27 cursor-pointer items-center justify-center rounded-[1rem] border border-slate-200 px-5 text-[0.95rem] font-medium text-slate-700 transition hover:bg-slate-50"
               >
-                No
+                Cancel
               </button>
               <button
                 type="button"
-                onClick={confirmLateAction}
-                className="inline-flex min-w-20 cursor-pointer items-center justify-center rounded-xl bg-blue-600 px-5 py-2 text-base font-medium text-white transition hover:bg-blue-700"
+                onClick={addLateAttendance}
+                className="inline-flex h-11 min-w-27 cursor-pointer items-center justify-center rounded-[1rem] bg-blue-600 px-5 text-[0.95rem] font-medium text-white transition hover:bg-blue-700"
               >
-                Yes
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingLateAction?.type === "delete" ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+          onClick={closeLateDialogs}
+        >
+          <div
+            className="flex h-[192px] w-[400px] flex-col justify-between rounded-[12px] border border-[#dfe6f0] bg-white p-6 shadow-[0_22px_54px_rgba(15,23,42,0.18)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="space-y-2">
+              <h3 className="text-[1.2rem] font-semibold tracking-[-0.03em] text-[#18243d]">
+                Remove marked late day
+              </h3>
+              <p className="text-[1rem] leading-7 text-[#607089]">
+                Delete this late attendance record? This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-4">
+              <button
+                type="button"
+                onClick={() => setPendingLateAction(null)}
+                className="inline-flex h-11 min-w-[120px] cursor-pointer items-center justify-center rounded-[1rem] border border-[#dfe6f0] bg-white px-6 text-[1rem] font-medium text-[#3b4960] shadow-[0_4px_14px_rgba(15,23,42,0.06)] transition hover:bg-[#f8fafc]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteLateAttendance}
+                className="inline-flex h-11 min-w-[120px] cursor-pointer items-center justify-center rounded-[1rem] bg-[#ef3e3a] px-6 text-[1rem] font-medium text-white transition hover:bg-[#dc2626]"
+              >
+                Delete
               </button>
             </div>
           </div>

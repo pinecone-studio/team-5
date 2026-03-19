@@ -357,7 +357,9 @@ function mapBenefitItem(record: BenefitRecord): BenefitItem {
       record.status === "active"
         ? formatDateLabel(
             "Active since",
-            record.latestRequest?.updatedAt ?? record.latestRequest?.createdAt,
+            record.latestRequest?.updatedAt ??
+              record.latestRequest?.createdAt ??
+              record.eligibility.computedAt,
           )
         : undefined,
     latestRequestLabel:
