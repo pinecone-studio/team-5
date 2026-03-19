@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { gql } from "@apollo/client";
 import { useMutation, useQuery } from "@apollo/client/react";
-import { Check, ChevronDown, FileText, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, FileText, Pencil, Plus, Trash2, UploadCloud, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -182,6 +183,20 @@ const EMPTY_FORM = {
   errorMessage: "",
 };
 
+function formatFileSize(bytes: number | null | undefined) {
+  if (!bytes || Number.isNaN(bytes) || bytes <= 0) {
+    return "";
+  }
+
+  const kb = bytes / 1024;
+  if (kb < 1024) {
+    return `${kb.toFixed(1)} KB`;
+  }
+
+  const mb = kb / 1024;
+  return `${mb.toFixed(1)} MB`;
+}
+
 function formatRuleTypeLabel(value: string) {
   if (!value) {
     return "Custom rule";
@@ -195,6 +210,7 @@ function formatRuleTypeLabel(value: string) {
 
 export default function AdminRulesPage() {
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const [selectedBenefitIdOverride, setSelectedBenefitIdOverride] = useState<string | null>(null);
   const [isBenefitOpen, setIsBenefitOpen] = useState(false);
@@ -215,6 +231,9 @@ export default function AdminRulesPage() {
   const [benefitVendorValue, setBenefitVendorValue] = useState("");
   const [benefitSubsidyValue, setBenefitSubsidyValue] = useState("50");
   const [benefitContractValue, setBenefitContractValue] = useState("");
+  const [benefitContractFile, setBenefitContractFile] = useState<File | null>(null);
+  const [isContractBuilderOpen, setIsContractBuilderOpen] = useState(false);
+  const [contractPreviewUrl, setContractPreviewUrl] = useState<string | null>(null);
 
   const {
     data: benefitData,
@@ -314,6 +333,12 @@ export default function AdminRulesPage() {
     setBenefitVendorValue("");
     setBenefitSubsidyValue("50");
     setBenefitContractValue("");
+    setBenefitContractFile(null);
+    if (contractPreviewUrl) {
+      URL.revokeObjectURL(contractPreviewUrl);
+    }
+    setContractPreviewUrl(null);
+    setIsContractBuilderOpen(false);
     setBenefitActionError(null);
   };
 
@@ -408,8 +433,8 @@ export default function AdminRulesPage() {
     try {
       await updateRule({
         variables: {
-            input: {
-              id: editingRuleId,
+          input: {
+            id: editingRuleId,
             value: conditionValue.trim(),
             type: ruleTypeValue,
             operator: conditionOperator,
@@ -472,6 +497,23 @@ export default function AdminRulesPage() {
     } catch (error) {
       setBenefitActionError(error instanceof Error ? error.message : "Failed to create benefit.");
     }
+  };
+
+  const handleContinueToContractBuilder = () => {
+    if (!benefitNameValue.trim()) {
+      setBenefitActionError("Benefit name is required before continuing.");
+      return;
+    }
+
+    if (!benefitContractFile || !contractPreviewUrl) {
+      setBenefitActionError("Upload a contract PDF to continue.");
+      return;
+    }
+
+    setBenefitActionError(null);
+    const fileName = encodeURIComponent(benefitContractFile.name);
+    const url = encodeURIComponent(contractPreviewUrl);
+    router.push(`/admin/rules/contract-builder?file=${fileName}&url=${url}`);
   };
 
   const handleUpdateBenefit = async () => {
@@ -604,16 +646,100 @@ export default function AdminRulesPage() {
 
       <div>
         <label className="mb-2 block text-base font-medium text-slate-500">
-          Contract
+          Upload contract
         </label>
-        <div className="relative">
-          <FileText className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#3164e0]" />
-          <Input
-            value={benefitContractValue}
-            onChange={(event) => setBenefitContractValue(event.target.value)}
-            placeholder="+ Add files"
-            className="h-11 rounded-xl border border-[#d9e2ef] bg-white pr-4 pl-10 text-sm text-gray-800 focus-visible:ring-0"
-          />
+        <div className="space-y-3">
+          {!benefitContractFile ? (
+            <>
+              <input
+                id="benefit-contract-input"
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) {
+                    return;
+                  }
+
+                  setBenefitContractFile(file);
+                  setBenefitContractValue(file.name);
+                  if (contractPreviewUrl) {
+                    URL.revokeObjectURL(contractPreviewUrl);
+                  }
+                  setContractPreviewUrl(URL.createObjectURL(file));
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.getElementById(
+                    "benefit-contract-input",
+                  ) as HTMLInputElement | null;
+                  input?.click();
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const file = event.dataTransfer.files?.[0];
+                  if (!file) {
+                    return;
+                  }
+
+                  setBenefitContractFile(file);
+                  setBenefitContractValue(file.name);
+                  if (contractPreviewUrl) {
+                    URL.revokeObjectURL(contractPreviewUrl);
+                  }
+                  setContractPreviewUrl(URL.createObjectURL(file));
+                }}
+                className="flex w-full flex-col items-center justify-center rounded-2xl border border-dashed border-[#d9e2ef] bg-[#fbfcff] px-4 py-7 text-center transition hover:border-[#b9c7dd] hover:bg-white"
+              >
+                <UploadCloud className="mb-3 h-7 w-7 text-[#3164e0]" />
+                <p className="text-[0.95rem] font-medium text-[#17243d]">
+                  Drag and drop your PDF here
+                </p>
+                <p className="mt-1 text-[0.85rem] text-[#7a8798]">
+                  Upload a contract PDF to add signature fields
+                </p>
+              </button>
+            </>
+          ) : (
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#d9e2ef] bg-[#fbfcff] px-4 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e4ecff] text-[#3164e0]">
+                  <FileText className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-[0.95rem] font-medium text-[#17243d]">
+                    {benefitContractFile.name}
+                  </p>
+                  <p className="text-[0.85rem] text-[#7a8798]">
+                    {formatFileSize(benefitContractFile.size)}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setBenefitContractFile(null);
+                  setBenefitContractValue("");
+                  if (contractPreviewUrl) {
+                    URL.revokeObjectURL(contractPreviewUrl);
+                  }
+                  setContractPreviewUrl(null);
+                }}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[#94a3b8] transition hover:bg-[#e2e8f0] hover:text-[#17243d]"
+                aria-label="Remove uploaded contract"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -662,9 +788,8 @@ export default function AdminRulesPage() {
                 {selectedBenefit?.name ?? (loadingBenefits ? "Loading..." : "No benefits")}
               </span>
               <ChevronDown
-                className={`h-5 w-5 shrink-0 text-[#7a8798] transition-transform ${
-                  isBenefitOpen ? "rotate-180" : ""
-                }`}
+                className={`h-5 w-5 shrink-0 text-[#7a8798] transition-transform ${isBenefitOpen ? "rotate-180" : ""
+                  }`}
               />
             </button>
 
@@ -703,9 +828,8 @@ export default function AdminRulesPage() {
             >
               <span className="truncate">
                 {selectedBenefit
-                  ? `${selectedBenefit.subsidyPercent}% subsidy on ${
-                      selectedBenefit.vendorName ?? selectedBenefit.name
-                    }`
+                  ? `${selectedBenefit.subsidyPercent}% subsidy on ${selectedBenefit.vendorName ?? selectedBenefit.name
+                  }`
                   : "Select a benefit to view details"}
               </span>
             </button>
@@ -722,14 +846,12 @@ export default function AdminRulesPage() {
               className="flex h-16 w-full items-center gap-3 rounded-[16px] border border-[#d9e1ef] bg-white px-5 text-left text-[1.02rem] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#c7d5e6] disabled:cursor-not-allowed disabled:opacity-70"
             >
               <FileText
-                className={`h-5 w-5 shrink-0 ${
-                  selectedBenefit?.activeContractId ? "text-[#2563EB]" : "text-[#94A3B8]"
-                }`}
+                className={`h-5 w-5 shrink-0 ${selectedBenefit?.activeContractId ? "text-[#2563EB]" : "text-[#94A3B8]"
+                  }`}
               />
               <span
-                className={`truncate ${
-                  selectedBenefit?.activeContractId ? "text-[#253247]" : "text-[#708198]"
-                }`}
+                className={`truncate ${selectedBenefit?.activeContractId ? "text-[#253247]" : "text-[#708198]"
+                  }`}
               >
                 {selectedBenefit?.activeContractId
                   ? selectedBenefit.activeContractId
@@ -970,14 +1092,134 @@ export default function AdminRulesPage() {
               >
                 Cancel
               </Button>
-              <Button
+              {benefitContractFile ? (
+                <Button
+                  type="button"
+                  onClick={handleContinueToContractBuilder}
+                  className="h-10 min-w-24 rounded-xl bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700"
+                >
+                  Continue
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={handleCreateBenefit}
+                  disabled={isSavingBenefit}
+                  className="h-10 min-w-24 rounded-xl bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700"
+                >
+                  Add
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isAddBenefitModalOpen && isContractBuilderOpen && contractPreviewUrl && benefitContractFile ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020617]/40 p-4">
+          <div className="flex h-full max-h-[680px] w-full max-w-6xl flex-col overflow-hidden rounded-[18px] border border-[#d9e1ef] bg-[#f8fafc] shadow-[0_24px_64px_rgba(15,23,42,0.38)]">
+            <div className="flex items-center justify-between border-b border-[#dde4f0] bg-white px-6 py-4">
+              <div className="space-y-1">
+                <h2 className="text-[1.25rem] font-semibold tracking-[-0.04em] text-[#17243d]">
+                  Prepare contract for {benefitNameValue || "New benefit"}
+                </h2>
+                <p className="text-[0.92rem] text-[#6d7b93]">
+                  Review the contract and confirm the template before activating this benefit.
+                </p>
+              </div>
+              <button
                 type="button"
-                onClick={handleCreateBenefit}
-                disabled={isSavingBenefit}
-                className="h-10 min-w-24 rounded-xl bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700"
+                onClick={() => setIsContractBuilderOpen(false)}
+                className="rounded-[10px] p-1.5 text-[#64748b] transition hover:bg-[#e2e8f0] hover:text-[#0f172a]"
+                aria-label="Close contract builder"
               >
-                Add
-              </Button>
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex flex-1 flex-col gap-4 bg-[#eef2f9] p-4 lg:flex-row">
+              <section className="flex-1 overflow-hidden rounded-[16px] border border-[#d9e1ef] bg-white">
+                <div className="flex items-center justify-between border-b border-[#e2e8f0] px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[0.95rem] font-medium text-[#17243d]">
+                      {benefitContractFile.name}
+                    </p>
+                    <p className="text-[0.82rem] text-[#7a8798]">
+                      PDF preview · {formatFileSize(benefitContractFile.size)}
+                    </p>
+                  </div>
+                </div>
+                <div className="h-full bg-[#f1f5f9] p-3">
+                  <div className="h-full min-h-[420px] overflow-hidden rounded-[14px] border border-[#d9e1ef] bg-white">
+                    <iframe
+                      title="Contract PDF preview"
+                      src={contractPreviewUrl}
+                      className="h-full w-full"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className="w-full max-w-sm rounded-[16px] border border-[#d9e1ef] bg-white px-5 py-5">
+                <h3 className="text-[0.98rem] font-semibold text-[#17243d]">
+                  Template details
+                </h3>
+                <div className="mt-4 space-y-3 text-[0.9rem]">
+                  <div className="space-y-1">
+                    <p className="text-[0.78rem] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">
+                      Benefit
+                    </p>
+                    <p className="rounded-[10px] border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2 text-[#0f172a]">
+                      {benefitNameValue || "Untitled benefit"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[0.78rem] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">
+                      Details
+                    </p>
+                    <p className="min-h-[64px] rounded-[10px] border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2 text-[#4b5563]">
+                      {benefitVendorValue ||
+                        "No description yet. Add details to clarify coverage and conditions."}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[0.78rem] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">
+                      Subsidy
+                    </p>
+                    <p className="rounded-[10px] border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2 text-[#0f172a]">
+                      {Number.isNaN(Number(benefitSubsidyValue))
+                        ? "Not set"
+                        : `${benefitSubsidyValue}% company subsidy`}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-6 space-y-3 text-[0.85rem] text-[#64748b]">
+                  <p className="font-medium text-[#0f172a]">Next steps</p>
+                  <ul className="space-y-1.5">
+                    <li>Review the PDF with your legal or HR team.</li>
+                    <li>Confirm this file as the active template for the benefit.</li>
+                    <li>Save to make this contract available for employee requests.</li>
+                  </ul>
+                </div>
+                <div className="mt-6 flex items-center justify-end gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsContractBuilderOpen(false)}
+                    className="h-9 rounded-[10px] border-[#d9e1ef] px-4 text-[0.9rem] text-[#1f2933] hover:bg-[#f8fafc]"
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleCreateBenefit}
+                    disabled={isSavingBenefit}
+                    className="h-9 rounded-[10px] bg-[#2563eb] px-4 text-[0.9rem] font-medium text-white hover:bg-[#1d4ed8]"
+                  >
+                    Save template
+                  </Button>
+                </div>
+              </section>
             </div>
           </div>
         </div>
