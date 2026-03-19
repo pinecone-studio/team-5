@@ -1,9 +1,9 @@
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 
 interface EmployeePagePanelProps {
-  title: string
-  description: string
-  ctaLabel?: string
+  title: string;
+  description: string;
+  ctaLabel?: string;
 }
 
 export function EmployeePagePanel({
@@ -21,7 +21,9 @@ export function EmployeePagePanel({
 
       <div className="rounded-[12px] border border-[#d9e1ef] bg-white p-7">
         <div className="max-w-2xl">
-          <p className="text-[0.95rem] leading-7 text-[#607089]">{description}</p>
+          <p className="text-[0.95rem] leading-7 text-[#607089]">
+            {description}
+          </p>
           {ctaLabel ? (
             <Button
               className="mt-8 h-10 rounded-[10px] px-6 text-[0.9rem] font-medium"
@@ -33,5 +35,5 @@ export function EmployeePagePanel({
         </div>
       </div>
     </section>
-  )
+  );
 }

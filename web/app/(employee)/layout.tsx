@@ -1,6 +1,6 @@
-import AppApolloProvider from "@/components/apollo-provider"
-import AuthGuard from "@/components/auth-guard"
-import { PageShell } from "@/components/layout/page-shell"
+import AppApolloProvider from "@/components/apollo-provider";
+import AuthGuard from "@/components/auth-guard";
+import { PageShell } from "@/components/layout/page-shell";
 
 /**
  * Employee route group — нэвтэрсэн ажилтан (user эсвэл admin/hr энгийн хэрэглэгчээр).
@@ -9,7 +9,7 @@ import { PageShell } from "@/components/layout/page-shell"
 export default function EmployeeLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <AppApolloProvider>
@@ -17,5 +17,5 @@ export default function EmployeeLayout({
         <PageShell role="employee">{children}</PageShell>
       </AuthGuard>
     </AppApolloProvider>
-  )
+  );
 }

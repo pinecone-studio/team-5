@@ -304,7 +304,7 @@ function RequestsSection({
 
       <div className="mt-4 h-px w-full bg-[#D9E1EE]" />
 
-      <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         {requests.map((request) => (
           <RequestCard key={request.id} request={request} />
         ))}
