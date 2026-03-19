@@ -444,8 +444,8 @@ function ContractEmptyState({ benefitTitle }: { benefitTitle: string }) {
           No contract has been attached for {benefitTitle} yet.
         </p>
         <p className="mt-2 text-[0.92rem] leading-7 text-[#6c7d96]">
-          Once a contract is uploaded, you’ll be able to review it here and accept
-          the terms before submitting your request.
+          Once a contract is uploaded, you’ll be able to review it here and
+          accept the terms before submitting your request.
         </p>
       </div>
 
@@ -641,7 +641,8 @@ function BenefitCard({
 }) {
   const isRequestCard = benefit.status === "available";
   const isLockedCard = benefit.status === "locked";
-  const showOverrideBadge = benefit.status === "active" && benefit.isOverrideActive;
+  const showOverrideBadge =
+    benefit.status === "active" && benefit.isOverrideActive;
   const actionLabel =
     benefit.status === "pending"
       ? "View details"
@@ -1083,27 +1084,37 @@ export default function BenefitsBoard() {
 
                       <div className="mt-6 space-y-4 text-[0.95rem]">
                         <div className="flex items-center justify-between gap-4">
-                          <span className="font-medium text-[#18243d]">Signed by</span>
+                          <span className="font-medium text-[#18243d]">
+                            Signed by
+                          </span>
                           <span className="text-[#6c7d96]">
                             {employee?.fullName ?? "Employee"}
                           </span>
                         </div>
                         <div className="flex items-center justify-between gap-4">
-                          <span className="font-medium text-[#18243d]">Status</span>
+                          <span className="font-medium text-[#18243d]">
+                            Status
+                          </span>
                           <span className="text-[#6c7d96]">Active</span>
                         </div>
                         <div className="flex items-center justify-between gap-4">
-                          <span className="font-medium text-[#18243d]">Effective date:</span>
+                          <span className="font-medium text-[#18243d]">
+                            Effective date:
+                          </span>
                           <span className="text-[#6c7d96]">
-                            {formatDateValue(selectedBenefit.contractEffectiveDate) ??
-                              "Not set"}
+                            {formatDateValue(
+                              selectedBenefit.contractEffectiveDate,
+                            ) ?? "Not set"}
                           </span>
                         </div>
                         <div className="flex items-center justify-between gap-4">
-                          <span className="font-medium text-[#18243d]">Expiry date:</span>
+                          <span className="font-medium text-[#18243d]">
+                            Expiry date:
+                          </span>
                           <span className="text-[#6c7d96]">
-                            {formatDateValue(selectedBenefit.contractExpiryDate) ??
-                              "Not set"}
+                            {formatDateValue(
+                              selectedBenefit.contractExpiryDate,
+                            ) ?? "Not set"}
                           </span>
                         </div>
                         <div className="flex items-center justify-between gap-4">
@@ -1185,7 +1196,9 @@ export default function BenefitsBoard() {
                   <div className="rounded-[12px] border border-amber-200 bg-amber-50 p-5">
                     <div className="flex items-center gap-2 text-amber-800">
                       <LockKeyhole className="h-4.5 w-4.5" />
-                      <h3 className="text-[0.9rem] font-medium">Blocked rules</h3>
+                      <h3 className="text-[0.9rem] font-medium">
+                        Blocked rules
+                      </h3>
                     </div>
                     <ul className="mt-3 space-y-2 text-[0.9rem] text-amber-900">
                       {selectedBenefit.failureReasons.map((reason) => (
@@ -1275,11 +1288,9 @@ export default function BenefitsBoard() {
                         ? "This benefit is locked until the listed rules are satisfied."
                         : selectedBenefit.status === "pending"
                           ? "This request is already waiting for review."
-                          : selectedBenefit.status === "active"
-                            ? "This benefit is already active for you."
-                            : selectedBenefit.requiresContract
-                              ? "Preview the contract requirement before submitting."
-                              : "Preview the request before submitting."}
+                          : selectedBenefit.requiresContract
+                            ? "Preview the contract requirement before submitting."
+                            : "Preview the request before submitting."}
                     </p>
                     <Button
                       type="button"
@@ -1377,7 +1388,9 @@ export default function BenefitsBoard() {
                     onAcceptedTermsChange={setAcceptedTerms}
                   />
                 ) : (
-                  <ContractEmptyState benefitTitle={requestModalBenefit.title} />
+                  <ContractEmptyState
+                    benefitTitle={requestModalBenefit.title}
+                  />
                 )
               ) : null}
 
@@ -1404,7 +1417,8 @@ export default function BenefitsBoard() {
                   preparingBenefitId === requestModalBenefit.id ||
                   requestIntent == null ||
                   (requestIntent?.requiresContractAcceptance &&
-                    (!requestIntent.activeContract?.r2ObjectKey || !acceptedTerms))
+                    (!requestIntent.activeContract?.r2ObjectKey ||
+                      !acceptedTerms))
                 }
                 className="h-11 rounded-[14px] bg-[#9dbffd] px-5 text-[0.95rem] font-medium text-white hover:bg-[#88aff8] disabled:opacity-60"
               >
