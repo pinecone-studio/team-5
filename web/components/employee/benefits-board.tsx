@@ -12,7 +12,6 @@ import {
   FileText,
   HeartPulse,
   LoaderCircle,
-  LockKeyhole,
   Umbrella,
   Wifi,
   X,
@@ -57,6 +56,7 @@ type BenefitRecord = {
     ruleEvaluationJson: string;
     computedAt: string;
     overrideReason: string | null;
+    overrideExpiresAt: string | null;
   };
   latestRequest: {
     id: string;
@@ -142,9 +142,11 @@ interface BenefitItem {
   contractExpiryDate?: string | null;
   isOverrideActive: boolean;
   overrideReason?: string | null;
+  overrideExpiresAt?: string | null;
   requirements: Array<{
     label: string;
     passed: boolean;
+    detail?: string | null;
   }>;
 }
 
@@ -282,6 +284,7 @@ function parseRequirements(ruleEvaluationJson: string) {
     const parsed = JSON.parse(ruleEvaluationJson) as Array<{
       type?: string;
       passed?: boolean;
+      reason?: string;
     }>;
 
     if (!Array.isArray(parsed)) {
@@ -291,6 +294,7 @@ function parseRequirements(ruleEvaluationJson: string) {
     return parsed.map((item) => ({
       label: toRequirementLabel(item?.type ?? "Requirement"),
       passed: item?.passed !== false,
+      detail: item?.passed === false ? item?.reason ?? null : null,
     }));
   } catch {
     return [];
@@ -374,6 +378,7 @@ function mapBenefitItem(record: BenefitRecord): BenefitItem {
     isOverrideActive:
       record.status === "active" && Boolean(record.eligibility.overrideReason),
     overrideReason: record.eligibility.overrideReason,
+    overrideExpiresAt: record.eligibility.overrideExpiresAt,
   };
 }
 
@@ -1036,107 +1041,175 @@ export default function BenefitsBoard() {
               <div className="flex-1 space-y-6 overflow-y-auto px-6 pb-6">
                 {selectedBenefit.status === "active" ? (
                   <>
-                    <section className="rounded-[16px] border border-[#e4ebf5] bg-white p-5">
-                      <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
-                        Benefit Details
-                      </h3>
-                      <p className="mt-4 text-[0.95rem] leading-8 text-[#6c7d96]">
-                        {selectedBenefit.description}
-                      </p>
-                    </section>
+                    {selectedBenefit.isOverrideActive ? (
+                      <>
+                        <section className="rounded-[16px] border border-[#e4ebf5] bg-white p-5">
+                          <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
+                            Benefit Details
+                          </h3>
+                          <p className="mt-4 text-[0.95rem] leading-8 text-[#18243d]">
+                            {selectedBenefit.description}
+                          </p>
+                        </section>
 
-                    <section className="rounded-[16px] border border-[#e4ebf5] bg-white p-5">
-                      <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
-                        Requirements
-                      </h3>
-                      <div className="mt-4 space-y-4">
-                        {selectedBenefit.requirements.map((requirement) => (
-                          <div
-                            key={requirement.label}
-                            className="flex items-center gap-3 text-[0.95rem] text-[#18243d]"
-                          >
-                            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                            <span>{requirement.label}</span>
+                        <section className="rounded-[16px] border border-[#e4ebf5] bg-white p-5">
+                          <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
+                            Requirements
+                          </h3>
+                          <div className="mt-4 space-y-4">
+                            {selectedBenefit.requirements.map((requirement) => (
+                              <div key={requirement.label} className="space-y-2">
+                                <div className="flex items-center gap-3 text-[0.95rem] text-[#18243d]">
+                                  {requirement.passed ? (
+                                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                                  ) : (
+                                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-rose-400 text-rose-500">
+                                      <X className="h-3.5 w-3.5" />
+                                    </span>
+                                  )}
+                                  <span>{requirement.label}</span>
+                                </div>
+                                {!requirement.passed && requirement.detail ? (
+                                  <p className="pl-8 text-[0.95rem] text-[#6c7d96]">
+                                    {requirement.detail}
+                                  </p>
+                                ) : null}
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </section>
+                        </section>
 
-                    <section className="rounded-[16px] border border-[#e4ebf5] bg-white p-5">
-                      <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
-                        Contract
-                      </h3>
-                      {selectedBenefit.contractDownloadUrl ? (
-                        <a
-                          href={selectedBenefit.contractDownloadUrl}
-                          download
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-4 flex items-center gap-3 rounded-[14px] border border-[#e4ebf5] bg-[#fbfcfe] px-4 py-3 text-[0.95rem] text-[#3b4960] transition hover:border-[#cdd8ea] hover:bg-white"
-                        >
-                          <FileText className="h-5 w-5 text-[#2f66f6]" />
-                          <span>View {selectedBenefit.title} PDF</span>
-                        </a>
-                      ) : (
-                        <div className="mt-4 flex items-center gap-3 rounded-[14px] border border-[#e4ebf5] bg-[#fbfcfe] px-4 py-3 text-[0.95rem] text-[#94a3b8]">
-                          <FileText className="h-5 w-5 text-[#94a3b8]" />
-                          <span>PDF unavailable</span>
+                        <div className="space-y-3">
+                          <h3 className="px-0.5 text-[0.95rem] font-medium text-[#18243d]">
+                            Expiry date
+                          </h3>
+                          <div className="rounded-[14px] border border-[#dfe6f0] bg-white px-4 py-3 text-[0.95rem] text-[#18243d]">
+                            {formatDateValue(selectedBenefit.overrideExpiresAt) ??
+                              "No expiry date"}
+                          </div>
                         </div>
-                      )}
 
-                      <div className="mt-6 space-y-4 text-[0.95rem]">
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="font-medium text-[#18243d]">
-                            Signed by
-                          </span>
-                          <span className="text-[#6c7d96]">
-                            {employee?.fullName ?? "Employee"}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="font-medium text-[#18243d]">
-                            Status
-                          </span>
-                          <span className="text-[#6c7d96]">Active</span>
-                        </div>
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="font-medium text-[#18243d]">
-                            Effective date:
-                          </span>
-                          <span className="text-[#6c7d96]">
-                            {formatDateValue(
-                              selectedBenefit.contractEffectiveDate,
-                            ) ?? "Not set"}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="font-medium text-[#18243d]">
-                            Expiry date:
-                          </span>
-                          <span className="text-[#6c7d96]">
-                            {formatDateValue(
-                              selectedBenefit.contractExpiryDate,
-                            ) ?? "Not set"}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="font-medium text-[#18243d]">
-                            Contract version
-                          </span>
-                          <span className="text-[#6c7d96]">
-                            {selectedBenefit.activeContractVersion
-                              ? `v${selectedBenefit.activeContractVersion}`
-                              : "Not set"}
-                          </span>
-                        </div>
-                      </div>
-                    </section>
+                        <section className="rounded-[16px] border border-[#cbb2ff] bg-[#fbf8ff] p-5">
+                          <h3 className="text-[1.05rem] font-semibold text-[#7a4ef0]">
+                            Override Reason
+                          </h3>
+                          <p className="mt-4 text-[0.95rem] leading-8 text-[#3f3f46]">
+                            {selectedBenefit.overrideReason ??
+                              "This benefit was activated through an admin override."}
+                          </p>
+                        </section>
 
-                    {selectedBenefit.activeSince ? (
-                      <p className="px-0.5 text-[0.95rem] text-[#6c7d96]">
-                        {selectedBenefit.activeSince}
-                      </p>
-                    ) : null}
+                        {selectedBenefit.activeSince ? (
+                          <p className="px-0.5 text-[0.95rem] text-[#6c7d96]">
+                            {selectedBenefit.activeSince}
+                          </p>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        <section className="rounded-[16px] border border-[#e4ebf5] bg-white p-5">
+                          <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
+                            Benefit Details
+                          </h3>
+                          <p className="mt-4 text-[0.95rem] leading-8 text-[#6c7d96]">
+                            {selectedBenefit.description}
+                          </p>
+                        </section>
+
+                        <section className="rounded-[16px] border border-[#e4ebf5] bg-white p-5">
+                          <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
+                            Requirements
+                          </h3>
+                          <div className="mt-4 space-y-4">
+                            {selectedBenefit.requirements.map((requirement) => (
+                              <div
+                                key={requirement.label}
+                                className="flex items-center gap-3 text-[0.95rem] text-[#18243d]"
+                              >
+                                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                                <span>{requirement.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+
+                        <section className="rounded-[16px] border border-[#e4ebf5] bg-white p-5">
+                          <h3 className="text-[0.95rem] font-semibold text-[#18243d]">
+                            Contract
+                          </h3>
+                          {selectedBenefit.contractDownloadUrl ? (
+                            <a
+                              href={selectedBenefit.contractDownloadUrl}
+                              download
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-4 flex items-center gap-3 rounded-[14px] border border-[#e4ebf5] bg-[#fbfcfe] px-4 py-3 text-[0.95rem] text-[#3b4960] transition hover:border-[#cdd8ea] hover:bg-white"
+                            >
+                              <FileText className="h-5 w-5 text-[#2f66f6]" />
+                              <span>View {selectedBenefit.title} PDF</span>
+                            </a>
+                          ) : (
+                            <div className="mt-4 flex items-center gap-3 rounded-[14px] border border-[#e4ebf5] bg-[#fbfcfe] px-4 py-3 text-[0.95rem] text-[#94a3b8]">
+                              <FileText className="h-5 w-5 text-[#94a3b8]" />
+                              <span>PDF unavailable</span>
+                            </div>
+                          )}
+
+                          <div className="mt-6 space-y-4 text-[0.95rem]">
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="font-medium text-[#18243d]">
+                                Signed by
+                              </span>
+                              <span className="text-[#6c7d96]">
+                                {employee?.fullName ?? "Employee"}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="font-medium text-[#18243d]">
+                                Status
+                              </span>
+                              <span className="text-[#6c7d96]">Active</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="font-medium text-[#18243d]">
+                                Effective date:
+                              </span>
+                              <span className="text-[#6c7d96]">
+                                {formatDateValue(
+                                  selectedBenefit.contractEffectiveDate,
+                                ) ?? "Not set"}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="font-medium text-[#18243d]">
+                                Expiry date:
+                              </span>
+                              <span className="text-[#6c7d96]">
+                                {formatDateValue(
+                                  selectedBenefit.contractExpiryDate,
+                                ) ?? "Not set"}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="font-medium text-[#18243d]">
+                                Contract version
+                              </span>
+                              <span className="text-[#6c7d96]">
+                                {selectedBenefit.activeContractVersion
+                                  ? `v${selectedBenefit.activeContractVersion}`
+                                  : "Not set"}
+                              </span>
+                            </div>
+                          </div>
+                        </section>
+
+                        {selectedBenefit.activeSince ? (
+                          <p className="px-0.5 text-[0.95rem] text-[#6c7d96]">
+                            {selectedBenefit.activeSince}
+                          </p>
+                        ) : null}
+                      </>
+                    )}
                   </>
                 ) : (
                   <>
@@ -1193,22 +1266,6 @@ export default function BenefitsBoard() {
                     </div>
                   </>
                 )}
-
-                {selectedBenefit.failureReasons.length > 0 ? (
-                  <div className="rounded-[12px] border border-amber-200 bg-amber-50 p-5">
-                    <div className="flex items-center gap-2 text-amber-800">
-                      <LockKeyhole className="h-4.5 w-4.5" />
-                      <h3 className="text-[0.9rem] font-medium">
-                        Blocked rules
-                      </h3>
-                    </div>
-                    <ul className="mt-3 space-y-2 text-[0.9rem] text-amber-900">
-                      {selectedBenefit.failureReasons.map((reason) => (
-                        <li key={reason}>{reason}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
 
                 {requestIntent?.activeContract ? (
                   <div className="rounded-[12px] border border-blue-200 bg-blue-50 p-5">

@@ -38,6 +38,7 @@ export const EMPLOYEE_DASHBOARD_QUERY = gql`
         ruleEvaluationJson
         computedAt
         overrideReason
+        overrideExpiresAt
       }
       latestRequest {
         id
@@ -87,6 +88,7 @@ export const MY_BENEFITS_QUERY = gql`
         ruleEvaluationJson
         computedAt
         overrideReason
+        overrideExpiresAt
       }
       latestRequest {
         id
@@ -154,6 +156,7 @@ export const REQUEST_BENEFIT_MUTATION = gql`
         ruleEvaluationJson
         computedAt
         overrideReason
+        overrideExpiresAt
       }
       activeContract {
         id

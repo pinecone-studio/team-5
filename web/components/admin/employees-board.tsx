@@ -100,7 +100,12 @@ const UPSERT_BENEFIT_ELIGIBILITY_MUTATION = gql`
 `;
 
 type OkrStatus = "Success" | "Submitted" | "Failed";
-type BenefitStatus = "Active" | "Available" | "Pending" | "Not Yet Available";
+type BenefitStatus =
+  | "Active"
+  | "Available"
+  | "Pending"
+  | "Not Yet Available"
+  | "Override";
 
 interface EmployeeBenefit {
   id: string;
@@ -240,7 +245,8 @@ function normalizeDepartment(params: {
   email: string | null | undefined;
   fullName: string | null | undefined;
 }) {
-  const source = `${params.department ?? ""} ${params.role ?? ""}`.toLowerCase();
+  const source =
+    `${params.department ?? ""} ${params.role ?? ""}`.toLowerCase();
 
   if (
     source.includes("dev") ||
@@ -255,7 +261,11 @@ function normalizeDepartment(params: {
     return "marketing";
   }
 
-  if (source.includes("design") || source.includes("ux") || source.includes("ui")) {
+  if (
+    source.includes("design") ||
+    source.includes("ux") ||
+    source.includes("ui")
+  ) {
     return "designer";
   }
 
@@ -278,7 +288,8 @@ function getEmployeeUsageScore(
   score += employee.lateDates.length * 10;
   score += employee.contract !== "-" ? 8 : 0;
   score += employee.responsibilityLevel * 3;
-  score += employee.okr === "Success" ? 3 : employee.okr === "Submitted" ? 2 : 1;
+  score +=
+    employee.okr === "Success" ? 3 : employee.okr === "Submitted" ? 2 : 1;
   score += employee.roleLabel.trim().length > 0 ? 2 : 0;
   score += employee.name.trim().length;
 
@@ -343,7 +354,14 @@ function mapOkrStatus(
 function mapBenefitStatus(params: {
   eligibilityStatus?: "active" | "eligible" | "locked" | "pending";
   latestRequestStatus?: "pending" | "approved" | "rejected" | "cancelled";
+  eligibilityOverrideReason?: string | null;
 }): BenefitStatus {
+  if (
+    params.eligibilityStatus === "active" &&
+    params.eligibilityOverrideReason?.trim()
+  ) {
+    return "Override";
+  }
   if (params.eligibilityStatus === "active") {
     return "Active";
   }
@@ -367,7 +385,7 @@ function buildBenefitReason(params: {
   eligibilityOverrideReason?: string | null;
   eligibilityFailureReason?: string | null;
 }) {
-  if (params.status === "Active") {
+  if (params.status === "Active" || params.status === "Override") {
     if (params.eligibilityOverrideReason?.trim()) {
       return params.eligibilityOverrideReason.trim();
     }
@@ -413,6 +431,8 @@ function getBenefitStatusClasses(status: BenefitStatus) {
   switch (status) {
     case "Active":
       return "border-emerald-300 bg-emerald-50 text-emerald-600";
+    case "Override":
+      return "border-[#cbb2ff] bg-[#f7f1ff] text-[#7a4ef0]";
     case "Available":
       return "border-blue-300 bg-blue-50 text-blue-600";
     case "Pending":
@@ -627,6 +647,7 @@ export default function EmployeesBoard() {
         const status = mapBenefitStatus({
           eligibilityStatus: eligibility?.status,
           latestRequestStatus: latestRequest?.status,
+          eligibilityOverrideReason: eligibility?.overrideReason,
         });
 
         return {
@@ -744,7 +765,10 @@ export default function EmployeesBoard() {
     () => getCalendarDays(overrideMonth),
     [overrideMonth],
   );
-  const lateCalendarDays = useMemo(() => getCalendarDays(lateMonth), [lateMonth]);
+  const lateCalendarDays = useMemo(
+    () => getCalendarDays(lateMonth),
+    [lateMonth],
+  );
 
   function closeLateDialogs() {
     setLateDialogEmployeeId(null);
@@ -794,6 +818,10 @@ export default function EmployeesBoard() {
     employee: EmployeeItem,
     benefit: EmployeeBenefit,
   ) {
+    if (benefit.status === "Active") {
+      return;
+    }
+
     const today = new Date();
 
     setOverrideDialog({
@@ -803,6 +831,7 @@ export default function EmployeesBoard() {
     });
     setOverrideEnabled(
       benefit.status === "Active" ||
+        benefit.status === "Override" ||
         benefit.status === "Available" ||
         benefit.status === "Pending",
     );
@@ -914,7 +943,9 @@ export default function EmployeesBoard() {
     );
     const updatedAt =
       remainingDates[remainingDates.length - 1] != null
-        ? new Date(`${remainingDates[remainingDates.length - 1]}T00:00:00.000Z`).toISOString()
+        ? new Date(
+            `${remainingDates[remainingDates.length - 1]}T00:00:00.000Z`,
+          ).toISOString()
         : new Date().toISOString();
 
     await persistLateAttendance({
@@ -1065,7 +1096,13 @@ export default function EmployeesBoard() {
                           onClick={() =>
                             openOverrideDialog(detailEmployee, benefit)
                           }
-                          className="cursor-pointer rounded-[0.95rem] border border-slate-200 bg-white px-4 py-2 text-[0.95rem] font-medium text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition hover:bg-slate-50"
+                          disabled={benefit.status === "Active"}
+                          className={cn(
+                            "rounded-[0.95rem] border px-4 py-2 text-[0.95rem] font-medium shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition",
+                            benefit.status === "Active"
+                              ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 shadow-none"
+                              : "cursor-pointer border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                          )}
                         >
                           Override
                         </button>
@@ -1538,7 +1575,8 @@ export default function EmployeesBoard() {
                 Remove marked late day
               </h3>
               <p className="text-[1rem] leading-7 text-[#607089]">
-                Delete this late attendance record? This action cannot be undone.
+                Delete this late attendance record? This action cannot be
+                undone.
               </p>
             </div>
 
