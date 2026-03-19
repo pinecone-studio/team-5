@@ -155,9 +155,10 @@ function deriveMyBenefitStatus(
 	eligibilityRow: EligibilityRow,
 	latestRequest: BenefitRequestRow | null,
 ): 'active' | 'available' | 'pending' | 'locked' {
+	if (eligibilityRow.status === 'active') return 'active';
 	if (latestRequest?.status === 'approved') return 'active';
 	if (latestRequest?.status === 'pending') return 'pending';
-	if (eligibilityRow.status === 'eligible' || eligibilityRow.status === 'active') {
+	if (eligibilityRow.status === 'eligible') {
 		return 'available';
 	}
 

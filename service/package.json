@@ -11,6 +11,8 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:local": "sh ./scripts/ensure-dev-vars.sh && sh ./scripts/with-env.sh wrangler d1 migrations apply my-db-name --local",
 		"db:migrate:remote": "sh ./scripts/with-env.sh wrangler d1 migrations apply my-db-name --remote",
+		"db:list-duplicate-employees:local": "sh ./scripts/cleanup-duplicate-employees.sh --list --local",
+		"db:list-duplicate-employees:remote": "sh ./scripts/cleanup-duplicate-employees.sh --list --remote",
 		"cf:whoami": "sh ./scripts/with-env.sh wrangler whoami"
 	},
 	"devDependencies": {
