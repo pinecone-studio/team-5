@@ -4,7 +4,6 @@ import type { Role } from "@/lib/auth";
 import {
   Activity,
   ArrowLeftRight,
-  CircleHelp,
   FileText,
   LayoutGrid,
   Users,
@@ -67,12 +66,6 @@ export const employeeNav: NavItem[] = [
     href: "/requests",
     icon: RequestLogoIcon,
     subtitle: "Submitted requests and statuses",
-  },
-  {
-    label: "Help",
-    href: "/help",
-    icon: CircleHelp,
-    subtitle: "FAQ, support, and guidance",
   },
 ];
 

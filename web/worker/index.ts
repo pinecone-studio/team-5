@@ -43,7 +43,6 @@ const protectedRoutes = [
   /^\/dashboard(?:\/|$)/,
   /^\/profile(?:\/|$)/,
   /^\/requests(?:\/|$)/,
-  /^\/help(?:\/|$)/,
   /^\/admin(?:\/|$)/,
 ];
 const managerRoutes = [/^\/admin(?:\/|$)/];
