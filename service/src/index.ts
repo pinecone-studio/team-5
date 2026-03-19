@@ -12,6 +12,10 @@ import {
 import { yoga } from './server';
 import { employees } from './mockEmployees/employees';
 import { employeeTimeData } from './mockEmployees/employee-time-data';
+import { PDFDocument } from 'pdf-lib';
+import { getDb } from './db/client';
+import { contracts } from './db/schemas/contract.schema';
+import { eq } from 'drizzle-orm';
 
 interface Env {
 	DB: D1Database;
@@ -243,6 +247,106 @@ app.get('/contracts', requireClerkAuth, requireManagerRole, async (c) => {
 	return new Response('body' in object ? object.body : undefined, {
 		status: 'body' in object ? 200 : 412,
 		headers,
+	});
+});
+
+function extractKeyFromUrl(value: string, param: string) {
+	try {
+		const url = new URL(value);
+		return url.searchParams.get(param);
+	} catch {
+		return null;
+	}
+}
+
+type ContractSignature = {
+	id: string;
+	page: number;
+	xPct: number;
+	yPct: number;
+	widthPct: number;
+	heightPct: number;
+	r2ObjectKey: string;
+};
+
+function parseSignaturesJson(raw: string | null | undefined): ContractSignature[] {
+	if (!raw) return [];
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.flatMap((item) => {
+			if (!item || typeof item !== 'object') return [];
+			const obj = item as Record<string, unknown>;
+			const id = typeof obj.id === 'string' ? obj.id : null;
+			const page = typeof obj.page === 'number' ? obj.page : null;
+			const xPct = typeof obj.xPct === 'number' ? obj.xPct : null;
+			const yPct = typeof obj.yPct === 'number' ? obj.yPct : null;
+			const widthPct = typeof obj.widthPct === 'number' ? obj.widthPct : null;
+			const heightPct = typeof obj.heightPct === 'number' ? obj.heightPct : null;
+			const r2ObjectKey = typeof obj.r2ObjectKey === 'string' ? obj.r2ObjectKey : null;
+			if (
+				!id ||
+				page == null ||
+				xPct == null ||
+				yPct == null ||
+				widthPct == null ||
+				heightPct == null ||
+				!r2ObjectKey
+			) {
+				return [];
+			}
+			return [{ id, page, xPct, yPct, widthPct, heightPct, r2ObjectKey }];
+		});
+	} catch {
+		return [];
+	}
+}
+
+app.get('/contracts/signed', requireClerkAuth, requireManagerRole, async (c) => {
+	const contractId = c.req.query('contractId');
+	if (!contractId) return c.text('Missing contractId', 400);
+
+	const db = getDb(c.env.DB);
+	const contract = await db.select().from(contracts).where(eq(contracts.id, contractId)).get();
+	if (!contract) return c.text('Contract not found', 404);
+
+	// Contract PDF
+	const contractKey =
+		extractKeyFromUrl(contract.r2_object_key, 'key') ?? contract.r2_object_key;
+	const contractObj = await c.env.CONTRACTS_BUCKET.get(contractKey);
+	if (!contractObj || !('body' in contractObj)) return c.text('Contract PDF not found', 404);
+	const contractBytes = await new Response(contractObj.body).arrayBuffer();
+
+	const pdfDoc = await PDFDocument.load(contractBytes);
+	const signatures = parseSignaturesJson(contract.signatures_json);
+
+	for (const signature of signatures) {
+		const signatureKey =
+			extractKeyFromUrl(signature.r2ObjectKey, 'key') ?? signature.r2ObjectKey;
+		const sigObj = await c.env.SIGNATURES_BUCKET.get(signatureKey);
+		if (!sigObj || !('body' in sigObj)) continue;
+		const sigBytes = await new Response(sigObj.body).arrayBuffer();
+
+		const png = await pdfDoc.embedPng(sigBytes);
+		const pageIndex = Math.max(0, Math.min(pdfDoc.getPageCount() - 1, signature.page - 1));
+		const page = pdfDoc.getPage(pageIndex);
+		const { width, height } = page.getSize();
+
+		const drawWidth = signature.widthPct * width;
+		const drawHeight = signature.heightPct * height;
+		const x = signature.xPct * width;
+		// stored yPct is from top; pdf-lib uses bottom-left
+		const y = height - signature.yPct * height - drawHeight;
+
+		page.drawImage(png, { x, y, width: drawWidth, height: drawHeight });
+	}
+
+	const signedBytes = await pdfDoc.save();
+	return new Response(new Uint8Array(signedBytes), {
+		headers: {
+			'content-type': 'application/pdf',
+			'cache-control': 'no-store',
+		},
 	});
 });
 
