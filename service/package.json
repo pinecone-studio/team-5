@@ -31,6 +31,7 @@
 		"graphql-yoga": "^5.18.1",
 		"hono": "^4.12.6",
 		"jest": "^30.3.0",
+		"pdf-lib": "^1.17.1",
 		"ts-jest": "^29.4.6"
 	},
 	"main": "index.js",

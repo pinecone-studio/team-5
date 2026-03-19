@@ -270,6 +270,7 @@ export default function AdminRulesPage() {
   const ruleTypeDropdownRef = useRef<HTMLDivElement>(null);
   const operatorDropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const [signedPreviewUrl, setSignedPreviewUrl] = useState<string | null>(null);
 
   const [selectedBenefitIdOverride, setSelectedBenefitIdOverride] = useState<
     string | null
@@ -475,6 +476,24 @@ export default function AdminRulesPage() {
     setBenefitContractValue(selectedBenefit.activeContractId ?? "");
     setBenefitActionError(null);
     setIsEditBenefitModalOpen(true);
+  };
+
+  const getServiceOrigin = () => {
+    const configured = process.env.NEXT_PUBLIC_GRAPHQL_URL ?? "";
+    const graphqlUrl =
+      window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        ? "http://localhost:8787/graphql"
+        : configured;
+    return graphqlUrl ? new URL(graphqlUrl).origin : "";
+  };
+
+  const handleOpenSignedContractPreview = () => {
+    if (!selectedBenefit?.activeContractId) return;
+    const origin = getServiceOrigin();
+    if (!origin) return;
+    setSignedPreviewUrl(
+      `${origin}/contracts/signed?contractId=${encodeURIComponent(selectedBenefit.activeContractId)}`,
+    );
   };
 
   const handleEditRule = (rule: RuleDataItem) => {
@@ -1179,7 +1198,7 @@ export default function AdminRulesPage() {
             </label>
             <button
               type="button"
-              onClick={handleOpenEditBenefit}
+              onClick={handleOpenSignedContractPreview}
               disabled={!selectedBenefit}
               className="flex h-16 w-full items-center gap-3 rounded-[16px] border border-[#d9e1ef] bg-white px-5 text-left text-[16px] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#c7d5e6] disabled:cursor-not-allowed disabled:opacity-70"
             >
@@ -1202,6 +1221,29 @@ export default function AdminRulesPage() {
                     : "No contract attached"}
               </span>
             </button>
+
+            {signedPreviewUrl ? (
+              <div className="mt-3 overflow-hidden rounded-[16px] border border-[#d9e1ef] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                <div className="flex items-center justify-between gap-3 border-b border-[#eef2f7] px-4 py-3">
+                  <div className="text-[0.95rem] font-semibold text-[#17243d]">
+                    Signed contract preview
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSignedPreviewUrl(null)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-[#94a3b8] transition hover:bg-[#f1f5f9] hover:text-[#17243d]"
+                    aria-label="Close signed preview"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="h-[52vh] min-h-[420px] bg-[#fbfcfe] p-3">
+                  <div className="h-full overflow-hidden rounded-[14px] border border-[#e4ebf5] bg-white">
+                    <iframe title="Signed contract preview" src={signedPreviewUrl} className="h-full w-full" />
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
 
