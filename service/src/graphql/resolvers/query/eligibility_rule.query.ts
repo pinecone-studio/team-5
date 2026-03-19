@@ -14,6 +14,7 @@ const mapRule = (row: typeof eligibility_rules.$inferSelect) => {
   return {
     id: row.id,
     benefitId: row.benefit_id,
+    configVersion: normalized.version,
     type: normalized.type,
     operator: normalized.operator,
     value: toRuleValueJson(normalized.value),
@@ -34,6 +35,7 @@ export const eligibilityRuleQuery = {
 	      _parent: unknown,
 	      args: {
         benefitId?: string | null;
+        configVersion?: number | null;
         activeOnly?: boolean | null;
 	      },
 	      context: { env: Env },
@@ -59,6 +61,10 @@ export const eligibilityRuleQuery = {
 
       if (args.activeOnly) {
         rows = rows.filter((row) => row.is_active ?? false);
+      }
+
+      if (args.configVersion != null) {
+        rows = rows.filter((row) => getRuleVersion(row) === args.configVersion);
       }
 
       return rows.map(mapRule);

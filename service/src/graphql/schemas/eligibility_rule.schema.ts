@@ -13,6 +13,7 @@ export const eligibilityRuleTypeDefs = `
   type EligibilityRule {
     id: ID!
     benefitId: ID!
+    configVersion: Int!
     type: String!
     operator: RuleOperator!
     value: String!        # Backward compatible scalar value string
@@ -45,6 +46,7 @@ export const eligibilityRuleTypeDefs = `
   extend type Query {
     eligibilityRules(
       benefitId: ID
+      configVersion: Int
       activeOnly: Boolean = false
     ): [EligibilityRule!]!
     eligibilityRuleLatestVersion(benefitId: ID!): Int!
