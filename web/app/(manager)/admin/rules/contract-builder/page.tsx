@@ -1,7 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { Document, Page, pdfjs } from "react-pdf";
+import NextImage from "next/image";
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url,
+).toString();
 
 export default function ContractBuilderPage() {
   const searchParams = useSearchParams();
@@ -9,35 +16,248 @@ export default function ContractBuilderPage() {
 
   const fileName = searchParams.get("file")?.trim() || "Contract.pdf";
   const pdfUrl = searchParams.get("url") ?? "";
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
-  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const storageKey = useMemo(() => {
+    const base = `${fileName}|${pdfUrl}`;
+    return `contract-builder:boxes:${base}`;
+  }, [fileName, pdfUrl]);
+
+  const pdfSource = useMemo(() => {
+    if (!pdfUrl) return "";
+    if (pdfUrl.startsWith("blob:") || pdfUrl.startsWith("data:")) return pdfUrl;
+    if (pdfUrl.startsWith("http://") || pdfUrl.startsWith("https://")) {
+      return `/api/pdf?url=${encodeURIComponent(pdfUrl)}`;
+    }
+    return pdfUrl;
+  }, [pdfUrl]);
+
+  const pageRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const getPageRect = (page: number) => pageRefs.current[page]?.getBoundingClientRect() ?? null;
+
+  const [numPages, setNumPages] = useState<number>(0);
+  type SignatureBox = {
+    id: string;
+    page: number;
+    xPct: number;
+    yPct: number;
+    widthPct: number;
+    heightPct: number;
+  };
   const [boxes, setBoxes] = useState<
-    Array<{ id: string; x: number; y: number; width: number; height: number }>
+    SignatureBox[]
   >([]);
+  const [activeBoxId, setActiveBoxId] = useState<string | null>(null);
+  const [signaturePreviewByBoxId, setSignaturePreviewByBoxId] = useState<Record<string, string>>(
+    {},
+  );
+  const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const signatureContainerRef = useRef<HTMLDivElement | null>(null);
+  const drawingRef = useRef<{ isDrawing: boolean; lastX: number; lastY: number }>({
+    isDrawing: false,
+    lastX: 0,
+    lastY: 0,
+  });
+  const [signatureUploadStatus, setSignatureUploadStatus] = useState<
+    | { state: "idle" }
+    | { state: "uploading" }
+    | { state: "uploaded"; key: string }
+    | { state: "error"; message: string }
+  >({ state: "idle" });
   const [drag, setDrag] = useState<
     | { mode: "none" }
-    | { mode: "move"; id: string; offsetX: number; offsetY: number }
-    | { mode: "resize"; id: string; startX: number; startY: number; startWidth: number; startHeight: number }
+    | { mode: "move"; id: string; page: number; offsetXPx: number; offsetYPx: number }
+    | {
+      mode: "resize";
+      id: string;
+      page: number;
+      startXPx: number;
+      startYPx: number;
+      startWidthPct: number;
+      startHeightPct: number;
+    }
   >({ mode: "none" });
 
-  const addBox = () => {
-    const surface = surfaceRef.current;
-    if (!surface) return;
+  const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+  const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-    const rect = surface.getBoundingClientRect();
-    const width = rect.width * 0.2;
-    const height = rect.height * 0.08;
-    const x = (rect.width - width) / 2;
-    const y = (rect.height - height) / 2;
+  const serviceOrigin = useMemo(() => {
+    try {
+      const value = process.env.NEXT_PUBLIC_GRAPHQL_URL ?? "";
+      return new URL(value).origin;
+    } catch {
+      return "";
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (!raw) return;
+      const parsed: unknown = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      const next: SignatureBox[] = parsed.flatMap((item) => {
+        if (!item || typeof item !== "object") return [];
+        const obj = item as Record<string, unknown>;
+        return [
+          {
+            id: typeof obj.id === "string" ? obj.id : crypto.randomUUID(),
+            page: typeof obj.page === "number" && Number.isFinite(obj.page) ? obj.page : 1,
+            xPct: typeof obj.xPct === "number" && Number.isFinite(obj.xPct) ? obj.xPct : 0.4,
+            yPct: typeof obj.yPct === "number" && Number.isFinite(obj.yPct) ? obj.yPct : 0.46,
+            widthPct:
+              typeof obj.widthPct === "number" && Number.isFinite(obj.widthPct) ? obj.widthPct : 0.2,
+            heightPct:
+              typeof obj.heightPct === "number" && Number.isFinite(obj.heightPct)
+                ? obj.heightPct
+                : 0.08,
+          },
+        ];
+      });
+      setBoxes(next);
+    } catch {
+      // ignore
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(boxes));
+    } catch {
+      // ignore
+    }
+  }, [boxes, storageKey]);
+
+  const syncSignatureCanvasSize = () => {
+    const container = signatureContainerRef.current;
+    const canvas = signatureCanvasRef.current;
+    if (!container || !canvas) return;
+    const rect = container.getBoundingClientRect();
+    const nextWidth = Math.max(1, Math.round(rect.width));
+    const nextHeight = Math.max(1, Math.round(rect.height));
+    if (canvas.width === nextWidth && canvas.height === nextHeight) return;
+
+    const ctx = canvas.getContext("2d");
+    const previous = ctx ? canvas.toDataURL("image/png") : null;
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+    if (ctx) {
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = "#111827";
+      if (previous) {
+        const img = new globalThis.Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = previous;
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!activeBoxId) return;
+    syncSignatureCanvasSize();
+    const container = signatureContainerRef.current;
+    if (!container) return;
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => syncSignatureCanvasSize());
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [activeBoxId]);
+
+  const clearActiveSignature = () => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (activeBoxId) {
+      setSignaturePreviewByBoxId((current) => {
+        const next = { ...current };
+        delete next[activeBoxId];
+        return next;
+      });
+    }
+    setSignatureUploadStatus({ state: "idle" });
+  };
+
+  const saveActiveSignaturePreview = () => {
+    if (!activeBoxId) return;
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL("image/png");
+    setSignaturePreviewByBoxId((current) => ({ ...current, [activeBoxId]: dataUrl }));
+  };
+
+  const uploadActiveSignatureToR2 = async () => {
+    if (!activeBoxId) return;
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    if (!serviceOrigin) {
+      setSignatureUploadStatus({
+        state: "error",
+        message: "Missing NEXT_PUBLIC_GRAPHQL_URL (cannot derive service origin).",
+      });
+      return;
+    }
+
+    setSignatureUploadStatus({ state: "uploading" });
+    try {
+      const blob: Blob | null = await new Promise((resolve) =>
+        canvas.toBlob((value) => resolve(value), "image/png"),
+      );
+      if (!blob) throw new Error("Failed to encode PNG");
+
+      const response = await fetch(`${serviceOrigin}/signatures`, {
+        method: "POST",
+        body: blob,
+        headers: { "content-type": "image/png" },
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(`Upload failed (${response.status}): ${text || response.statusText}`);
+      }
+      const result = (await response.json()) as { key?: string };
+      if (!result.key) throw new Error("Upload response missing key");
+
+      saveActiveSignaturePreview();
+      setSignatureUploadStatus({ state: "uploaded", key: result.key });
+    } catch (error) {
+      setSignatureUploadStatus({
+        state: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  const addBoxAtClientPoint = (page: number, clientX: number, clientY: number) => {
+    const rect = getPageRect(page);
+    if (!rect) return;
+
+    const defaultWidthPct = 0.2;
+    const defaultHeightPct = 0.08;
+
+    const pointerXPx = clientX - rect.left;
+    const pointerYPx = clientY - rect.top;
+
+    const xPctCentered = pointerXPx / rect.width - defaultWidthPct / 2;
+    const yPctCentered = pointerYPx / rect.height - defaultHeightPct / 2;
+
+    const xPct = clamp(xPctCentered, 0, 1 - defaultWidthPct);
+    const yPct = clamp(yPctCentered, 0, 1 - defaultHeightPct);
 
     setBoxes((current) => [
       ...current,
       {
         id: crypto.randomUUID(),
-        x,
-        y,
-        width,
-        height,
+        page,
+        xPct,
+        yPct,
+        widthPct: defaultWidthPct,
+        heightPct: defaultHeightPct,
       },
     ]);
   };
@@ -46,21 +266,24 @@ export default function ContractBuilderPage() {
     event.preventDefault();
     event.stopPropagation();
 
-    const surface = surfaceRef.current;
-    if (!surface) return;
-
-    const rect = surface.getBoundingClientRect();
     const box = boxes.find((item) => item.id === id);
     if (!box) return;
 
-    const pointerX = event.clientX - rect.left;
-    const pointerY = event.clientY - rect.top;
+    const rect = getPageRect(box.page);
+    if (!rect) return;
+
+    const pointerXPx = event.clientX - rect.left;
+    const pointerYPx = event.clientY - rect.top;
+
+    const boxXPx = box.xPct * rect.width;
+    const boxYPx = box.yPct * rect.height;
 
     setDrag({
       mode: "move",
       id,
-      offsetX: pointerX - box.x,
-      offsetY: pointerY - box.y,
+      page: box.page,
+      offsetXPx: pointerXPx - boxXPx,
+      offsetYPx: pointerYPx - boxYPx,
     });
   };
 
@@ -68,66 +291,88 @@ export default function ContractBuilderPage() {
     event.preventDefault();
     event.stopPropagation();
 
-    const surface = surfaceRef.current;
-    if (!surface) return;
-
-    const rect = surface.getBoundingClientRect();
     const box = boxes.find((item) => item.id === id);
     if (!box) return;
 
-    const pointerX = event.clientX - rect.left;
-    const pointerY = event.clientY - rect.top;
+    const rect = getPageRect(box.page);
+    if (!rect) return;
+
+    const pointerXPx = event.clientX - rect.left;
+    const pointerYPx = event.clientY - rect.top;
 
     setDrag({
       mode: "resize",
       id,
-      startX: pointerX,
-      startY: pointerY,
-      startWidth: box.width,
-      startHeight: box.height,
+      page: box.page,
+      startXPx: pointerXPx,
+      startYPx: pointerYPx,
+      startWidthPct: box.widthPct,
+      startHeightPct: box.heightPct,
     });
-  };
-
-  const handleMove = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (drag.mode === "none") return;
-
-    const surface = surfaceRef.current;
-    if (!surface) return;
-
-    const rect = surface.getBoundingClientRect();
-    const pointerX = event.clientX - rect.left;
-    const pointerY = event.clientY - rect.top;
-
-    setBoxes((current) =>
-      current.map((box) => {
-        if (box.id !== drag.id) return box;
-
-        if (drag.mode === "move") {
-          const nextX = Math.min(Math.max(0, pointerX - drag.offsetX), rect.width - box.width);
-          const nextY = Math.min(Math.max(0, pointerY - drag.offsetY), rect.height - box.height);
-          return { ...box, x: nextX, y: nextY };
-        }
-
-        const deltaX = pointerX - drag.startX;
-        const deltaY = pointerY - drag.startY;
-        const nextWidth = Math.max(80, drag.startWidth + deltaX);
-        const nextHeight = Math.max(40, drag.startHeight + deltaY);
-        return { ...box, width: nextWidth, height: nextHeight };
-      }),
-    );
   };
 
   const stopDrag = () => {
     setDrag({ mode: "none" });
   };
 
-  const serialized = boxes.map((box) => ({
-    id: box.id,
-    x: Math.round(box.x),
-    y: Math.round(box.y),
-    width: Math.round(box.width),
-    height: Math.round(box.height),
-  }));
+  useEffect(() => {
+    if (drag.mode === "none") return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const rect = getPageRect(drag.page);
+      if (!rect) return;
+
+      const pointerXPx = event.clientX - rect.left;
+      const pointerYPx = event.clientY - rect.top;
+
+      setBoxes((current) =>
+        current.map((box) => {
+          if (box.id !== drag.id) return box;
+
+          if (drag.mode === "move") {
+            const widthPct = box.widthPct;
+            const heightPct = box.heightPct;
+
+            const nextXPx = clamp(pointerXPx - drag.offsetXPx, 0, rect.width - widthPct * rect.width);
+            const nextYPx = clamp(pointerYPx - drag.offsetYPx, 0, rect.height - heightPct * rect.height);
+
+            return {
+              ...box,
+              xPct: clamp01(nextXPx / rect.width),
+              yPct: clamp01(nextYPx / rect.height),
+            };
+          }
+
+          const deltaXPx = pointerXPx - drag.startXPx;
+          const deltaYPx = pointerYPx - drag.startYPx;
+
+          const minWidthPct = Math.max(80 / rect.width, 0.05);
+          const minHeightPct = Math.max(40 / rect.height, 0.04);
+
+          const nextWidthPct = Math.max(minWidthPct, drag.startWidthPct + deltaXPx / rect.width);
+          const nextHeightPct = Math.max(minHeightPct, drag.startHeightPct + deltaYPx / rect.height);
+
+          const maxWidthPct = 1 - box.xPct;
+          const maxHeightPct = 1 - box.yPct;
+
+          return {
+            ...box,
+            widthPct: clamp(nextWidthPct, minWidthPct, maxWidthPct),
+            heightPct: clamp(nextHeightPct, minHeightPct, maxHeightPct),
+          };
+        }),
+      );
+    };
+
+    const handlePointerUp = () => stopDrag();
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [drag]);
 
   return (
     <div className="flex h-full min-h-[calc(100vh-4rem)] flex-col gap-4 px-6 py-4">
@@ -145,64 +390,238 @@ export default function ContractBuilderPage() {
       <div className="flex flex-1 gap-5 pb-4">
         <section className="flex-1 rounded-[18px] border border-[#e5e7eb] bg-white shadow-sm">
           <div
-            ref={surfaceRef}
-            className="relative flex h-full items-center justify-center overflow-hidden bg-[#f9fafb]"
-            onMouseMove={handleMove}
-            onMouseUp={stopDrag}
-            onMouseLeave={stopDrag}
+            className="relative h-full overflow-auto bg-[#f9fafb] p-3"
           >
             {pdfUrl ? (
-              <iframe
-                title={fileName}
-                src={pdfUrl}
-                className="absolute inset-3 h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] rounded-[12px] border border-[#e5e7eb] bg-white"
-              />
-            ) : null}
-
-            {boxes.map((box) => (
-              <div
-                key={box.id}
-                style={{
-                  left: box.x,
-                  top: box.y,
-                  width: box.width,
-                  height: box.height,
+              <Document
+                file={pdfSource}
+                loading={
+                  <div className="flex items-center justify-center py-10 text-[0.9rem] text-[#6b7280]">
+                    Loading PDF…
+                  </div>
+                }
+                error={
+                  <div className="flex flex-col items-center justify-center gap-2 py-10 text-[0.9rem] text-[#6b7280]">
+                    <div>Failed to load PDF.</div>
+                    {pdfError ? (
+                      <div className="max-w-176 rounded-[10px] bg-white p-3 text-[0.8rem] text-[#111827] shadow-sm">
+                        {pdfError}
+                      </div>
+                    ) : null}
+                  </div>
+                }
+                onLoadError={(error) => setPdfError(error?.message ?? String(error))}
+                onSourceError={(error) => setPdfError(error?.message ?? String(error))}
+                onLoadSuccess={({ numPages: nextNumPages }) => {
+                  setPdfError(null);
+                  setNumPages(nextNumPages);
+                  setBoxes((current) =>
+                    current.length
+                      ? current
+                      : [
+                        {
+                          id: crypto.randomUUID(),
+                          page: 1,
+                          xPct: 0.4,
+                          yPct: 0.46,
+                          widthPct: 0.2,
+                          heightPct: 0.08,
+                        },
+                      ],
+                  );
                 }}
-                className="absolute cursor-move rounded-[8px] border-2 border-[#2563eb] bg-[#eff6ff]/80 shadow-sm"
-                onMouseDown={(event) => startMove(event, box.id)}
               >
-                <div className="flex h-full w-full items-center justify-center text-[0.8rem] font-medium text-[#1d4ed8]">
-                  Signature
-                </div>
-                <div
-                  className="absolute bottom-1 right-1 h-3 w-3 cursor-se-resize rounded-[4px] bg-[#2563eb]"
-                  onMouseDown={(event) => startResize(event, box.id)}
-                />
-              </div>
-            ))}
+                {Array.from({ length: numPages }, (_, idx) => {
+                  const page = idx + 1;
+                  return (
+                    <div
+                      key={page}
+                      ref={(node) => {
+                        pageRefs.current[page] = node;
+                      }}
+                      className="relative mx-auto mb-4 w-fit rounded-[12px] border border-[#e5e7eb] bg-white shadow-sm"
+                      onMouseDown={(event) => {
+                        if (event.button !== 0) return;
+                        addBoxAtClientPoint(page, event.clientX, event.clientY);
+                      }}
+                    >
+                      <Page pageNumber={page} renderTextLayer={false} renderAnnotationLayer={false} />
 
-            <button
-              type="button"
-              onClick={addBox}
-              className="relative z-10 rounded-[999px] bg-[#2563eb] px-6 py-3 text-[0.96rem] font-medium text-white shadow-md hover:bg-[#1d4ed8]"
-            >
-              Click to add signature field
-            </button>
+                      {boxes
+                        .filter((box) => box.page === page)
+                        .map((box) => (
+                          <div
+                            key={box.id}
+                            style={{
+                              left: `${box.xPct * 100}%`,
+                              top: `${box.yPct * 100}%`,
+                              width: `${box.widthPct * 100}%`,
+                              height: `${box.heightPct * 100}%`,
+                            }}
+                            className="absolute cursor-move rounded-[8px] border-2 border-[#2563eb] bg-[#eff6ff]/80 shadow-sm"
+                            onMouseDown={(event) => startMove(event, box.id)}
+                            onDoubleClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setActiveBoxId(box.id);
+                              setSignatureUploadStatus({ state: "idle" });
+                            }}
+                          >
+                            {signaturePreviewByBoxId[box.id] ? (
+                              <div className="relative h-full w-full">
+                                <NextImage
+                                  alt="Signature"
+                                  src={signaturePreviewByBoxId[box.id]}
+                                  fill
+                                  className="rounded-[6px] object-contain p-1"
+                                  unoptimized
+                                />
+                              </div>
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-[0.8rem] font-medium text-[#1d4ed8]">
+                                Signature
+                              </div>
+                            )}
+                            <div
+                              className="absolute bottom-1 right-1 h-3 w-3 cursor-se-resize rounded-[4px] bg-[#2563eb]"
+                              onMouseDown={(event) => startResize(event, box.id)}
+                            />
+
+                            {activeBoxId === box.id ? (
+                              <div
+                                className="absolute inset-0 rounded-[6px] bg-white/95 p-2"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                onDoubleClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                              >
+                                <div className="mb-2 flex items-center justify-between gap-2">
+                                  <div className="text-[0.75rem] font-semibold text-[#111827]">
+                                    Draw signature
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      className="rounded-[10px] border border-[#d1d5db] bg-white px-2 py-1 text-[0.75rem] font-medium text-[#111827] hover:bg-[#f9fafb]"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        clearActiveSignature();
+                                      }}
+                                    >
+                                      Clear
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="rounded-[10px] border border-[#d1d5db] bg-white px-2 py-1 text-[0.75rem] font-medium text-[#111827] hover:bg-[#f9fafb]"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setActiveBoxId(null);
+                                      }}
+                                    >
+                                      Done
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div
+                                  ref={signatureContainerRef}
+                                  className="relative h-[calc(100%-2.25rem)] w-full overflow-hidden rounded-[8px] border border-[#e5e7eb] bg-white"
+                                >
+                                  <canvas
+                                    ref={signatureCanvasRef}
+                                    className="h-full w-full touch-none"
+                                    onPointerDown={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      const canvas = e.currentTarget;
+                                      canvas.setPointerCapture(e.pointerId);
+                                      const rect = canvas.getBoundingClientRect();
+                                      const x = e.clientX - rect.left;
+                                      const y = e.clientY - rect.top;
+                                      drawingRef.current = { isDrawing: true, lastX: x, lastY: y };
+                                    }}
+                                    onPointerMove={(e) => {
+                                      if (!drawingRef.current.isDrawing) return;
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      const canvas = e.currentTarget;
+                                      const rect = canvas.getBoundingClientRect();
+                                      const x = e.clientX - rect.left;
+                                      const y = e.clientY - rect.top;
+                                      const ctx = canvas.getContext("2d");
+                                      if (!ctx) return;
+                                      ctx.beginPath();
+                                      ctx.moveTo(drawingRef.current.lastX, drawingRef.current.lastY);
+                                      ctx.lineTo(x, y);
+                                      ctx.stroke();
+                                      drawingRef.current.lastX = x;
+                                      drawingRef.current.lastY = y;
+                                    }}
+                                    onPointerUp={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      drawingRef.current.isDrawing = false;
+                                      saveActiveSignaturePreview();
+                                    }}
+                                    onPointerCancel={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      drawingRef.current.isDrawing = false;
+                                    }}
+                                  />
+                                </div>
+
+                                <div className="mt-2 flex items-center justify-between">
+                                  <button
+                                    type="button"
+                                    className="rounded-[10px] bg-[#2563eb] px-3 py-1.5 text-[0.75rem] font-semibold text-white hover:bg-[#1d4ed8] disabled:opacity-60"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      void uploadActiveSignatureToR2();
+                                    }}
+                                    disabled={signatureUploadStatus.state === "uploading"}
+                                  >
+                                    {signatureUploadStatus.state === "uploading"
+                                      ? "Uploading…"
+                                      : "Save to R2"}
+                                  </button>
+
+                                  {signatureUploadStatus.state === "uploaded" ? (
+                                    <div className="truncate text-[0.7rem] text-[#065f46]">
+                                      Saved: {signatureUploadStatus.key}
+                                    </div>
+                                  ) : signatureUploadStatus.state === "error" ? (
+                                    <div className="truncate text-[0.7rem] text-[#b91c1c]">
+                                      {signatureUploadStatus.message}
+                                    </div>
+                                  ) : (
+                                    <div className="text-[0.7rem] text-[#6b7280]">
+                                      Double-click box to edit
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                    </div>
+                  );
+                })}
+              </Document>
+            ) : (
+              <div className="flex h-full items-center justify-center text-[0.9rem] text-[#6b7280]">
+                No PDF URL provided.
+              </div>
+            )}
           </div>
         </section>
-
-        <aside className="w-full max-w-xs rounded-[18px] border border-[#e5e7eb] bg-white px-5 py-5 text-[0.9rem]">
-          <h2 className="text-[0.95rem] font-semibold text-[#111827]">
-            Signature fields
-          </h2>
-          <p className="mt-2 text-[0.85rem] text-[#6b7280]">
-            Positions are stored as x / y / width / height in pixels relative to the PDF frame.
-          </p>
-
-          <pre className="mt-4 max-h-64 overflow-auto rounded-[10px] bg-[#f9fafb] p-3 text-[0.7rem] text-[#4b5563]">
-            {JSON.stringify(serialized, null, 2)}
-          </pre>
-        </aside>
       </div>
     </div>
   );

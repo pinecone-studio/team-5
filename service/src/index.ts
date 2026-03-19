@@ -15,6 +15,7 @@ import { employeeTimeData } from './mockEmployees/employee-time-data';
 
 interface Env {
 	DB: D1Database;
+	SIGNATURES_BUCKET: R2Bucket;
 	CLERK_SECRET_KEY?: string;
 	CLERK_PUBLISHABLE_KEY?: string;
 	CLERK_JWT_KEY?: string;
@@ -156,6 +157,26 @@ app.get('/employees', requireClerkAuth, requireManagerRole, (c) => {
 
 app.get('/employee-time-data', requireClerkAuth, requireManagerRole, (c) => {
 	return c.json(employeeTimeData);
+});
+
+app.post('/signatures', requireClerkAuth, requireManagerRole, async (c) => {
+	const contentType = c.req.header('content-type') ?? 'image/png';
+	const body = await c.req.arrayBuffer();
+
+	if (body.byteLength === 0) {
+		return c.json({ error: 'Empty body' }, 400);
+	}
+
+	const userId = c.get('clerkUserId') ?? 'unknown';
+	const key = `signatures/${userId}/${crypto.randomUUID()}.png`;
+
+	await c.env.SIGNATURES_BUCKET.put(key, body, {
+		httpMetadata: {
+			contentType,
+		},
+	});
+
+	return c.json({ key });
 });
 
 export default {
