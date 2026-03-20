@@ -19,6 +19,16 @@ export default defineConfig({
           return;
         }
 
+        // react-pdf is client-only; suppress unresolved-import warnings during SSR build
+        if (
+          warning.code === "UNRESOLVED_IMPORT" &&
+          (typeof warning.exporter === "string" &&
+            (warning.exporter === "react-pdf" ||
+              warning.exporter.startsWith("pdfjs-dist")))
+        ) {
+          return;
+        }
+
         defaultHandler(warning);
       },
     },
