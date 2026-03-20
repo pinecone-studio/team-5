@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "web",
+  "account_id": "630398f7cca5a714a459a22c46cd6b52",
   "compatibility_date": "2026-03-10",
   "compatibility_flags": [
     "nodejs_compat"

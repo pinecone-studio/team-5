@@ -1,16 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Document, Page, pdfjs } from "react-pdf";
 import NextImage from "next/image";
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
-
 export default function ContractBuilderPage() {
+  const [PdfComponents, setPdfComponents] = useState<{
+    Document: ComponentType<Record<string, unknown>>;
+    Page: ComponentType<Record<string, unknown>>;
+  } | null>(null);
+
+  useEffect(() => {
+    import("react-pdf").then((mod) => {
+      mod.pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+        "pdfjs-dist/build/pdf.worker.min.mjs",
+        import.meta.url,
+      ).toString();
+      setPdfComponents({
+        Document: mod.Document as ComponentType<Record<string, unknown>>,
+        Page: mod.Page as ComponentType<Record<string, unknown>>,
+      });
+    });
+  }, []);
+
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -486,8 +498,8 @@ export default function ContractBuilderPage() {
           <div
             className="relative h-full overflow-auto bg-[#f9fafb] p-3"
           >
-            {pdfUrl ? (
-              <Document
+            {pdfUrl && PdfComponents ? (
+              <PdfComponents.Document
                 file={pdfSource}
                 loading={
                   <div className="flex items-center justify-center py-10 text-[0.9rem] text-[#6b7280]">
@@ -504,9 +516,9 @@ export default function ContractBuilderPage() {
                     ) : null}
                   </div>
                 }
-                onLoadError={(error) => setPdfError(error?.message ?? String(error))}
-                onSourceError={(error) => setPdfError(error?.message ?? String(error))}
-                onLoadSuccess={({ numPages: nextNumPages }) => {
+                onLoadError={(error: { message?: string }) => setPdfError(error?.message ?? String(error))}
+                onSourceError={(error: { message?: string }) => setPdfError(error?.message ?? String(error))}
+                onLoadSuccess={({ numPages: nextNumPages }: { numPages: number }) => {
                   setPdfError(null);
                   setNumPages(nextNumPages);
                   setBoxes((current) =>
@@ -539,7 +551,7 @@ export default function ContractBuilderPage() {
                         addBoxAtClientPoint(page, event.clientX, event.clientY);
                       }}
                     >
-                      <Page pageNumber={page} renderTextLayer={false} renderAnnotationLayer={false} />
+                      <PdfComponents.Page pageNumber={page} renderTextLayer={false} renderAnnotationLayer={false} />
 
                       {boxes
                         .filter((box) => box.page === page)
@@ -708,7 +720,11 @@ export default function ContractBuilderPage() {
                     </div>
                   );
                 })}
-              </Document>
+              </PdfComponents.Document>
+            ) : pdfUrl && !PdfComponents ? (
+              <div className="flex items-center justify-center py-10 text-[0.9rem] text-[#6b7280]">
+                Loading PDF viewer…
+              </div>
             ) : (
               <div className="flex h-full items-center justify-center text-[0.9rem] text-[#6b7280]">
                 No PDF URL provided.
