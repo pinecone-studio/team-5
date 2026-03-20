@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/react";
 import { gql } from "@apollo/client";
 import { useMutation, useQuery } from "@apollo/client/react";
 import {
@@ -270,6 +271,7 @@ export default function AdminRulesPage() {
   const ruleTypeDropdownRef = useRef<HTMLDivElement>(null);
   const operatorDropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const { getToken } = useAuth();
   const [signedPreviewUrl, setSignedPreviewUrl] = useState<string | null>(null);
 
   const [selectedBenefitIdOverride, setSelectedBenefitIdOverride] = useState<
@@ -701,23 +703,48 @@ export default function AdminRulesPage() {
           return;
         }
         const serviceOrigin = new URL(graphqlUrl).origin;
-        const uploadResponse = await fetch(
-          `${serviceOrigin}/contracts/upload?benefitId=${encodeURIComponent(resolvedBenefitId)}&fileName=${encodeURIComponent(file.name)}`,
+        const token = await getToken();
+        const contentType = file.type || "application/pdf";
+
+        // Step 1: Get presigned URL from the worker
+        const presignResponse = await fetch(
+          `${serviceOrigin}/contracts/presign?benefitId=${encodeURIComponent(resolvedBenefitId)}&fileName=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(contentType)}`,
           {
             method: "POST",
-            headers: { "content-type": file.type || "application/pdf" },
-            body: new Blob([arrayBuffer], { type: file.type || "application/pdf" }),
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
             credentials: "include",
           },
         );
+        if (!presignResponse.ok) {
+          const text = await presignResponse.text().catch(() => "");
+          throw new Error(
+            `Presign failed (${presignResponse.status}): ${text || presignResponse.statusText}`,
+          );
+        }
+        const presignJson = (await presignResponse.json()) as {
+          presignedUrl?: string;
+          key?: string;
+          url?: string;
+        };
+        if (!presignJson.presignedUrl || !presignJson.url) {
+          throw new Error("Presign response missing presignedUrl or url");
+        }
+
+        // Step 2: Upload directly to R2 using the presigned URL
+        const uploadResponse = await fetch(presignJson.presignedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": contentType },
+          body: new Blob([arrayBuffer], { type: contentType }),
+        });
         if (!uploadResponse.ok) {
           const text = await uploadResponse.text().catch(() => "");
           throw new Error(
-            `PDF upload failed (${uploadResponse.status}): ${text || uploadResponse.statusText}`,
+            `Direct upload failed (${uploadResponse.status}): ${text || uploadResponse.statusText}`,
           );
         }
-        const uploadJson = (await uploadResponse.json()) as { url?: string };
-        if (!uploadJson.url) throw new Error("PDF upload response missing url");
+        const uploadJson = { url: presignJson.url };
 
         // Create contract row in D1, linked to benefit (also updates benefit.active_contract_id).
         const version = new Date().toISOString();
