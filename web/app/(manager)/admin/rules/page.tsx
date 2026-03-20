@@ -657,35 +657,32 @@ export default function AdminRulesPage() {
         const file = benefitContractFile;
         const arrayBuffer = await file.arrayBuffer();
 
-        // Ensure we have a benefit ID to attach the contract to.
-        let resolvedBenefitId = selectedBenefitId;
-        if (!resolvedBenefitId) {
-          const subsidyPercent = Number(benefitSubsidyValue);
-          if (!benefitNameValue.trim() || Number.isNaN(subsidyPercent)) {
-            setBenefitActionError("Benefit name and subsidy percent are required before continuing.");
-            return;
-          }
-
-          const response = await createBenefit({
-            variables: {
-              input: {
-                name: benefitNameValue.trim(),
-                category: benefitCategoryValue.trim() || null,
-                subsidyPercent,
-                vendorName: benefitVendorValue.trim() || null,
-                activeContractId: null,
-              },
-            },
-          });
-          resolvedBenefitId = response?.data?.createBenefit?.id ?? "";
-          if (!resolvedBenefitId) {
-            setBenefitActionError("Failed to create benefit.");
-            return;
-          }
-
-          await refetchBenefits();
-          setSelectedBenefitIdOverride(resolvedBenefitId);
+        // Add-benefit flow must always create a fresh benefit first.
+        const subsidyPercent = Number(benefitSubsidyValue);
+        if (!benefitNameValue.trim() || Number.isNaN(subsidyPercent)) {
+          setBenefitActionError("Benefit name and subsidy percent are required before continuing.");
+          return;
         }
+
+        const response = await createBenefit({
+          variables: {
+            input: {
+              name: benefitNameValue.trim(),
+              category: benefitCategoryValue.trim() || null,
+              subsidyPercent,
+              vendorName: benefitVendorValue.trim() || null,
+              activeContractId: null,
+            },
+          },
+        });
+        const resolvedBenefitId = response?.data?.createBenefit?.id ?? "";
+        if (!resolvedBenefitId) {
+          setBenefitActionError("Failed to create benefit.");
+          return;
+        }
+
+        await refetchBenefits();
+        setSelectedBenefitIdOverride(resolvedBenefitId);
 
         // Hash the PDF for D1 record.
         const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);

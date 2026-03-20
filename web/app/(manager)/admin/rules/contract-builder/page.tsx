@@ -95,6 +95,12 @@ export default function ContractBuilderPage() {
     | { state: "uploaded"; key: string; url: string }
     | { state: "error"; message: string }
   >({ state: "idle" });
+  const [saveStatus, setSaveStatus] = useState<
+    | { state: "idle" }
+    | { state: "saving" }
+    | { state: "saved"; message: string }
+    | { state: "error"; message: string }
+  >({ state: "idle" });
   const [drag, setDrag] = useState<
     | { mode: "none" }
     | { mode: "move"; id: string; page: number; offsetXPx: number; offsetYPx: number }
@@ -291,7 +297,7 @@ export default function ContractBuilderPage() {
 
   const saveSignaturesToContract = async () => {
     if (!contractId) {
-      setSignatureUploadStatus({
+      setSaveStatus({
         state: "error",
         message: "Missing contractId in URL (cannot save signatures to contract).",
       });
@@ -299,7 +305,7 @@ export default function ContractBuilderPage() {
     }
     const graphqlUrl = process.env.NEXT_PUBLIC_GRAPHQL_URL ?? "";
     if (!graphqlUrl) {
-      setSignatureUploadStatus({
+      setSaveStatus({
         state: "error",
         message: "Missing NEXT_PUBLIC_GRAPHQL_URL (cannot save signatures).",
       });
@@ -322,7 +328,16 @@ export default function ContractBuilderPage() {
       ];
     });
 
+    if (signatures.length === 0) {
+      setSaveStatus({
+        state: "error",
+        message: "Save at least one signature to R2 before saving the contract.",
+      });
+      return;
+    }
+
     try {
+      setSaveStatus({ state: "saving" });
       const response = await fetch(graphqlUrl, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -344,8 +359,15 @@ export default function ContractBuilderPage() {
       if (json.errors?.length) {
         throw new Error(json.errors.map((e) => e.message).filter(Boolean).join("\n") || "Save failed");
       }
+      setSaveStatus({
+        state: "saved",
+        message: "Signature fields saved. Returning to Rules...",
+      });
+      window.setTimeout(() => {
+        router.push("/admin/rules");
+      }, 900);
     } catch (error) {
-      setSignatureUploadStatus({
+      setSaveStatus({
         state: "error",
         message: error instanceof Error ? error.message : String(error),
       });
@@ -510,14 +532,28 @@ export default function ContractBuilderPage() {
           <button
             type="button"
             onClick={() => void saveSignaturesToContract()}
-            disabled={!contractId}
+            disabled={!contractId || saveStatus.state === "saving"}
             className="rounded-[12px] bg-[#2563eb] px-4 py-2 text-[0.85rem] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
             title={contractId ? "Save signature placements to contract" : "Missing contractId"}
           >
-            Save signatures
+            {saveStatus.state === "saving" ? "Saving..." : "Save signatures"}
           </button>
         </div>
       </div>
+
+      {saveStatus.state !== "idle" ? (
+        <div
+          className={`rounded-[12px] border px-4 py-3 text-[0.9rem] ${
+            saveStatus.state === "saved"
+              ? "border-[#bbf7d0] bg-[#f0fdf4] text-[#166534]"
+              : saveStatus.state === "error"
+                ? "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]"
+                : "border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]"
+          }`}
+        >
+          {saveStatus.state === "saving" ? "Saving signature placements..." : saveStatus.message}
+        </div>
+      ) : null}
 
       <div className="flex flex-1 gap-5 pb-4">
         <section className="flex-1 rounded-[18px] border border-[#e5e7eb] bg-white shadow-sm">
@@ -762,4 +798,3 @@ export default function ContractBuilderPage() {
     </div>
   );
 }
-
