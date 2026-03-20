@@ -10,6 +10,7 @@ import {
 	type AppRole,
 } from './graphql/resolvers/shared/access-control';
 import { yoga } from './server';
+import { createPresignedPutUrl } from './presign';
 import { employees } from './mockEmployees/employees';
 import { employeeTimeData } from './mockEmployees/employee-time-data';
 import { PDFDocument } from 'pdf-lib';
@@ -25,6 +26,8 @@ interface Env {
 	CLERK_PUBLISHABLE_KEY?: string;
 	CLERK_JWT_KEY?: string;
 	FRONTEND_ORIGIN?: string;
+	R2_ACCESS_KEY_ID?: string;
+	R2_SECRET_ACCESS_KEY?: string;
 }
 
 type AppContext = {
@@ -185,6 +188,31 @@ app.post('/signatures', requireClerkAuth, requireManagerRole, async (c) => {
 	return c.json({ key, url: `${origin}/signatures?key=${encodeURIComponent(key)}` });
 });
 
+app.post('/signatures/presign', requireClerkAuth, requireManagerRole, async (c) => {
+	if (!c.env.R2_ACCESS_KEY_ID || !c.env.R2_SECRET_ACCESS_KEY) {
+		return c.json({ error: 'R2 S3 credentials not configured' }, 503);
+	}
+
+	const contentType = c.req.query('contentType') ?? 'image/png';
+	const userId = c.get('clerkUserId') ?? 'unknown';
+	const key = `signatures/${userId}/${crypto.randomUUID()}.png`;
+
+	const presignedUrl = await createPresignedPutUrl({
+		accessKeyId: c.env.R2_ACCESS_KEY_ID,
+		secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
+		bucket: 'contracts',
+		key,
+		contentType,
+	});
+
+	const origin = new URL(c.req.url).origin;
+	return c.json({
+		presignedUrl,
+		key,
+		url: `${origin}/signatures?key=${encodeURIComponent(key)}`,
+	});
+});
+
 app.get('/signatures', requireClerkAuth, requireManagerRole, async (c) => {
 	const key = c.req.query('key');
 	if (!key) return c.text('Missing key', 400);
@@ -228,6 +256,35 @@ app.post('/contracts/upload', requireClerkAuth, requireManagerRole, async (c) =>
 
 	const origin = new URL(c.req.url).origin;
 	return c.json({ key, url: `${origin}/contracts?key=${encodeURIComponent(key)}` });
+});
+
+app.post('/contracts/presign', requireClerkAuth, requireManagerRole, async (c) => {
+	const benefitId = c.req.query('benefitId');
+	const fileName = c.req.query('fileName') ?? 'contract.pdf';
+	const contentType = c.req.query('contentType') ?? 'application/pdf';
+	if (!benefitId) return c.json({ error: 'Missing benefitId' }, 400);
+
+	if (!c.env.R2_ACCESS_KEY_ID || !c.env.R2_SECRET_ACCESS_KEY) {
+		return c.json({ error: 'R2 S3 credentials not configured' }, 503);
+	}
+
+	const safeName = fileName.replaceAll(/[^a-zA-Z0-9._-]/g, '_');
+	const key = `contracts/${benefitId}/${crypto.randomUUID()}-${safeName}`;
+
+	const presignedUrl = await createPresignedPutUrl({
+		accessKeyId: c.env.R2_ACCESS_KEY_ID,
+		secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
+		bucket: 'contracts',
+		key,
+		contentType,
+	});
+
+	const origin = new URL(c.req.url).origin;
+	return c.json({
+		presignedUrl,
+		key,
+		url: `${origin}/contracts?key=${encodeURIComponent(key)}`,
+	});
 });
 
 app.get('/contracts', requireClerkAuth, requireManagerRole, async (c) => {

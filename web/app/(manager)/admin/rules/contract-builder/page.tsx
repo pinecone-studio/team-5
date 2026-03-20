@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useAuth } from "@clerk/react";
 import NextImage from "next/image";
 
 export default function ContractBuilderPage() {
@@ -25,6 +26,7 @@ export default function ContractBuilderPage() {
 
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { getToken } = useAuth();
 
   const fileName = searchParams.get("file")?.trim() || "Contract.pdf";
   const pdfUrl = searchParams.get("url") ?? "";
@@ -239,18 +241,42 @@ export default function ContractBuilderPage() {
       );
       if (!blob) throw new Error("Failed to encode PNG");
 
-      const response = await fetch(`${serviceOrigin}/signatures`, {
-        method: "POST",
-        body: blob,
-        headers: { "content-type": "image/png" },
-        credentials: "include",
-      });
-      if (!response.ok) {
-        const text = await response.text().catch(() => "");
-        throw new Error(`Upload failed (${response.status}): ${text || response.statusText}`);
+      const token = await getToken();
+
+      // Step 1: Get presigned URL from the worker
+      const presignResponse = await fetch(
+        `${serviceOrigin}/signatures/presign?contentType=${encodeURIComponent("image/png")}`,
+        {
+          method: "POST",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
+        },
+      );
+      if (!presignResponse.ok) {
+        const text = await presignResponse.text().catch(() => "");
+        throw new Error(`Presign failed (${presignResponse.status}): ${text || presignResponse.statusText}`);
       }
-      const result = (await response.json()) as { key?: string; url?: string };
-      if (!result.key || !result.url) throw new Error("Upload response missing key/url");
+      const result = (await presignResponse.json()) as {
+        presignedUrl?: string;
+        key?: string;
+        url?: string;
+      };
+      if (!result.presignedUrl || !result.key || !result.url) {
+        throw new Error("Presign response missing fields");
+      }
+
+      // Step 2: Upload directly to R2 using the presigned URL
+      const uploadResponse = await fetch(result.presignedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "image/png" },
+        body: blob,
+      });
+      if (!uploadResponse.ok) {
+        const text = await uploadResponse.text().catch(() => "");
+        throw new Error(`Direct upload failed (${uploadResponse.status}): ${text || uploadResponse.statusText}`);
+      }
 
       saveActiveSignaturePreview();
       setSignatureUrlByBoxId((current) => ({ ...current, [activeBoxId]: result.url! }));
