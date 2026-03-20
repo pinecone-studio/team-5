@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import EbmsLogo from "@/components/branding/ebms-logo";
 
 export interface NavItem {
   label: string;
@@ -17,27 +18,6 @@ export interface NavItem {
   icon: React.ElementType;
   subtitle?: string;
   showPendingBadge?: boolean;
-}
-
-function PineQuestMark(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path
-        d="M2 9.49998C2.00002 8.38718 2.33759 7.30056 2.96813 6.38364C3.59867 5.46672 4.49252 4.76264 5.53161 4.36438C6.5707 3.96612 7.70616 3.89242 8.78801 4.15302C9.86987 4.41362 10.8472 4.99626 11.591 5.82398C11.6434 5.87999 11.7067 5.92465 11.7771 5.95518C11.8474 5.98571 11.9233 6.00146 12 6.00146C12.0767 6.00146 12.1526 5.98571 12.2229 5.95518C12.2933 5.92465 12.3566 5.87999 12.409 5.82398C13.1504 4.99088 14.128 4.40335 15.2116 4.13958C16.2952 3.87581 17.4335 3.94833 18.4749 4.34746C19.5163 4.7466 20.4114 5.45343 21.0411 6.37388C21.6708 7.29433 22.0053 8.38474 22 9.49998C22 11.79 20.5 13.5 19 15L13.508 20.313C13.3217 20.527 13.0919 20.6989 12.834 20.8173C12.5762 20.9357 12.296 20.9978 12.0123 20.9996C11.7285 21.0014 11.4476 20.9428 11.1883 20.8277C10.9289 20.7126 10.697 20.5436 10.508 20.332L5 15C3.5 13.5 2 11.8 2 9.49998Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M3.21997 13H9.49997L9.99997 12L12 16.5L14 9.5L15.5 13H20.77"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
 }
 
 function RequestLogoIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -159,16 +139,7 @@ export function Sidebar({
     >
       <div className={cn(isPortalShell ? "px-4 py-6" : "px-6 py-5")}>
         {isPortalShell ? (
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-[#eff4ff] text-[#2f66f6]">
-              <PineQuestMark className="h-6 w-6" />
-            </div>
-            <div className="min-w-0">
-              <span className="block truncate text-[1.15rem] font-semibold tracking-[-0.03em] text-[#18243d]">
-                PineQuest
-              </span>
-            </div>
-          </div>
+          <EbmsLogo />
         ) : (
           <span className="text-xl font-bold tracking-tight text-blue-600">
             EBMS
@@ -196,9 +167,7 @@ export function Sidebar({
               onClick={onNavigate}
               className={cn(
                 "group relative flex items-center gap-3 overflow-hidden px-4 text-[1rem] font-medium transition-colors",
-                isPortalShell
-                  ? "rounded-[12px] py-3"
-                  : "rounded-[10px] py-3",
+                isPortalShell ? "rounded-[12px] py-3" : "rounded-[10px] py-3",
                 isPortalShell
                   ? isActive
                     ? "bg-[#edf2f9] text-[#17243d]"
@@ -245,7 +214,9 @@ export function Sidebar({
       <div
         className={cn(
           "border-t px-4 py-4",
-          isPortalShell ? "mt-auto border-[#dfe6f0] px-4 py-5" : "border-gray-200",
+          isPortalShell
+            ? "mt-auto border-[#dfe6f0] px-4 py-5"
+            : "border-gray-200",
         )}
       >
         {switchHref && switchLabel ? (

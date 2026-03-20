@@ -7,9 +7,9 @@ export default function PublicHomePage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
       <h1 className="text-2xl font-semibold">Team 5</h1>
-      <p className="text-muted-foreground text-center">
+      {/* <p className="text-muted-foreground text-center">
         Нэвтрэх эсвэл бүртгүүлэх
-      </p>
+      </p> */}
       <div className="flex gap-4">
         <Link
           href="/login"
@@ -17,12 +17,12 @@ export default function PublicHomePage() {
         >
           Нэвтрэх
         </Link>
-        <Link
+        {/* <Link
           href="/dashboard"
           className="rounded-md border border-input px-4 py-2 hover:bg-accent"
         >
           Dashboard руу
-        </Link>
+        </Link> */}
       </div>
     </div>
   );
