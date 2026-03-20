@@ -6,6 +6,8 @@ import { useAuth } from "@clerk/react";
 import NextImage from "next/image";
 
 export default function ContractBuilderPage() {
+  const DEFAULT_BOX_WIDTH_PCT = 0.56;
+  const DEFAULT_BOX_HEIGHT_PCT = 0.14;
   const [PdfComponents, setPdfComponents] = useState<{
     Document: ComponentType<Record<string, unknown>>;
     Page: ComponentType<Record<string, unknown>>;
@@ -143,11 +145,13 @@ export default function ContractBuilderPage() {
             xPct: typeof obj.xPct === "number" && Number.isFinite(obj.xPct) ? obj.xPct : 0.4,
             yPct: typeof obj.yPct === "number" && Number.isFinite(obj.yPct) ? obj.yPct : 0.46,
             widthPct:
-              typeof obj.widthPct === "number" && Number.isFinite(obj.widthPct) ? obj.widthPct : 0.2,
+              typeof obj.widthPct === "number" && Number.isFinite(obj.widthPct)
+                ? obj.widthPct
+                : DEFAULT_BOX_WIDTH_PCT,
             heightPct:
               typeof obj.heightPct === "number" && Number.isFinite(obj.heightPct)
                 ? obj.heightPct
-                : 0.08,
+                : DEFAULT_BOX_HEIGHT_PCT,
           },
         ];
       });
@@ -378,8 +382,8 @@ export default function ContractBuilderPage() {
     const rect = getPageRect(page);
     if (!rect) return;
 
-    const defaultWidthPct = 0.2;
-    const defaultHeightPct = 0.08;
+    const defaultWidthPct = DEFAULT_BOX_WIDTH_PCT;
+    const defaultHeightPct = DEFAULT_BOX_HEIGHT_PCT;
 
     const pointerXPx = clientX - rect.left;
     const pointerYPx = clientY - rect.top;
@@ -590,10 +594,10 @@ export default function ContractBuilderPage() {
                         {
                           id: crypto.randomUUID(),
                           page: 1,
-                          xPct: 0.4,
-                          yPct: 0.46,
-                          widthPct: 0.2,
-                          heightPct: 0.08,
+                          xPct: 0.2,
+                          yPct: 0.39,
+                          widthPct: DEFAULT_BOX_WIDTH_PCT,
+                          heightPct: DEFAULT_BOX_HEIGHT_PCT,
                         },
                       ],
                   );
@@ -657,7 +661,7 @@ export default function ContractBuilderPage() {
 
                             {activeBoxId === box.id ? (
                               <div
-                                className="absolute inset-0 rounded-[6px] bg-white/95 p-2"
+                                className="absolute inset-0 overflow-hidden rounded-[10px] border border-[#bfdbfe] bg-white/95 shadow-[0_18px_36px_rgba(37,99,235,0.22)] backdrop-blur-sm"
                                 onMouseDown={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
@@ -667,14 +671,24 @@ export default function ContractBuilderPage() {
                                   e.stopPropagation();
                                 }}
                               >
-                                <div className="mb-2 flex items-center justify-between gap-2">
-                                  <div className="text-[0.75rem] font-semibold text-[#111827]">
-                                    Draw signature
+                                <div className="border-b border-[#dbeafe] bg-[linear-gradient(135deg,#eff6ff_0%,#f8fafc_100%)] px-3 py-2">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                      <div className="text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-[#2563eb]">
+                                        Signature Editor
+                                      </div>
+                                      <div className="mt-1 text-[0.8rem] font-semibold text-[#0f172a]">
+                                        Draw signature for this field
+                                      </div>
+                                    </div>
+                                    <div className="rounded-full border border-[#bfdbfe] bg-white px-2.5 py-1 text-[0.68rem] font-semibold text-[#1d4ed8] shadow-sm">
+                                      Double-click to reopen
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-2">
+                                  <div className="mt-2 flex items-center gap-2">
                                     <button
                                       type="button"
-                                      className="rounded-[10px] border border-[#d1d5db] bg-white px-2 py-1 text-[0.75rem] font-medium text-[#111827] hover:bg-[#f9fafb]"
+                                      className="rounded-[10px] border border-[#cbd5e1] bg-white px-2.5 py-1.5 text-[0.72rem] font-semibold text-[#334155] transition hover:border-[#94a3b8] hover:bg-[#f8fafc]"
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
@@ -685,7 +699,7 @@ export default function ContractBuilderPage() {
                                     </button>
                                     <button
                                       type="button"
-                                      className="rounded-[10px] border border-[#d1d5db] bg-white px-2 py-1 text-[0.75rem] font-medium text-[#111827] hover:bg-[#f9fafb]"
+                                      className="rounded-[10px] border border-[#cbd5e1] bg-white px-2.5 py-1.5 text-[0.72rem] font-semibold text-[#334155] transition hover:border-[#94a3b8] hover:bg-[#f8fafc]"
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
@@ -697,58 +711,85 @@ export default function ContractBuilderPage() {
                                   </div>
                                 </div>
 
-                                <div
-                                  ref={signatureContainerRef}
-                                  className="relative h-[calc(100%-2.25rem)] w-full overflow-hidden rounded-[8px] border border-[#e5e7eb] bg-white"
-                                >
-                                  <canvas
-                                    ref={signatureCanvasRef}
-                                    className="h-full w-full touch-none"
-                                    onPointerDown={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      const canvas = e.currentTarget;
-                                      canvas.setPointerCapture(e.pointerId);
-                                      const rect = canvas.getBoundingClientRect();
-                                      const x = e.clientX - rect.left;
-                                      const y = e.clientY - rect.top;
-                                      drawingRef.current = { isDrawing: true, lastX: x, lastY: y };
-                                    }}
-                                    onPointerMove={(e) => {
-                                      if (!drawingRef.current.isDrawing) return;
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      const canvas = e.currentTarget;
-                                      const rect = canvas.getBoundingClientRect();
-                                      const x = e.clientX - rect.left;
-                                      const y = e.clientY - rect.top;
-                                      const ctx = canvas.getContext("2d");
-                                      if (!ctx) return;
-                                      ctx.beginPath();
-                                      ctx.moveTo(drawingRef.current.lastX, drawingRef.current.lastY);
-                                      ctx.lineTo(x, y);
-                                      ctx.stroke();
-                                      drawingRef.current.lastX = x;
-                                      drawingRef.current.lastY = y;
-                                    }}
-                                    onPointerUp={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      drawingRef.current.isDrawing = false;
-                                      saveActiveSignaturePreview();
-                                    }}
-                                    onPointerCancel={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      drawingRef.current.isDrawing = false;
-                                    }}
-                                  />
+                                <div className="space-y-2 px-3 pb-3 pt-2">
+                                  <div className="flex items-center justify-between text-[0.68rem] font-medium text-[#64748b]">
+                                    <span>Use mouse or touch to sign inside the canvas.</span>
+                                    <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[#2563eb]">
+                                      Drag box to reposition
+                                    </span>
+                                  </div>
+
+                                  <div
+                                    ref={signatureContainerRef}
+                                    className="relative h-[calc(100%-7.1rem)] min-h-[128px] w-full overflow-hidden rounded-[12px] border border-[#dbeafe] bg-[radial-gradient(circle_at_top_left,_rgba(191,219,254,0.38),_rgba(255,255,255,0.98)_42%),linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)]"
+                                  >
+                                    <div className="pointer-events-none absolute inset-0 opacity-60 [background-image:linear-gradient(to_right,rgba(148,163,184,0.12)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.12)_1px,transparent_1px)] [background-size:20px_20px]" />
+                                    <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#dbeafe]/50 to-transparent" />
+                                    <canvas
+                                      ref={signatureCanvasRef}
+                                      className="relative z-10 h-full w-full touch-none"
+                                      onPointerDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const canvas = e.currentTarget;
+                                        canvas.setPointerCapture(e.pointerId);
+                                        const rect = canvas.getBoundingClientRect();
+                                        const x = e.clientX - rect.left;
+                                        const y = e.clientY - rect.top;
+                                        drawingRef.current = { isDrawing: true, lastX: x, lastY: y };
+                                      }}
+                                      onPointerMove={(e) => {
+                                        if (!drawingRef.current.isDrawing) return;
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const canvas = e.currentTarget;
+                                        const rect = canvas.getBoundingClientRect();
+                                        const x = e.clientX - rect.left;
+                                        const y = e.clientY - rect.top;
+                                        const ctx = canvas.getContext("2d");
+                                        if (!ctx) return;
+                                        ctx.beginPath();
+                                        ctx.moveTo(drawingRef.current.lastX, drawingRef.current.lastY);
+                                        ctx.lineTo(x, y);
+                                        ctx.stroke();
+                                        drawingRef.current.lastX = x;
+                                        drawingRef.current.lastY = y;
+                                      }}
+                                      onPointerUp={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        drawingRef.current.isDrawing = false;
+                                        saveActiveSignaturePreview();
+                                      }}
+                                      onPointerCancel={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        drawingRef.current.isDrawing = false;
+                                      }}
+                                    />
+                                  </div>
                                 </div>
 
-                                <div className="mt-2 flex items-center justify-between">
+                                <div className="flex items-center justify-between gap-2 border-t border-[#dbeafe] bg-white px-3 py-2.5">
+                                  <div className="min-w-0">
+                                    {signatureUploadStatus.state === "uploaded" ? (
+                                      <div className="truncate text-[0.72rem] font-semibold text-[#166534]">
+                                        Signature uploaded to storage
+                                      </div>
+                                    ) : signatureUploadStatus.state === "error" ? (
+                                      <div className="truncate text-[0.72rem] font-semibold text-[#b91c1c]">
+                                        {signatureUploadStatus.message}
+                                      </div>
+                                    ) : (
+                                      <div className="text-[0.72rem] text-[#64748b]">
+                                        Draw first, then save this signature to storage.
+                                      </div>
+                                    )}
+                                  </div>
+
                                   <button
                                     type="button"
-                                    className="rounded-[10px] bg-[#2563eb] px-3 py-1.5 text-[0.75rem] font-semibold text-white hover:bg-[#1d4ed8] disabled:opacity-60"
+                                    className="shrink-0 rounded-[10px] bg-[#2563eb] px-3 py-2 text-[0.72rem] font-semibold text-white shadow-[0_8px_18px_rgba(37,99,235,0.22)] transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -757,23 +798,9 @@ export default function ContractBuilderPage() {
                                     disabled={signatureUploadStatus.state === "uploading"}
                                   >
                                     {signatureUploadStatus.state === "uploading"
-                                      ? "Uploading…"
+                                      ? "Uploading..."
                                       : "Save to R2"}
                                   </button>
-
-                                  {signatureUploadStatus.state === "uploaded" ? (
-                                    <div className="truncate text-[0.7rem] text-[#065f46]">
-                                      Saved: {signatureUploadStatus.key}
-                                    </div>
-                                  ) : signatureUploadStatus.state === "error" ? (
-                                    <div className="truncate text-[0.7rem] text-[#b91c1c]">
-                                      {signatureUploadStatus.message}
-                                    </div>
-                                  ) : (
-                                    <div className="text-[0.7rem] text-[#6b7280]">
-                                      Double-click box to edit
-                                    </div>
-                                  )}
                                 </div>
                               </div>
                             ) : null}
