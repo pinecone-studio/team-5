@@ -114,7 +114,10 @@ export async function requireAuthenticatedEmployee(
 		};
 	}
 
-	if (isLocalFrontendOrigin(context.env.FRONTEND_ORIGIN)) {
+	if (
+		isLocalFrontendOrigin(context.env.FRONTEND_ORIGIN) ||
+		canReviewBenefitRequests(clerkRole)
+	) {
 		const localEmployee = await db
 			.insert(employee)
 			.values({
