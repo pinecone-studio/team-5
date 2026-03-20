@@ -35,16 +35,30 @@ export default function ContractBuilderPage() {
   const benefitId = searchParams.get("benefitId") ?? "";
   const contractId = searchParams.get("contractId") ?? "";
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfAuthToken, setPdfAuthToken] = useState<string | null>(null);
 
   const storageKey = useMemo(() => {
     const base = `${fileName}|${pdfUrl}`;
     return `contract-builder:boxes:${base}`;
   }, [fileName, pdfUrl]);
 
+  useEffect(() => {
+    void (async () => {
+      try {
+        const token = await getToken();
+        setPdfAuthToken(token ?? null);
+      } catch {
+        setPdfAuthToken(null);
+      }
+    })();
+  }, [getToken]);
+
   const pdfSource = useMemo(() => {
     if (!pdfUrl) return "";
     if (pdfUrl.startsWith("blob:") || pdfUrl.startsWith("data:")) return pdfUrl;
-    // In local dev, prefer the local Worker preview for contract URLs.
+    let resolvedUrl = pdfUrl;
+
+    // In local dev, prefer the local Worker contract URL directly.
     if (
       (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
       pdfUrl.includes("my-first-worker.ebmsteam10.workers.dev")
@@ -53,16 +67,28 @@ export default function ContractBuilderPage() {
         const url = new URL(pdfUrl);
         url.protocol = "http:";
         url.host = "localhost:8787";
-        return `/api/pdf?url=${encodeURIComponent(url.toString())}`;
+        resolvedUrl = url.toString();
       } catch {
         // ignore
       }
     }
-    if (pdfUrl.startsWith("http://") || pdfUrl.startsWith("https://")) {
-      return `/api/pdf?url=${encodeURIComponent(pdfUrl)}`;
+
+    if (resolvedUrl.startsWith("http://") || resolvedUrl.startsWith("https://")) {
+      return {
+        url: resolvedUrl,
+        withCredentials: true,
+        ...(pdfAuthToken
+          ? {
+              httpHeaders: {
+                Authorization: `Bearer ${pdfAuthToken}`,
+              },
+            }
+          : {}),
+      };
     }
-    return pdfUrl;
-  }, [pdfUrl]);
+
+    return resolvedUrl;
+  }, [pdfAuthToken, pdfUrl]);
 
   const pageRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const getPageRect = (page: number) => pageRefs.current[page]?.getBoundingClientRect() ?? null;
